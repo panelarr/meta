@@ -8,10 +8,13 @@ import type {
   Client,
   Entry,
   EntrySummary,
+  Facet,
   Job,
   JobRun,
   NetworkProfile,
   Provider,
+  SearchEngineSettings,
+  SearchEngineStatus,
   Solver,
   SyncRun,
 } from "../api/types";
@@ -39,6 +42,7 @@ type Db = {
   jobs: Job[];
   /** Job runs, newest first. */
   jobRuns: JobRun[];
+  search: { settings: SearchEngineSettings; apiKey: string };
   clients: Client[];
   solvers: Solver[];
   profiles: NetworkProfile[];
@@ -57,6 +61,7 @@ export function createDb(): Db {
     runs: mockRuns(),
     jobs: mockJobs(),
     jobRuns: mockJobRuns(),
+    search: { settings: { backend: "postgres", indexPrefix: "meta", browse: "facets", origin: "config" }, apiKey: "" },
     clients: mockClients(),
     solvers: mockSolvers(),
     profiles: mockProfiles(),
@@ -258,6 +263,56 @@ function settle(run: JobRun): JobRun {
   return run;
 }
 
+/** Facet counts like an engine's, when an engine is set and they're asked for. */
+function facetsFor(db: Db, entries: Entry[], params: URLSearchParams): Facet[] | undefined {
+  if (params.get("facets") !== "true" || db.search.settings.backend === "postgres") return undefined;
+  const count = (field: string, values: (e: Entry) => string[]): Facet => {
+    const n = new Map<string, number>();
+    for (const e of entries) for (const v of values(e)) n.set(v, (n.get(v) ?? 0) + 1);
+    return {
+      field,
+      values: [...n.entries()].sort((a, b) => b[1] - a[1]).map(([value, c]) => ({ value, count: String(c) })),
+    };
+  };
+  const short = (v: string | undefined, prefix: string) => (v ? [v.replace(prefix, "").toLowerCase()] : []);
+  return [
+    count("genres", (e) => (e.tags ?? []).filter((t) => t.tag?.isGenre).map((t) => t.tag?.key ?? "")),
+    count("tags", (e) => (e.tags ?? []).filter((t) => !t.tag?.isGenre).map((t) => t.tag?.key ?? "")),
+    count("type", (e) => short(e.type, "ENTRY_TYPE_")),
+    count("status", (e) => short(e.status, "ENTRY_STATUS_")),
+    count("content_rating", (e) => short(e.contentRating, "CONTENT_RATING_")),
+    count("original_language", (e) => (e.originalLanguage ? [e.originalLanguage] : [])),
+  ];
+}
+
+/** The search engine's settings (never the key) and a made-up status. */
+function searchState(db: Db): { settings: SearchEngineSettings; status: SearchEngineStatus } {
+  const set = db.search.settings;
+  const settings = { ...set, hasApiKey: db.search.apiKey !== "" };
+  if (set.backend === "postgres")
+    return {
+      settings,
+      status: { backend: "postgres", typoTolerance: true, substring: true, facets: false, reachable: true },
+    };
+  return {
+    settings,
+    status: {
+      backend: set.backend,
+      typoTolerance: true,
+      substring: true,
+      facets: true,
+      reachable: true,
+      ready: true,
+      index: `${set.indexPrefix}_entries_v1_1791700000000`,
+      documents: String(db.entries.length),
+      builtAt: "2026-10-11T08:00:00Z",
+      pending: "2",
+      lag: "3s",
+      applied: "120",
+    },
+  };
+}
+
 /** A job with its run state: running, current run and last run. */
 function jobState(db: Db, job: Job): Job {
   const runs = db.jobRuns.map(settle).filter((r) => r.summary?.jobId === job.id);
@@ -299,6 +354,7 @@ export function createHandlers(db: Db = createDb(), latency = 0) {
         nextPageToken: next,
         totalSize: String(entries.length),
         noProviders: db.providers.length === 0,
+        facets: facetsFor(db, entries, params),
       });
     }),
 
@@ -321,6 +377,7 @@ export function createHandlers(db: Db = createDb(), latency = 0) {
         nextPageToken: next,
         totalSize: String(entries.length),
         noProviders: db.providers.length === 0,
+        facets: facetsFor(db, entries, params),
       });
     }),
 
@@ -460,6 +517,58 @@ export function createHandlers(db: Db = createDb(), latency = 0) {
       if (denied) return denied;
       const run = db.runs.find((r) => r.id === params.id);
       return run ? ok({ run }) : grpcError("NOT_FOUND", `no sync run ${params.id}`);
+    }),
+
+    // ----- Search engine (MetaIntegrationsService) ----------------------------------
+    http.get(`${base}/admin/search-engine`, async ({ request }) => {
+      await wait();
+      return guard(request, true) ?? ok(searchState(db));
+    }),
+
+    http.put(`${base}/admin/search-engine`, async ({ request }) => {
+      await wait();
+      const denied = guard(request, true);
+      if (denied) return denied;
+      const body = (await request.json()) as { settings?: SearchEngineSettings };
+      const s = body.settings ?? {};
+      if (!["postgres", "typesense", "meilisearch"].includes(s.backend ?? ""))
+        return grpcError("INVALID_ARGUMENT", `invalid search settings: unknown search backend "${s.backend}"`);
+      if (s.backend !== "postgres" && !/^https?:\/\/./.test(s.url ?? ""))
+        return grpcError("INVALID_ARGUMENT", `invalid search settings: the ${s.backend} URL must be an http(s) URL`);
+      const same = s.backend === db.search.settings.backend && s.url === db.search.settings.url;
+      db.search = {
+        settings: {
+          backend: s.backend,
+          url: s.url,
+          indexPrefix: s.indexPrefix || "meta",
+          browse: s.browse || "facets",
+          origin: "admin",
+        },
+        apiKey: s.apiKey || (same ? db.search.apiKey : ""),
+      };
+      return ok(searchState(db));
+    }),
+
+    http.post(pattern(base, "/admin/search-engine:test$"), async ({ request }) => {
+      await wait();
+      const denied = guard(request, true);
+      if (denied) return denied;
+      const body = (await request.json()) as { settings?: SearchEngineSettings };
+      const u = body.settings?.url ?? "";
+      if (body.settings?.backend === "postgres" || u.includes("typesense") || u.includes("meilisearch"))
+        return ok({ ok: true });
+      return ok({ error: `Get "${u}/health": dial tcp: connection refused` });
+    }),
+
+    http.post(pattern(base, "/admin/search-engine:reset$"), async ({ request }) => {
+      await wait();
+      const denied = guard(request, true);
+      if (denied) return denied;
+      db.search = {
+        settings: { backend: "postgres", indexPrefix: "meta", browse: "facets", origin: "config" },
+        apiKey: "",
+      };
+      return ok(searchState(db));
     }),
 
     // ----- MetaJobsService --------------------------------------------------------

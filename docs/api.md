@@ -83,6 +83,8 @@ Sorts: `SORT_FIELD_POPULARITY` (Browse default), `RATING`, `UPDATED`, `YEAR`, `T
 
 `language` (BCP 47) picks display titles: an entry with a primary title in that language shows it, others keep their default title.
 
+`facets: true` asks for counts per filter value; `Browse` and `Search` then return `facets` (`field`, and `values` with `value` and `count`, most frequent first) when the search backend has them, and none with PostgreSQL ([search](search.md#browsing-and-facets)).
+
 `no_providers` is true when meta has no metadata plugins configured, so an empty page means "nothing set up yet", not "nothing matched".
 
 ### Entries
@@ -118,16 +120,29 @@ Every background job and its runs, with the same messages and paths as the other
 | `GetJob` | `GET /v1/admin/jobs/{job_id}` | One job |
 | `ListJobRuns` | `GET /v1/admin/jobs/{job_id}/runs?status=JOB_RUN_STATUS_FAILED&pageSize=20` | A job's runs, newest first |
 | `GetJobRun` | `GET /v1/admin/job-runs/{run_id}` | One run with params, counts, notes (at most 200) and progress |
-| `RunJob` | `POST /v1/admin/jobs/{job_id}:run` with `{"params": {"force": "true"}}` | Start a run now; returns it at once. 409 `already_exists` with a `JobAlreadyRunning` detail (the current run ID) when it is running |
+| `RunJob` | `POST /v1/admin/jobs/{job_id}:run` with `{"params": {"force": "true"}}` | Start a run now; returns it at once. 409 `already_exists` with a `JobAlreadyRunning` detail and a `google.rpc.ErrorInfo` (reason `ALREADY_RUNNING`, `metadata.current_run_id`) when it is running. A param with `choices` takes one of them (`string`) or any of them (`string_list`) |
 | `CancelJobRun` | `POST /v1/admin/job-runs/{run_id}:cancel` | Stop a run; what it committed stays. 400 `failed_precondition` when the job can't be cancelled or the run isn't running in this meta process |
 
 | Job | Params | What |
 |---|---|---|
 | `sync.<provider>.<kind>` | `force` | A provider's dump or delta sync. Its runs are the sync runs of `ListSyncRuns`; one sync per provider runs at a time |
 | `rebuild-entries` | | Rebuild every entry from the stored records. Runs at startup when an upgrade queued it (trigger `startup`) |
+| `search-rebuild` | | Build a new search engine index and swap it in. Runs on its own (trigger `startup` or `system`) on first use, after a document schema change and when too many changes pile up |
+| `search-indexer` | | Apply every waiting entry change to the search engine now |
 | `stale-refresh` | `limit` (default `jobs.stale_refresh.limit`) | Look up again the entries whose records are older than `ingest.stale_after`, oldest first, from providers that support lookups |
 
-Job IDs match `^[a-z0-9][a-z0-9._-]*$`: a `:` would read as the custom verb in `…:run`. Runs record their trigger (`schedule`, `manual`, `startup`) and, for manual runs, who started them (the admin, a client's name, or `cli`). A scheduled run that finds its job still running is recorded as `skipped`. Each job keeps its newest `jobs.retention` finished runs. A run whose meta process stopped is marked failed ("interrupted") when meta starts again, unless another meta process on the same database still holds it.
+Job IDs match `^[a-z0-9][a-z0-9._-]*$`: a `:` would read as the custom verb in `…:run`. Runs record their trigger (`schedule`, `manual`, `startup`, or `system` when meta started the run on its own while running) and, for manual runs, who started them (the admin, a client's name, or `cli`). A scheduled run that finds its job still running is recorded as `skipped`. Each job keeps its newest `jobs.retention` finished runs. A run whose meta process stopped is marked failed ("interrupted") when meta starts again, unless another meta process on the same database still holds it.
+
+## Search engine (`MetaIntegrationsService`)
+
+| Call | REST | What |
+|---|---|---|
+| `GetSearchEngine` | `GET /v1/admin/search-engine` | The backend in force, where its settings come from (`config` or `admin`), and its state: capabilities, reachable, index ready, documents, last build, changes waiting and their lag, errors. The API key is never returned (`has_api_key`) |
+| `PutSearchEngine` | `PUT /v1/admin/search-engine` with `{"settings": {"backend": "typesense", "url": "http://typesense:8108", "api_key": "…"}}` | Save settings (they win over the configuration file) and switch at once; an empty `api_key` keeps the stored one. A new index builds in the background |
+| `TestSearchEngine` | `POST /v1/admin/search-engine:test` | Reach an engine with the given settings without saving them |
+| `ResetSearchEngine` | `POST /v1/admin/search-engine:reset` | Forget the admin's settings and use the configuration file's |
+
+See [search](search.md).
 
 ## Errors
 

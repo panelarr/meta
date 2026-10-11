@@ -33,6 +33,10 @@ type generator struct {
 	plugin.Unimplemented
 	n         int
 	mergedPct int
+	// light leaves out what search doesn't use (covers, links, relations,
+	// companies, descriptions, other IDs and the raw record), so a large
+	// search benchmark fits in less disk.
+	light bool
 }
 
 func (g generator) GetInfo(context.Context, *metadatav1.GetInfoRequest) (*metadatav1.GetInfoResponse, error) {
@@ -68,6 +72,10 @@ func (g generator) record(i int) *metadatav1.ProviderEntry {
 	for j := range 10 {
 		t := (i*3 + j*17) % 1500
 		e.Tags = append(e.Tags, &metadatav1.TagAssignment{Tag: &metadatav1.Tag{Name: fmt.Sprintf("Tag %d", t), IsGenre: t < 40, ExternalIds: []*metadatav1.ExternalId{ref("gen", fmt.Sprintf("tag/%d", t))}}, Weight: metadatav1.TagWeight_TAG_WEIGHT_INCIDENTAL})
+	}
+	if g.light {
+		e.Descriptions = nil
+		return e
 	}
 	img := &metadatav1.Image{Kind: metadatav1.ImageKind_IMAGE_KIND_COVER, Url: "https://images.example.org/" + id + ".jpg", Width: 600, Height: 900, Blurhash: "LEHV6nWB2yk8pyo0adR*.7kCMdnj"}
 	for _, w := range []int32{150, 250, 350} {

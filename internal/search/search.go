@@ -9,7 +9,8 @@ package search
 
 import (
 	"context"
-	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -80,6 +81,8 @@ type Query struct {
 	Reverse bool
 	Limit   int
 	Offset  int
+	// Facets asks for counts per filter value, from backends that can.
+	Facets bool
 }
 
 // Hit is one result.
@@ -96,14 +99,54 @@ type Hit struct {
 type Result struct {
 	Hits  []Hit
 	Total int64
+	// Facets, when asked for and the backend has the Facets capability.
+	Facets []Facet
+	// Backend is the backend that answered: an engine's name, or
+	// "postgres" when an engine fell back.
+	Backend string
 }
 
-// New returns the backend named by the configuration.
-func New(backend string, pg *Postgres) (Index, error) {
-	switch backend {
-	case "", "postgres":
-		return pg, nil
-	default:
-		return nil, fmt.Errorf("search: backend %q is not available", backend)
+// Facet fields.
+const (
+	FacetGenres           = "genres"
+	FacetTags             = "tags"
+	FacetType             = "type"
+	FacetStatus           = "status"
+	FacetContentRating    = "content_rating"
+	FacetOriginalLanguage = "original_language"
+)
+
+// FacetFields are the fields engines count, in display order.
+var FacetFields = []string{FacetGenres, FacetTags, FacetType, FacetStatus, FacetContentRating, FacetOriginalLanguage}
+
+// Facet is the counts of one field's values among all matches. Genre and
+// tag values are tag keys ("genre/fantasy").
+type Facet struct {
+	Field  string
+	Values []FacetValue
+}
+
+// sortFacets puts facets in FacetFields order.
+func sortFacets(fs []Facet) {
+	order := map[string]int{}
+	for i, f := range FacetFields {
+		order[f] = i
 	}
+	slices.SortStableFunc(fs, func(a, b Facet) int { return order[a.Field] - order[b.Field] })
+}
+
+// sortFacetValues orders values by count, then value.
+func sortFacetValues(vs []FacetValue) {
+	slices.SortFunc(vs, func(a, b FacetValue) int {
+		if a.Count != b.Count {
+			return int(b.Count - a.Count)
+		}
+		return strings.Compare(a.Value, b.Value)
+	})
+}
+
+// FacetValue is one value and how many matches have it.
+type FacetValue struct {
+	Value string
+	Count int64
 }

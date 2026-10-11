@@ -65,8 +65,37 @@ type Metrics struct {
 }
 
 type Search struct {
-	// Backend is the search backend. Only "postgres" exists today.
+	// Backend is "postgres" (the default), "typesense" or "meilisearch".
+	// Settings saved in the admin win over these.
 	Backend string `yaml:"backend"`
+	// Browse says who serves browsing (no search text) with an engine:
+	// "facets" (the engine when facets are asked for; the default),
+	// "engine" or "postgres".
+	Browse string `yaml:"browse"`
+	// Timeout of one engine query before PostgreSQL answers. Default 2s.
+	Timeout     time.Duration `yaml:"timeout"`
+	Typesense   Engine        `yaml:"typesense"`
+	Meilisearch Engine        `yaml:"meilisearch"`
+	Outbox      Outbox        `yaml:"outbox"`
+}
+
+// Engine is how meta reaches a search engine.
+type Engine struct {
+	URL    string `yaml:"url"`
+	APIKey string `yaml:"api_key"`
+	// IndexPrefix starts the names of meta's indexes. Default "meta".
+	IndexPrefix string `yaml:"index_prefix"`
+}
+
+// Outbox tunes how entry changes reach a search engine.
+type Outbox struct {
+	// Batch is how many changes one round applies. Default 500.
+	Batch int `yaml:"batch"`
+	// Interval is how often an idle indexer looks for changes. Default 1s.
+	Interval time.Duration `yaml:"interval"`
+	// RebuildThreshold: with more changes waiting, the index is rebuilt
+	// instead. Default 50000.
+	RebuildThreshold int64 `yaml:"rebuild_threshold"`
 }
 
 type Merge struct {
@@ -162,11 +191,16 @@ func Default() Config {
 	return Config{
 		DataDir: dataDir,
 		Listen:  ":8901",
-		Search:  Search{Backend: "postgres"},
-		Merge:   Merge{DisplayLanguage: "en"},
-		Ingest:  Ingest{BatchSize: 500, StaleAfter: 7 * 24 * time.Hour},
-		Jobs:    Jobs{Retention: 100, StaleRefresh: StaleRefresh{Limit: 100}},
-		Log:     Log{Level: "info", Format: "json"},
+		Search: Search{
+			Backend: "postgres", Browse: "facets", Timeout: 2 * time.Second,
+			Typesense:   Engine{IndexPrefix: "meta"},
+			Meilisearch: Engine{IndexPrefix: "meta"},
+			Outbox:      Outbox{Batch: 500, Interval: time.Second, RebuildThreshold: 50000},
+		},
+		Merge:  Merge{DisplayLanguage: "en"},
+		Ingest: Ingest{BatchSize: 500, StaleAfter: 7 * 24 * time.Hour},
+		Jobs:   Jobs{Retention: 100, StaleRefresh: StaleRefresh{Limit: 100}},
+		Log:    Log{Level: "info", Format: "json"},
 	}
 }
 
@@ -233,6 +267,10 @@ func applyEnv(cfg *Config) {
 	set(&cfg.Log.Level, "META_LOG_LEVEL")
 	set(&cfg.Log.Format, "META_LOG_FORMAT")
 	set(&cfg.Search.Backend, "META_SEARCH_BACKEND")
+	set(&cfg.Search.Typesense.URL, "META_TYPESENSE_URL")
+	set(&cfg.Search.Typesense.APIKey, "META_TYPESENSE_API_KEY")
+	set(&cfg.Search.Meilisearch.URL, "META_MEILISEARCH_URL")
+	set(&cfg.Search.Meilisearch.APIKey, "META_MEILISEARCH_API_KEY")
 	if v := os.Getenv("META_METRICS_ENABLED"); v != "" {
 		cfg.Metrics.Enabled = v == "true" || v == "1"
 	}
@@ -260,8 +298,21 @@ func (c Config) Validate() error {
 	if c.DatabaseURL == "" {
 		errs = append(errs, errors.New("database_url is required (or META_DATABASE_URL)"))
 	}
-	if c.Search.Backend != "postgres" {
-		errs = append(errs, fmt.Errorf("search.backend %q is not available (supported: postgres)", c.Search.Backend))
+	switch c.Search.Backend {
+	case "postgres":
+	case "typesense", "meilisearch":
+		e := c.Search.Typesense
+		if c.Search.Backend == "meilisearch" {
+			e = c.Search.Meilisearch
+		}
+		if e.URL == "" {
+			errs = append(errs, fmt.Errorf("search.%s.url is required with search.backend %s", c.Search.Backend, c.Search.Backend))
+		}
+	default:
+		errs = append(errs, fmt.Errorf("search.backend %q is not available (supported: postgres, typesense, meilisearch)", c.Search.Backend))
+	}
+	if !slices.Contains([]string{"facets", "engine", "postgres"}, c.Search.Browse) {
+		errs = append(errs, fmt.Errorf("search.browse %q: use facets, engine or postgres", c.Search.Browse))
 	}
 	if c.Ingest.BatchSize <= 0 {
 		errs = append(errs, errors.New("ingest.batch_size must be positive"))

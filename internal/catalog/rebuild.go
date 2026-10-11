@@ -101,6 +101,7 @@ func (t *tx) flushDirty(ctx context.Context) error {
 				if err := t.q.SetEntryState(ctx, db.SetEntryStateParams{ID: id, State: "removed"}); err != nil {
 					return err
 				}
+				t.reindex[id] = true
 				t.result.EntriesChanged++
 			}
 			continue
@@ -125,6 +126,9 @@ func (t *tx) flushDirty(ctx context.Context) error {
 		t.q.UpdateEntryBatch(ctx, updates).Exec(f)
 	}); err != nil {
 		return err
+	}
+	for _, id := range changed {
+		t.reindex[id] = true
 	}
 	var stale []uuid.UUID
 	for _, id := range changed {

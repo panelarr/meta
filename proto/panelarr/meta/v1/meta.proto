@@ -182,6 +182,9 @@ message BrowseRequest {
   string page_token = 5;
   // Preferred language for display titles (BCP 47).
   string language = 6;
+  // Ask for counts per filter value. Only a search engine backend has
+  // them; with PostgreSQL the response has none.
+  bool facets = 7;
 }
 
 message BrowseResponse {
@@ -192,6 +195,24 @@ message BrowseResponse {
   // True when meta has no providers configured, so an empty result means
   // "nothing set up" rather than "nothing matched".
   bool no_providers = 4;
+  // Counts per filter value among all matches, when asked for and the
+  // search backend has them.
+  repeated Facet facets = 5;
+}
+
+// The counts of one filter's values.
+message Facet {
+  // "genres", "tags", "type", "status", "content_rating" or
+  // "original_language".
+  string field = 1;
+  // Most frequent first (at most 50). Genre and tag values are tag keys
+  // ("genre/fantasy"); the others are the filter's short names ("manga").
+  repeated FacetValue values = 2;
+}
+
+message FacetValue {
+  string value = 1;
+  int64 count = 2;
 }
 
 message SearchRequest {
@@ -203,6 +224,8 @@ message SearchRequest {
   int32 page_size = 5;
   string page_token = 6;
   string language = 7;
+  // Ask for counts per filter value (see BrowseRequest.facets).
+  bool facets = 8;
 }
 
 message SearchHit {
@@ -220,6 +243,7 @@ message SearchResponse {
   string next_page_token = 2;
   int64 total_size = 3;
   bool no_providers = 4;
+  repeated Facet facets = 5;
 }
 
 message GetEntryRequest {

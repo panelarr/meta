@@ -274,6 +274,30 @@ type PushedProfile struct {
 	UpdatedAt           time.Time
 }
 
+type SearchIndex struct {
+	Backend       string
+	IndexName     string
+	SchemaVersion int32
+	Documents     int64
+	BuiltAt       time.Time
+}
+
+type SearchOutbox struct {
+	Seq        int64
+	EntryID    uuid.UUID
+	EnqueuedAt time.Time
+}
+
+type SearchSetting struct {
+	ID           int32
+	Backend      string
+	Url          string
+	ApiKeySealed pgtype.Text
+	IndexPrefix  string
+	Browse       string
+	UpdatedAt    time.Time
+}
+
 type Solver struct {
 	ID        string
 	Settings  []byte

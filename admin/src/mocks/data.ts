@@ -388,7 +388,15 @@ export function mockJobs(): Job[] {
       group: "Maintenance",
       schedule: { enabled: false, source: "jobs.stale_refresh.schedule" } as Job["schedule"],
       cancellable: true,
-      params: [{ name: "limit", type: "int", default: "100", description: "Most entries to refresh in this run" }],
+      params: [
+        { name: "limit", type: "int", default: "100", description: "Most entries to refresh in this run" },
+        {
+          name: "providers",
+          type: "string_list",
+          choices: ["example", "sample"],
+          description: "Only these providers (all when none is picked)",
+        },
+      ],
     },
   ];
 }

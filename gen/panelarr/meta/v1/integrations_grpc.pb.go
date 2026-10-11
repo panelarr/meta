@@ -31,6 +31,10 @@ const (
 	MetaIntegrationsService_AssignProfile_FullMethodName     = "/panelarr.meta.v1.MetaIntegrationsService/AssignProfile"
 	MetaIntegrationsService_SetDefaultProfile_FullMethodName = "/panelarr.meta.v1.MetaIntegrationsService/SetDefaultProfile"
 	MetaIntegrationsService_SetPushedProfile_FullMethodName  = "/panelarr.meta.v1.MetaIntegrationsService/SetPushedProfile"
+	MetaIntegrationsService_GetSearchEngine_FullMethodName   = "/panelarr.meta.v1.MetaIntegrationsService/GetSearchEngine"
+	MetaIntegrationsService_PutSearchEngine_FullMethodName   = "/panelarr.meta.v1.MetaIntegrationsService/PutSearchEngine"
+	MetaIntegrationsService_TestSearchEngine_FullMethodName  = "/panelarr.meta.v1.MetaIntegrationsService/TestSearchEngine"
+	MetaIntegrationsService_ResetSearchEngine_FullMethodName = "/panelarr.meta.v1.MetaIntegrationsService/ResetSearchEngine"
 )
 
 // MetaIntegrationsServiceClient is the client API for MetaIntegrationsService service.
@@ -77,6 +81,22 @@ type MetaIntegrationsServiceClient interface {
 	// server) gives a provider its profile. A pushed profile wins over the local
 	// assignment and default. Leaving `profile` unset removes the override.
 	SetPushedProfile(ctx context.Context, in *SetPushedProfileRequest, opts ...grpc.CallOption) (*SetPushedProfileResponse, error)
+	// GetSearchEngine returns the search backend in force, where its settings
+	// come from, and the state of its index and change feed. The API key is
+	// never returned.
+	GetSearchEngine(ctx context.Context, in *GetSearchEngineRequest, opts ...grpc.CallOption) (*GetSearchEngineResponse, error)
+	// PutSearchEngine saves search engine settings, which then win over the
+	// configuration file, and switches to them at once. An empty api_key keeps
+	// the stored key for the same engine and URL. A new or outdated index is
+	// rebuilt in the background (the search-rebuild job); PostgreSQL answers
+	// until it is ready.
+	PutSearchEngine(ctx context.Context, in *PutSearchEngineRequest, opts ...grpc.CallOption) (*PutSearchEngineResponse, error)
+	// TestSearchEngine reaches an engine with the given settings without
+	// saving them.
+	TestSearchEngine(ctx context.Context, in *TestSearchEngineRequest, opts ...grpc.CallOption) (*TestSearchEngineResponse, error)
+	// ResetSearchEngine forgets the admin's settings and goes back to the
+	// configuration file's.
+	ResetSearchEngine(ctx context.Context, in *ResetSearchEngineRequest, opts ...grpc.CallOption) (*ResetSearchEngineResponse, error)
 }
 
 type metaIntegrationsServiceClient struct {
@@ -187,6 +207,46 @@ func (c *metaIntegrationsServiceClient) SetPushedProfile(ctx context.Context, in
 	return out, nil
 }
 
+func (c *metaIntegrationsServiceClient) GetSearchEngine(ctx context.Context, in *GetSearchEngineRequest, opts ...grpc.CallOption) (*GetSearchEngineResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetSearchEngineResponse)
+	err := c.cc.Invoke(ctx, MetaIntegrationsService_GetSearchEngine_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *metaIntegrationsServiceClient) PutSearchEngine(ctx context.Context, in *PutSearchEngineRequest, opts ...grpc.CallOption) (*PutSearchEngineResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PutSearchEngineResponse)
+	err := c.cc.Invoke(ctx, MetaIntegrationsService_PutSearchEngine_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *metaIntegrationsServiceClient) TestSearchEngine(ctx context.Context, in *TestSearchEngineRequest, opts ...grpc.CallOption) (*TestSearchEngineResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TestSearchEngineResponse)
+	err := c.cc.Invoke(ctx, MetaIntegrationsService_TestSearchEngine_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *metaIntegrationsServiceClient) ResetSearchEngine(ctx context.Context, in *ResetSearchEngineRequest, opts ...grpc.CallOption) (*ResetSearchEngineResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ResetSearchEngineResponse)
+	err := c.cc.Invoke(ctx, MetaIntegrationsService_ResetSearchEngine_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MetaIntegrationsServiceServer is the server API for MetaIntegrationsService service.
 // All implementations must embed UnimplementedMetaIntegrationsServiceServer
 // for forward compatibility.
@@ -231,6 +291,22 @@ type MetaIntegrationsServiceServer interface {
 	// server) gives a provider its profile. A pushed profile wins over the local
 	// assignment and default. Leaving `profile` unset removes the override.
 	SetPushedProfile(context.Context, *SetPushedProfileRequest) (*SetPushedProfileResponse, error)
+	// GetSearchEngine returns the search backend in force, where its settings
+	// come from, and the state of its index and change feed. The API key is
+	// never returned.
+	GetSearchEngine(context.Context, *GetSearchEngineRequest) (*GetSearchEngineResponse, error)
+	// PutSearchEngine saves search engine settings, which then win over the
+	// configuration file, and switches to them at once. An empty api_key keeps
+	// the stored key for the same engine and URL. A new or outdated index is
+	// rebuilt in the background (the search-rebuild job); PostgreSQL answers
+	// until it is ready.
+	PutSearchEngine(context.Context, *PutSearchEngineRequest) (*PutSearchEngineResponse, error)
+	// TestSearchEngine reaches an engine with the given settings without
+	// saving them.
+	TestSearchEngine(context.Context, *TestSearchEngineRequest) (*TestSearchEngineResponse, error)
+	// ResetSearchEngine forgets the admin's settings and goes back to the
+	// configuration file's.
+	ResetSearchEngine(context.Context, *ResetSearchEngineRequest) (*ResetSearchEngineResponse, error)
 	mustEmbedUnimplementedMetaIntegrationsServiceServer()
 }
 
@@ -270,6 +346,18 @@ func (UnimplementedMetaIntegrationsServiceServer) SetDefaultProfile(context.Cont
 }
 func (UnimplementedMetaIntegrationsServiceServer) SetPushedProfile(context.Context, *SetPushedProfileRequest) (*SetPushedProfileResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SetPushedProfile not implemented")
+}
+func (UnimplementedMetaIntegrationsServiceServer) GetSearchEngine(context.Context, *GetSearchEngineRequest) (*GetSearchEngineResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetSearchEngine not implemented")
+}
+func (UnimplementedMetaIntegrationsServiceServer) PutSearchEngine(context.Context, *PutSearchEngineRequest) (*PutSearchEngineResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PutSearchEngine not implemented")
+}
+func (UnimplementedMetaIntegrationsServiceServer) TestSearchEngine(context.Context, *TestSearchEngineRequest) (*TestSearchEngineResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TestSearchEngine not implemented")
+}
+func (UnimplementedMetaIntegrationsServiceServer) ResetSearchEngine(context.Context, *ResetSearchEngineRequest) (*ResetSearchEngineResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ResetSearchEngine not implemented")
 }
 func (UnimplementedMetaIntegrationsServiceServer) mustEmbedUnimplementedMetaIntegrationsServiceServer() {
 }
@@ -473,6 +561,78 @@ func _MetaIntegrationsService_SetPushedProfile_Handler(srv interface{}, ctx cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MetaIntegrationsService_GetSearchEngine_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSearchEngineRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MetaIntegrationsServiceServer).GetSearchEngine(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MetaIntegrationsService_GetSearchEngine_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MetaIntegrationsServiceServer).GetSearchEngine(ctx, req.(*GetSearchEngineRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MetaIntegrationsService_PutSearchEngine_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PutSearchEngineRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MetaIntegrationsServiceServer).PutSearchEngine(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MetaIntegrationsService_PutSearchEngine_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MetaIntegrationsServiceServer).PutSearchEngine(ctx, req.(*PutSearchEngineRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MetaIntegrationsService_TestSearchEngine_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TestSearchEngineRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MetaIntegrationsServiceServer).TestSearchEngine(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MetaIntegrationsService_TestSearchEngine_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MetaIntegrationsServiceServer).TestSearchEngine(ctx, req.(*TestSearchEngineRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MetaIntegrationsService_ResetSearchEngine_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResetSearchEngineRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MetaIntegrationsServiceServer).ResetSearchEngine(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MetaIntegrationsService_ResetSearchEngine_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MetaIntegrationsServiceServer).ResetSearchEngine(ctx, req.(*ResetSearchEngineRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MetaIntegrationsService_ServiceDesc is the grpc.ServiceDesc for MetaIntegrationsService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -519,6 +679,22 @@ var MetaIntegrationsService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetPushedProfile",
 			Handler:    _MetaIntegrationsService_SetPushedProfile_Handler,
+		},
+		{
+			MethodName: "GetSearchEngine",
+			Handler:    _MetaIntegrationsService_GetSearchEngine_Handler,
+		},
+		{
+			MethodName: "PutSearchEngine",
+			Handler:    _MetaIntegrationsService_PutSearchEngine_Handler,
+		},
+		{
+			MethodName: "TestSearchEngine",
+			Handler:    _MetaIntegrationsService_TestSearchEngine_Handler,
+		},
+		{
+			MethodName: "ResetSearchEngine",
+			Handler:    _MetaIntegrationsService_ResetSearchEngine_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

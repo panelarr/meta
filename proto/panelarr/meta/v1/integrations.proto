@@ -6,6 +6,7 @@ package panelarr.meta.v1;
 
 import "google/api/annotations.proto";
 import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
 import "panelarr/metadata/v1/plugin.proto";
 
 option go_package = "github.com/panelarr/meta/gen/panelarr/meta/v1;metav1";
@@ -91,6 +92,43 @@ service MetaIntegrationsService {
   rpc SetPushedProfile(SetPushedProfileRequest) returns (SetPushedProfileResponse) {
     option (google.api.http) = {
       put: "/v1/admin/pushed-profiles/{provider_id}"
+      body: "*"
+    };
+  }
+
+  // GetSearchEngine returns the search backend in force, where its settings
+  // come from, and the state of its index and change feed. The API key is
+  // never returned.
+  rpc GetSearchEngine(GetSearchEngineRequest) returns (GetSearchEngineResponse) {
+    option (google.api.http) = {get: "/v1/admin/search-engine"};
+  }
+
+  // PutSearchEngine saves search engine settings, which then win over the
+  // configuration file, and switches to them at once. An empty api_key keeps
+  // the stored key for the same engine and URL. A new or outdated index is
+  // rebuilt in the background (the search-rebuild job); PostgreSQL answers
+  // until it is ready.
+  rpc PutSearchEngine(PutSearchEngineRequest) returns (PutSearchEngineResponse) {
+    option (google.api.http) = {
+      put: "/v1/admin/search-engine"
+      body: "*"
+    };
+  }
+
+  // TestSearchEngine reaches an engine with the given settings without
+  // saving them.
+  rpc TestSearchEngine(TestSearchEngineRequest) returns (TestSearchEngineResponse) {
+    option (google.api.http) = {
+      post: "/v1/admin/search-engine:test"
+      body: "*"
+    };
+  }
+
+  // ResetSearchEngine forgets the admin's settings and goes back to the
+  // configuration file's.
+  rpc ResetSearchEngine(ResetSearchEngineRequest) returns (ResetSearchEngineResponse) {
+    option (google.api.http) = {
+      post: "/v1/admin/search-engine:reset"
       body: "*"
     };
   }
@@ -269,3 +307,81 @@ message SetPushedProfileRequest {
 }
 
 message SetPushedProfileResponse {}
+
+message SearchEngineSettings {
+  // "postgres", "typesense" or "meilisearch".
+  string backend = 1;
+  // The engine's URL, e.g. http://typesense:8108. meta talks to it; browsers
+  // never do.
+  string url = 2;
+  // Input only: never returned. Empty keeps the stored key.
+  string api_key = 3;
+  // Output only: whether a key is stored.
+  bool has_api_key = 4;
+  // Names of meta's indexes start with it. Default "meta".
+  string index_prefix = 5;
+  // Who serves browsing (no search text): "facets" (the engine when facets
+  // are asked for; default), "engine" or "postgres".
+  string browse = 6;
+  // Output only: "config" (the configuration file) or "admin".
+  string origin = 7;
+}
+
+message SearchEngineStatus {
+  // The backend answering searches.
+  string backend = 1;
+  bool typo_tolerance = 2;
+  bool substring = 3;
+  bool facets = 4;
+  // Engine only: the index is built and searches use it.
+  bool ready = 5;
+  bool reachable = 6;
+  // Why the engine can't be reached, or why recent queries fell back.
+  string error = 7;
+  google.protobuf.Timestamp error_at = 8;
+  // Recent queries failed and PostgreSQL answered them.
+  bool degraded = 9;
+  string index = 10;
+  int64 documents = 11;
+  google.protobuf.Timestamp built_at = 12;
+  // Entry changes waiting for the engine, and the age of the oldest.
+  int64 pending = 13;
+  google.protobuf.Duration lag = 14;
+  // Changes the indexer applied since meta started, and its last error.
+  int64 applied = 15;
+  string indexer_error = 16;
+  google.protobuf.Timestamp indexer_error_at = 17;
+}
+
+message GetSearchEngineRequest {}
+
+message GetSearchEngineResponse {
+  SearchEngineSettings settings = 1;
+  SearchEngineStatus status = 2;
+}
+
+message PutSearchEngineRequest {
+  SearchEngineSettings settings = 1;
+}
+
+message PutSearchEngineResponse {
+  SearchEngineSettings settings = 1;
+  SearchEngineStatus status = 2;
+}
+
+message TestSearchEngineRequest {
+  SearchEngineSettings settings = 1;
+}
+
+message TestSearchEngineResponse {
+  bool ok = 1;
+  // Why it failed.
+  string error = 2;
+}
+
+message ResetSearchEngineRequest {}
+
+message ResetSearchEngineResponse {
+  SearchEngineSettings settings = 1;
+  SearchEngineStatus status = 2;
+}

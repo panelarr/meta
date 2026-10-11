@@ -233,6 +233,7 @@ func (p *Postgres) Query(ctx context.Context, q Query) (Result, error) {
 	if err := rows.Err(); err != nil {
 		return Result{}, err
 	}
+	res.Backend = "postgres"
 	return res, nil
 }
 

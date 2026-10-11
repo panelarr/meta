@@ -30,6 +30,11 @@ type Metrics struct {
 	JobRuns        *prometheus.CounterVec
 	JobDuration    *prometheus.HistogramVec
 	JobRunning     *prometheus.GaugeVec
+
+	SearchFallbacks     *prometheus.CounterVec
+	SearchOutboxPending prometheus.Gauge
+	SearchOutboxLag     prometheus.Gauge
+	SearchDocuments     *prometheus.GaugeVec
 }
 
 // New registers meta's metrics, plus the Go runtime and process ones, on a
@@ -86,7 +91,45 @@ func New() *Metrics {
 	m.JobRunning = f(prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "meta_job_running", Help: "1 while a run of the job is going on in this process.",
 	}, []string{"job"})).(*prometheus.GaugeVec)
+	m.SearchFallbacks = f(prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "meta_search_fallbacks_total", Help: "Queries a search engine failed and PostgreSQL answered instead.",
+	}, []string{"backend"})).(*prometheus.CounterVec)
+	m.SearchOutboxPending = f(prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "meta_search_outbox_pending", Help: "Entry changes waiting for the search engine.",
+	})).(prometheus.Gauge)
+	m.SearchOutboxLag = f(prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "meta_search_outbox_lag_seconds", Help: "Age of the oldest entry change waiting for the search engine.",
+	})).(prometheus.Gauge)
+	m.SearchDocuments = f(prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "meta_search_index_documents", Help: "Documents in the search engine's live index after the last rebuild.",
+	}, []string{"backend"})).(*prometheus.GaugeVec)
 	return m
+}
+
+// SearchFallback counts a query PostgreSQL answered for a failed engine.
+// Safe on a nil *Metrics.
+func (m *Metrics) SearchFallback(backend string) {
+	if m == nil {
+		return
+	}
+	m.SearchFallbacks.WithLabelValues(backend).Inc()
+}
+
+// SearchIndexDocuments records the documents of a freshly built index.
+func (m *Metrics) SearchIndexDocuments(backend string, n int64) {
+	if m == nil {
+		return
+	}
+	m.SearchDocuments.WithLabelValues(backend).Set(float64(n))
+}
+
+// SearchOutbox records the outbox backlog.
+func (m *Metrics) SearchOutbox(pending int64, lag time.Duration) {
+	if m == nil {
+		return
+	}
+	m.SearchOutboxPending.Set(float64(pending))
+	m.SearchOutboxLag.Set(lag.Seconds())
 }
 
 // JobStarted marks a job as running. Safe on a nil *Metrics.

@@ -132,13 +132,14 @@ func (f *funcJob) execute(ctx context.Context, run *active) (err error) {
 		bg, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 		defer cancel()
 		counts, notes := rec.snapshot()
+		// Metrics first: whoever sees the run finished sees it counted.
+		m.metrics.JobFinished(f.def.ID, status, run.Trigger, time.Since(start))
 		if ferr := m.st.FinishJobRun(bg, db.FinishJobRunParams{ID: run.ID, Status: status, Message: msg, Counts: counts, Notes: notes}); ferr != nil {
 			log.Error("record job result", "err", ferr)
 		}
 		if _, perr := m.st.PruneJobRuns(bg, db.PruneJobRunsParams{JobID: f.def.ID, Keep: int32(m.retention)}); perr != nil { //nolint:gosec // retention is small
 			log.Warn("prune job runs", "err", perr)
 		}
-		m.metrics.JobFinished(f.def.ID, status, run.Trigger, time.Since(start))
 		log.Info("job finished", "status", status, "message", msg, "took", time.Since(start).Round(time.Millisecond))
 		run.cancel()
 		unlock(run.conn, f.def.ID)

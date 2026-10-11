@@ -96,6 +96,9 @@ message JobParam {
   bool required = 4;
   // Used when the parameter is left out.
   string default = 5;
+  // The values allowed, when the set is fixed: a "string" takes one (the UI
+  // shows a select), a "string_list" any of them (checkboxes).
+  repeated string choices = 6;
 }
 
 enum JobRunStatus {
@@ -112,6 +115,9 @@ enum JobTrigger {
   JOB_TRIGGER_SCHEDULE = 1;
   JOB_TRIGGER_MANUAL = 2;
   JOB_TRIGGER_STARTUP = 3;
+  // meta started it on its own while running, e.g. a search index rebuild
+  // after the engine settings changed or too many changes piled up.
+  JOB_TRIGGER_SYSTEM = 4;
 }
 
 message JobRunSummary {
@@ -158,7 +164,9 @@ message JobProgress {
   string unit = 4;
 }
 
-// The error detail of RunJob's ALREADY_EXISTS.
+// The error detail of RunJob's ALREADY_EXISTS. The error also carries a
+// google.rpc.ErrorInfo with reason "ALREADY_RUNNING" and the run in
+// metadata["current_run_id"].
 message JobAlreadyRunning {
   string current_run_id = 1;
 }

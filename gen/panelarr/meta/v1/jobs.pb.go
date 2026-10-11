@@ -91,6 +91,9 @@ const (
 	JobTrigger_JOB_TRIGGER_SCHEDULE    JobTrigger = 1
 	JobTrigger_JOB_TRIGGER_MANUAL      JobTrigger = 2
 	JobTrigger_JOB_TRIGGER_STARTUP     JobTrigger = 3
+	// meta started it on its own while running, e.g. a search index rebuild
+	// after the engine settings changed or too many changes piled up.
+	JobTrigger_JOB_TRIGGER_SYSTEM JobTrigger = 4
 )
 
 // Enum value maps for JobTrigger.
@@ -100,12 +103,14 @@ var (
 		1: "JOB_TRIGGER_SCHEDULE",
 		2: "JOB_TRIGGER_MANUAL",
 		3: "JOB_TRIGGER_STARTUP",
+		4: "JOB_TRIGGER_SYSTEM",
 	}
 	JobTrigger_value = map[string]int32{
 		"JOB_TRIGGER_UNSPECIFIED": 0,
 		"JOB_TRIGGER_SCHEDULE":    1,
 		"JOB_TRIGGER_MANUAL":      2,
 		"JOB_TRIGGER_STARTUP":     3,
+		"JOB_TRIGGER_SYSTEM":      4,
 	}
 )
 
@@ -376,7 +381,10 @@ type JobParam struct {
 	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
 	Required    bool   `protobuf:"varint,4,opt,name=required,proto3" json:"required,omitempty"`
 	// Used when the parameter is left out.
-	Default       string `protobuf:"bytes,5,opt,name=default,proto3" json:"default,omitempty"`
+	Default string `protobuf:"bytes,5,opt,name=default,proto3" json:"default,omitempty"`
+	// The values allowed, when the set is fixed: a "string" takes one (the UI
+	// shows a select), a "string_list" any of them (checkboxes).
+	Choices       []string `protobuf:"bytes,6,rep,name=choices,proto3" json:"choices,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -444,6 +452,13 @@ func (x *JobParam) GetDefault() string {
 		return x.Default
 	}
 	return ""
+}
+
+func (x *JobParam) GetChoices() []string {
+	if x != nil {
+		return x.Choices
+	}
+	return nil
 }
 
 type JobRunSummary struct {
@@ -769,7 +784,9 @@ func (x *JobProgress) GetUnit() string {
 	return ""
 }
 
-// The error detail of RunJob's ALREADY_EXISTS.
+// The error detail of RunJob's ALREADY_EXISTS. The error also carries a
+// google.rpc.ErrorInfo with reason "ALREADY_RUNNING" and the run in
+// metadata["current_run_id"].
 type JobAlreadyRunning struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	CurrentRunId  string                 `protobuf:"bytes,1,opt,name=current_run_id,json=currentRunId,proto3" json:"current_run_id,omitempty"`
@@ -1400,13 +1417,14 @@ const file_panelarr_meta_v1_jobs_proto_rawDesc = "" +
 	"\binterval\x18\x02 \x01(\v2\x19.google.protobuf.DurationH\x00R\binterval\x12\x18\n" +
 	"\aenabled\x18\x03 \x01(\bR\aenabled\x12\x16\n" +
 	"\x06source\x18\x04 \x01(\tR\x06sourceB\x06\n" +
-	"\x04kind\"\x8a\x01\n" +
+	"\x04kind\"\xa4\x01\n" +
 	"\bJobParam\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12 \n" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x1a\n" +
 	"\brequired\x18\x04 \x01(\bR\brequired\x12\x18\n" +
-	"\adefault\x18\x05 \x01(\tR\adefault\"\xdb\x03\n" +
+	"\adefault\x18\x05 \x01(\tR\adefault\x12\x18\n" +
+	"\achoices\x18\x06 \x03(\tR\achoices\"\xdb\x03\n" +
 	"\rJobRunSummary\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x15\n" +
 	"\x06job_id\x18\x02 \x01(\tR\x05jobId\x126\n" +
@@ -1481,13 +1499,14 @@ const file_panelarr_meta_v1_jobs_proto_rawDesc = "" +
 	"\x18JOB_RUN_STATUS_SUCCEEDED\x10\x02\x12\x19\n" +
 	"\x15JOB_RUN_STATUS_FAILED\x10\x03\x12\x1c\n" +
 	"\x18JOB_RUN_STATUS_CANCELLED\x10\x04\x12\x1a\n" +
-	"\x16JOB_RUN_STATUS_SKIPPED\x10\x05*t\n" +
+	"\x16JOB_RUN_STATUS_SKIPPED\x10\x05*\x8c\x01\n" +
 	"\n" +
 	"JobTrigger\x12\x1b\n" +
 	"\x17JOB_TRIGGER_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14JOB_TRIGGER_SCHEDULE\x10\x01\x12\x16\n" +
 	"\x12JOB_TRIGGER_MANUAL\x10\x02\x12\x17\n" +
-	"\x13JOB_TRIGGER_STARTUP\x10\x032\xec\x05\n" +
+	"\x13JOB_TRIGGER_STARTUP\x10\x03\x12\x16\n" +
+	"\x12JOB_TRIGGER_SYSTEM\x10\x042\xec\x05\n" +
 	"\x0fMetaJobsService\x12i\n" +
 	"\bListJobs\x12!.panelarr.meta.v1.ListJobsRequest\x1a\".panelarr.meta.v1.ListJobsResponse\"\x16\x82\xd3\xe4\x93\x02\x10\x12\x0e/v1/admin/jobs\x12l\n" +
 	"\x06GetJob\x12\x1f.panelarr.meta.v1.GetJobRequest\x1a .panelarr.meta.v1.GetJobResponse\"\x1f\x82\xd3\xe4\x93\x02\x19\x12\x17/v1/admin/jobs/{job_id}\x12\x80\x01\n" +

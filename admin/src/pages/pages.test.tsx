@@ -284,13 +284,14 @@ describe("jobs", () => {
     expect(limit).toHaveValue(100);
     await userEvent.clear(limit);
     await userEvent.type(limit, "5");
+    await userEvent.click(within(form).getByRole("checkbox", { name: "sample" }));
     await userEvent.click(within(form).getByRole("button", { name: "Run now" }));
 
     const dialog = await screen.findByRole("dialog", { name: "Run of Refresh stale entries" });
     expect(within(dialog).getByText("Running")).toBeInTheDocument();
     expect(within(dialog).getByText(/250 \/ 1,000 items \(25%\)/)).toBeInTheDocument();
     expect(within(dialog).getByText("by admin", { exact: false })).toBeInTheDocument();
-    expect(sent).toEqual({ params: { limit: "5" } });
+    expect(sent).toEqual({ params: { limit: "5", providers: "sample" } });
     expect(app.router.state.location.search).toMatchObject({ job: "stale-refresh" });
 
     await userEvent.click(within(dialog).getByRole("button", { name: "Cancel run" }));
@@ -430,6 +431,95 @@ describe("integrations", () => {
       expect(row && within(row).getByText("Assigned", { selector: ".badge" })).toBeInTheDocument();
     });
     app.dispose();
+  });
+});
+
+describe("search engine", () => {
+  it("shows PostgreSQL by default, then switches to an engine with a stored key and back", async () => {
+    let sent: unknown;
+    server.events.on("request:start", async ({ request }) => {
+      if (request.method === "PUT" && request.url.endsWith("/v1/admin/search-engine"))
+        sent = await request.clone().json();
+    });
+    const app = renderApp("/integrations");
+    const section = await screen.findByRole("region", { name: "Search engine" });
+    const card = await within(section).findByRole("article", { name: "Search backend PostgreSQL" });
+    expect(within(card).getByText("From the configuration file")).toBeInTheDocument();
+    expect(within(card).getByText("no facet counts")).toBeInTheDocument();
+
+    await userEvent.click(within(section).getByRole("button", { name: "Change" }));
+    const dialog = await screen.findByRole("dialog", { name: "Search engine" });
+    await userEvent.selectOptions(within(dialog).getByLabelText("Backend"), "typesense");
+    expect(within(dialog).getByLabelText("URL")).toHaveValue("http://typesense:8108");
+    await userEvent.clear(within(dialog).getByLabelText("URL"));
+    await userEvent.type(within(dialog).getByLabelText("URL"), "http://nowhere:8108");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Test connection" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("connection refused");
+    await userEvent.clear(within(dialog).getByLabelText("URL"));
+    await userEvent.type(within(dialog).getByLabelText("URL"), "http://typesense:8108");
+    await userEvent.type(within(dialog).getByLabelText("API key"), "secret-key");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Test connection" }));
+    expect(await within(dialog).findByText("Connected.")).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(sent).toMatchObject({
+      settings: { backend: "typesense", url: "http://typesense:8108", apiKey: "secret-key" },
+    });
+
+    const engine = await within(section).findByRole("article", { name: "Search backend Typesense" });
+    expect(within(engine).getByText("Set here")).toBeInTheDocument();
+    expect(within(engine).getByText("key stored")).toBeInTheDocument();
+    expect(within(engine).getByText("Index ready")).toBeInTheDocument();
+    expect(within(engine).getByText("facet counts")).toBeInTheDocument();
+    expect(section).not.toHaveTextContent("secret-key");
+
+    await userEvent.click(within(engine).getByRole("button", { name: "Use the configuration file" }));
+    expect(await within(section).findByRole("article", { name: "Search backend PostgreSQL" })).toBeInTheDocument();
+    server.events.removeAllListeners();
+    app.dispose();
+  });
+
+  it("starts a rebuild and opens it on the Jobs page", async () => {
+    server.use(
+      http.get("*/v1/admin/search-engine", () =>
+        HttpResponse.json({
+          settings: { backend: "meilisearch", url: "http://meilisearch:7700", hasApiKey: true, origin: "config" },
+          status: { backend: "meilisearch", facets: true, reachable: false, ready: false, error: "dial tcp: refused" },
+        }),
+      ),
+    );
+    const app = renderApp("/integrations");
+    const engine = await screen.findByRole("article", { name: "Search backend Meilisearch" });
+    expect(within(engine).getByText("Unreachable")).toBeInTheDocument();
+    expect(within(engine).getByText("No index yet")).toBeInTheDocument();
+    expect(within(engine).getByRole("alert")).toHaveTextContent("dial tcp: refused");
+    expect(within(engine).queryByRole("button", { name: "Use the configuration file" })).toBeNull();
+    server.use(
+      http.post(/\/v1\/admin\/jobs\/search-rebuild:run$/, () =>
+        HttpResponse.json({ run: { id: "rb-1", jobId: "search-rebuild" } }),
+      ),
+    );
+    await userEvent.click(within(engine).getByRole("button", { name: "Rebuild index" }));
+    await waitFor(() => expect(app.router.state.location.pathname).toBe("/jobs"));
+    expect(app.router.state.location.search).toMatchObject({ job: "search-rebuild", run: "rb-1" });
+    app.dispose();
+  });
+
+  it("shows facet counts in the catalogue's filters when an engine has them", async () => {
+    const app = renderApp("/integrations");
+    const section = await screen.findByRole("region", { name: "Search engine" });
+    await userEvent.click(await within(section).findByRole("button", { name: "Change" }));
+    const dialog = await screen.findByRole("dialog", { name: "Search engine" });
+    await userEvent.selectOptions(within(dialog).getByLabelText("Backend"), "typesense");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await within(section).findByRole("article", { name: "Search backend Typesense" });
+    app.dispose();
+    app.unmount();
+
+    const cat = renderApp("/catalogue");
+    await screen.findByText("4 entries");
+    expect(await screen.findByRole("option", { name: "Manga (2)" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Manhwa (1)" })).toBeInTheDocument();
+    cat.dispose();
   });
 });
 

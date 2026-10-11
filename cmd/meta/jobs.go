@@ -4,12 +4,14 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/panelarr/meta/internal/api"
 	"github.com/panelarr/meta/internal/ingest"
 	"github.com/panelarr/meta/internal/jobs"
+	"github.com/panelarr/meta/internal/searchsvc"
 	"github.com/panelarr/meta/internal/store/db"
 )
 
@@ -17,6 +19,8 @@ import (
 const (
 	jobRebuildEntries = "rebuild-entries"
 	jobStaleRefresh   = "stale-refresh"
+	jobSearchRebuild  = "search-rebuild"
+	jobSearchIndexer  = "search-indexer"
 )
 
 // newJobs registers every background job: a sync job per provider and
@@ -67,6 +71,49 @@ func (a *app) newJobs() *jobs.Manager {
 		Cancellable: true,
 	}, func(ctx context.Context, r *jobs.Recorder) error {
 		return a.refreshStale(ctx, r, jobs.Int(r.Params(), "limit", int64(stale.Limit)))
+	})
+	m.Add(jobs.Def{
+		ID:   jobSearchRebuild,
+		Name: "Rebuild the search index",
+		Description: "Builds a new index in the search engine from every active entry and swaps it in at once; searches use " +
+			"the old index until then. Runs on its own on first use, when the document schema changes and when too many " +
+			"changes pile up. Nothing to do with PostgreSQL alone.",
+		Group:       "Search",
+		Cancellable: true,
+	}, func(ctx context.Context, r *jobs.Recorder) error {
+		n, err := a.search.Rebuild(ctx, func(done, total int64) {
+			r.Progress(ctx, "index", done, total, "entries")
+		})
+		if errors.Is(err, searchsvc.ErrNoEngine) {
+			r.Skip(err.Error())
+			return nil
+		}
+		r.Set("documents", n)
+		if err != nil {
+			return err
+		}
+		r.Message("indexed %d entries", n)
+		return nil
+	})
+	m.Add(jobs.Def{
+		ID:   jobSearchIndexer,
+		Name: "Apply waiting search changes",
+		Description: "Sends every entry change waiting in the outbox to the search engine now. The indexer does this on its " +
+			"own every second; run it after the engine was down to see it catch up.",
+		Group:       "Search",
+		Cancellable: true,
+	}, func(ctx context.Context, r *jobs.Recorder) error {
+		n, err := a.search.Drain(ctx, func(done int64) { r.Progress(ctx, "apply", done, 0, "changes") })
+		if errors.Is(err, searchsvc.ErrNoEngine) {
+			r.Skip(err.Error())
+			return nil
+		}
+		r.Set("changes", n)
+		if err != nil {
+			return err
+		}
+		r.Message("applied %d changes", n)
+		return nil
 	})
 	return m
 }

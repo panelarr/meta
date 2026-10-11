@@ -4,7 +4,7 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { api, unwrap } from "../api/client";
-import type { EntrySummary, Tag } from "../api/types";
+import type { EntrySummary, Facet, Tag } from "../api/types";
 import { MultiSelect, type Option } from "../components/MultiSelect";
 import { Badge, Empty, ErrorBox, Field, Loading, PageHeader } from "../components/ui";
 import {
@@ -14,8 +14,10 @@ import {
   coverUrl,
   entryStatuses,
   entryTypes,
+  facetCounts,
   labelFromKey,
   languageName,
+  shortName,
   sortFields,
   tagLabel,
 } from "../lib/catalogue";
@@ -29,6 +31,7 @@ type Page = {
   next?: string;
   total: number;
   noProviders: boolean;
+  facets?: Facet[];
 };
 
 async function fetchPage(search: CatalogueSearch, pageToken?: string): Promise<Page> {
@@ -46,6 +49,7 @@ async function fetchPage(search: CatalogueSearch, pageToken?: string): Promise<P
       next: res.nextPageToken || undefined,
       total: Number(res.totalSize ?? 0),
       noProviders: res.noProviders ?? false,
+      facets: res.facets,
     };
   }
   const res = await unwrap(api.GET("/v1/entries", { params: { query } }));
@@ -55,6 +59,7 @@ async function fetchPage(search: CatalogueSearch, pageToken?: string): Promise<P
     next: res.nextPageToken || undefined,
     total: Number(res.totalSize ?? 0),
     noProviders: res.noProviders ?? false,
+    facets: res.facets,
   };
 }
 
@@ -132,6 +137,13 @@ export function CataloguePage() {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.next,
   });
+  // Counts per filter value among the matches, when the search engine has them.
+  const facets = results.data?.pages[0]?.facets;
+  const counted = (field: string, value: string, prefix = "") => {
+    const counts = facetCounts(facets, field);
+    if (counts.size === 0) return "";
+    return ` (${(counts.get(prefix ? shortName(value, prefix) : value) ?? 0).toLocaleString()})`;
+  };
 
   const go = (patch: Partial<CatalogueSearch>) =>
     void navigate({ to: "/catalogue", search: (prev: CatalogueSearch) => clean({ ...prev, ...patch }) });
@@ -186,11 +198,17 @@ export function CataloguePage() {
           values={search.genre ?? []}
           onChange={(v) => go({ genre: list(v) })}
           filterLocally
-          options={(genres.data ?? []).map((g) => ({
-            value: g.name ?? "",
-            label: g.name ?? "",
-            detail: Number(g.entryCount ?? 0).toLocaleString(),
-          }))}
+          options={(genres.data ?? []).map((g) => {
+            const inResults = facetCounts(facets, "genres");
+            return {
+              value: g.name ?? "",
+              label: g.name ?? "",
+              detail:
+                inResults.size > 0
+                  ? `${(inResults.get(g.key ?? "") ?? 0).toLocaleString()} here`
+                  : Number(g.entryCount ?? 0).toLocaleString(),
+            };
+          })}
         />
         <MultiSelect
           className="span-2"
@@ -220,6 +238,7 @@ export function CataloguePage() {
             {entryTypes.map((t) => (
               <option key={t} value={t}>
                 {enumLabel(t, "ENTRY_TYPE_")}
+                {counted("type", t, "ENTRY_TYPE_")}
               </option>
             ))}
           </select>
@@ -230,6 +249,7 @@ export function CataloguePage() {
             {entryStatuses.map((s) => (
               <option key={s} value={s}>
                 {enumLabel(s, "ENTRY_STATUS_")}
+                {counted("status", s, "ENTRY_STATUS_")}
               </option>
             ))}
           </select>
@@ -240,6 +260,7 @@ export function CataloguePage() {
             {contentRatings.map((r) => (
               <option key={r} value={r}>
                 {enumLabel(r, "CONTENT_RATING_")}
+                {counted("content_rating", r, "CONTENT_RATING_")}
               </option>
             ))}
           </select>

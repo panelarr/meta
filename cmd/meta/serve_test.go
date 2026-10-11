@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/panelarr/meta/internal/search/enginetest"
 	"github.com/panelarr/meta/internal/store/storetest"
 )
 
@@ -285,5 +286,138 @@ providers:
 	}
 	if code := c.do("POST", "/v1/admin/providers/unknown/sync", map[string]any{}, nil); code != http.StatusNotFound {
 		t.Fatalf("unknown provider: %d", code)
+	}
+}
+
+// TestServeWithSearchEngine runs meta with Typesense: the index is built
+// at startup, a sync reaches the engine through the outbox within seconds,
+// and search answers come from the engine.
+func TestServeWithSearchEngine(t *testing.T) {
+	if testing.Short() {
+		t.Skip("builds a plugin and needs PostgreSQL and Typesense")
+	}
+	tsURL, tsKey := enginetest.Typesense(t)
+	plugin := buildPlugin(t)
+	addr := freeAddr(t)
+	cfgPath := filepath.Join(t.TempDir(), "meta.yaml")
+	cfg := fmt.Sprintf(`
+listen: %q
+database_url: %q
+api_keys: [test-key]
+log: {level: warn}
+search:
+  backend: typesense
+  typesense: {url: %q, api_key: %q, index_prefix: %q}
+providers:
+  - id: static
+    managed:
+      path: %q
+`, addr, storetest.URL(t), tsURL, tsKey, enginetest.Prefix(), plugin)
+	if err := os.WriteFile(cfgPath, []byte(cfg), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- run(ctx, []string{"serve", "--config", cfgPath}, io.Discard) }()
+	defer func() {
+		cancel()
+		if err := <-done; err != nil {
+			t.Errorf("serve: %v", err)
+		}
+	}()
+	c := client{t: t, base: "http://" + addr, key: "test-key"}
+	deadline := time.Now().Add(30 * time.Second)
+	waitFor := func(what string, ok func() bool) {
+		t.Helper()
+		for !ok() {
+			if time.Now().After(deadline) {
+				t.Fatalf("timed out waiting for %s", what)
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+	type engine struct {
+		Settings struct {
+			Backend   string `json:"backend"`
+			HasAPIKey bool   `json:"hasApiKey"`
+			APIKey    string `json:"apiKey"`
+		} `json:"settings"`
+		Status struct {
+			Ready     bool   `json:"ready"`
+			Reachable bool   `json:"reachable"`
+			Documents string `json:"documents"`
+			Pending   string `json:"pending"`
+		} `json:"status"`
+	}
+	waitFor("meta to be ready", func() bool {
+		res, err := http.Get(c.base + "/readyz") //nolint:noctx // test
+		if err != nil {
+			return false
+		}
+		res.Body.Close()
+		return res.StatusCode == http.StatusOK
+	})
+	var eng engine
+	// The empty index is built at startup.
+	waitFor("the startup rebuild", func() bool {
+		return c.do("GET", "/v1/admin/search-engine", nil, &eng) == http.StatusOK && eng.Status.Ready
+	})
+	if eng.Settings.Backend != "typesense" || !eng.Settings.HasAPIKey || eng.Settings.APIKey != "" || !eng.Status.Reachable {
+		t.Fatalf("engine: %+v", eng)
+	}
+	var jobsList struct {
+		Jobs []struct {
+			ID      string `json:"id"`
+			LastRun struct {
+				Trigger string `json:"trigger"`
+			} `json:"lastRun"`
+		} `json:"jobs"`
+	}
+	c.do("GET", "/v1/admin/jobs", nil, &jobsList)
+	found := false
+	for _, j := range jobsList.Jobs {
+		if j.ID == "search-rebuild" && j.LastRun.Trigger == "JOB_TRIGGER_STARTUP" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("no startup search rebuild: %+v", jobsList)
+	}
+
+	// A sync reaches the engine through the outbox.
+	waitFor("the sync to start", func() bool {
+		return c.do("POST", "/v1/admin/jobs/sync.static.dump:run", map[string]any{}, nil) == http.StatusOK
+	})
+	waitFor("the outbox to drain", func() bool {
+		eng = engine{} // zero values are left out of the JSON
+		c.do("GET", "/v1/admin/search-engine", nil, &eng)
+		var hits struct {
+			Hits []struct {
+				MatchedField string `json:"matchedField"`
+			} `json:"hits"`
+		}
+		c.do("GET", "/v1/search?query=lantrn%20keeper", nil, &hits)
+		return eng.Status.Pending == "" && eng.Status.Documents == "3" && len(hits.Hits) == 1
+	})
+	var health struct {
+		Components []struct {
+			Name    string            `json:"name"`
+			Status  string            `json:"status"`
+			Details map[string]string `json:"details"`
+		} `json:"components"`
+	}
+	c.do("GET", "/v1/admin/health", nil, &health)
+	for _, comp := range health.Components {
+		if comp.Name == "search" && (comp.Status != "HEALTH_STATUS_OK" || comp.Details["backend"] != "typesense") {
+			t.Fatalf("search health: %+v", comp)
+		}
+	}
+	var facets struct {
+		Facets []struct {
+			Field string `json:"field"`
+		} `json:"facets"`
+	}
+	if code := c.do("GET", "/v1/entries?facets=true", nil, &facets); code != http.StatusOK || len(facets.Facets) == 0 {
+		t.Fatalf("browse with facets: %d %+v", code, facets)
 	}
 }

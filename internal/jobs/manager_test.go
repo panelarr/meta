@@ -175,16 +175,23 @@ func TestParams(t *testing.T) {
 		{Name: "force", Type: ParamBool, Default: "false"},
 		{Name: "limit", Type: ParamInt},
 		{Name: "who", Type: ParamString, Required: true},
+		{Name: "mode", Type: ParamString, Choices: []string{"fast", "full"}},
+		{Name: "kinds", Type: ParamStringList, Choices: []string{"dump", "delta"}},
 	}}
 	got, err := Resolve(def, map[string]string{"who": "me", "limit": "5"})
 	if err != nil || got["force"] != "false" || got["limit"] != "5" || got["who"] != "me" {
 		t.Fatalf("resolve: %v %v", got, err)
 	}
+	if _, err := Resolve(def, map[string]string{"who": "me", "mode": "full", "kinds": "dump, delta"}); err != nil {
+		t.Fatalf("choices: %v", err)
+	}
 	for name, params := range map[string]map[string]string{
-		"unknown":  {"who": "me", "color": "red"},
-		"bad int":  {"who": "me", "limit": "lots"},
-		"bad bool": {"who": "me", "force": "maybe"},
-		"missing":  {},
+		"unknown":    {"who": "me", "color": "red"},
+		"bad int":    {"who": "me", "limit": "lots"},
+		"bad bool":   {"who": "me", "force": "maybe"},
+		"bad choice": {"who": "me", "mode": "slow"},
+		"bad list":   {"who": "me", "kinds": "dump,lookup"},
+		"missing":    {},
 	} {
 		if _, err := Resolve(def, params); !errors.Is(err, ErrInvalidParam) {
 			t.Errorf("%s: %v", name, err)

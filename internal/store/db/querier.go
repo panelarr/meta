@@ -12,6 +12,10 @@ import (
 )
 
 type Querier interface {
+	// The oldest rows, locked until the transaction ends; other indexers skip
+	// them.
+	ClaimSearchOutbox(ctx context.Context, lim int32) ([]ClaimSearchOutboxRow, error)
+	ClearSearchOutbox(ctx context.Context) error
 	CountActiveEntries(ctx context.Context) (int64, error)
 	CountEntries(ctx context.Context) (int64, error)
 	CountProfiles(ctx context.Context) (int64, error)
@@ -42,11 +46,15 @@ type Querier interface {
 	DeleteProfile(ctx context.Context, id string) (int64, error)
 	DeletePushedProfile(ctx context.Context, provider string) error
 	DeleteRelationsOf(ctx context.Context, ids []uuid.UUID) error
+	DeleteSearchOutbox(ctx context.Context, seqs []int64) error
+	DeleteSearchSettings(ctx context.Context) error
 	DeleteSolver(ctx context.Context, id string) (int64, error)
 	DeleteTagsOf(ctx context.Context, ids []uuid.UUID) error
 	DeleteTitlesOf(ctx context.Context, ids []uuid.UUID) error
 	// Tags no entry carries any more (after a rebuild).
 	DeleteUnusedTags(ctx context.Context) (int64, error)
+	// SPDX-License-Identifier: GPL-3.0-or-later
+	EnqueueSearch(ctx context.Context, ids []uuid.UUID) error
 	// Whether the entry already holds an active record of the provider (other
 	// than the given one). Two records of one provider are never merged by
 	// shared IDs: the provider itself keeps them apart.
@@ -69,6 +77,9 @@ type Querier interface {
 	FinishJobRun(ctx context.Context, arg FinishJobRunParams) error
 	FinishMaintenance(ctx context.Context, name string) error
 	FinishSyncRun(ctx context.Context, arg FinishSyncRunParams) error
+	// Indexes of engines that aren't fed any more go stale: forget them, so
+	// using one again rebuilds it.
+	ForgetSearchIndexesExcept(ctx context.Context, backend string) error
 	GetAdminToken(ctx context.Context) (AdminToken, error)
 	GetClient(ctx context.Context, id string) (Client, error)
 	GetClientByKeyHash(ctx context.Context, keyHash []byte) (Client, error)
@@ -88,6 +99,8 @@ type Querier interface {
 	// What meta has for a batch of a provider's records, to skip unchanged ones.
 	GetProviderEntryStates(ctx context.Context, arg GetProviderEntryStatesParams) ([]GetProviderEntryStatesRow, error)
 	GetRedirect(ctx context.Context, fromID uuid.UUID) (uuid.UUID, error)
+	GetSearchIndex(ctx context.Context, backend string) (SearchIndex, error)
+	GetSearchSettings(ctx context.Context) (SearchSetting, error)
 	GetSolver(ctx context.Context, id string) (Solver, error)
 	GetSyncCursor(ctx context.Context, arg GetSyncCursorParams) (SyncCursor, error)
 	GetSyncRun(ctx context.Context, id uuid.UUID) (SyncRun, error)
@@ -147,6 +160,7 @@ type Querier interface {
 	ListProviderEntriesForEntry(ctx context.Context, entryID uuid.NullUUID) ([]ProviderEntry, error)
 	ListProviders(ctx context.Context) ([]Provider, error)
 	ListPushedProfiles(ctx context.Context) ([]PushedProfile, error)
+	ListSearchOutboxAfter(ctx context.Context, arg ListSearchOutboxAfterParams) ([]ListSearchOutboxAfterRow, error)
 	// SPDX-License-Identifier: GPL-3.0-or-later
 	ListSolvers(ctx context.Context) ([]Solver, error)
 	ListSourcesForEntry(ctx context.Context, entryID uuid.NullUUID) ([]ListSourcesForEntryRow, error)
@@ -181,6 +195,7 @@ type Querier interface {
 	// Keeps the newest @keep finished runs of a provider and kind.
 	PruneSyncRuns(ctx context.Context, arg PruneSyncRunsParams) (int64, error)
 	PutProfile(ctx context.Context, arg PutProfileParams) error
+	PutSearchSettings(ctx context.Context, arg PutSearchSettingsParams) error
 	PutSolver(ctx context.Context, arg PutSolverParams) error
 	RecountTags(ctx context.Context) error
 	// Keep redirect chains one hop long.
@@ -189,6 +204,8 @@ type Querier interface {
 	RunningJobRun(ctx context.Context, jobID string) (JobRun, error)
 	RunningSyncRun(ctx context.Context, provider string) (SyncRun, error)
 	SaveJobRun(ctx context.Context, arg SaveJobRunParams) error
+	SearchOutboxHead(ctx context.Context) (int64, error)
+	SearchOutboxStats(ctx context.Context) (SearchOutboxStatsRow, error)
 	SetAdminToken(ctx context.Context, tokenHash []byte) error
 	SetAssignment(ctx context.Context, arg SetAssignmentParams) error
 	SetDefaultProfileID(ctx context.Context, profileID pgtype.Text) error
@@ -200,10 +217,13 @@ type Querier interface {
 	SetProviderEntryMerged(ctx context.Context, arg SetProviderEntryMergedParams) (uuid.NullUUID, error)
 	SetProviderEntryRemoved(ctx context.Context, arg SetProviderEntryRemovedParams) (uuid.NullUUID, error)
 	SetPushedProfile(ctx context.Context, arg SetPushedProfileParams) error
+	SetSearchIndex(ctx context.Context, arg SetSearchIndexParams) error
+	SetSearchIndexDocuments(ctx context.Context, arg SetSearchIndexDocumentsParams) error
 	StartSyncRun(ctx context.Context, arg StartSyncRunParams) error
 	TouchClient(ctx context.Context, arg TouchClientParams) error
 	// Records seen unchanged in a run.
 	TouchProviderEntries(ctx context.Context, arg TouchProviderEntriesParams) error
+	TruncateSearchOutboxUpTo(ctx context.Context, seq int64) (int64, error)
 	UpdateClient(ctx context.Context, arg UpdateClientParams) (Client, error)
 	UpdateCompany(ctx context.Context, arg UpdateCompanyParams) error
 	UpdateEntry(ctx context.Context, arg UpdateEntryParams) error

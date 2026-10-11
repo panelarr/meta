@@ -147,6 +147,12 @@ components:
           type: string
           title: language
           description: Preferred language for display titles (BCP 47).
+        facets:
+          type: boolean
+          title: facets
+          description: |-
+            Ask for counts per filter value. Only a search engine backend has
+             them; with PostgreSQL the response has none.
       title: BrowseRequest
       additionalProperties: false
     panelarr.meta.v1.BrowseResponse:
@@ -171,6 +177,14 @@ components:
           description: |-
             True when meta has no providers configured, so an empty result means
              "nothing set up" rather than "nothing matched".
+        facets:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.meta.v1.Facet'
+          title: facets
+          description: |-
+            Counts per filter value among all matches, when asked for and the
+             search backend has them.
       title: BrowseResponse
       additionalProperties: false
     panelarr.meta.v1.CancelJobRunRequest:
@@ -618,6 +632,38 @@ components:
       title: EntrySummary
       additionalProperties: false
       description: EntrySummary is the short form of an entry used in lists.
+    panelarr.meta.v1.Facet:
+      type: object
+      properties:
+        field:
+          type: string
+          title: field
+          description: |-
+            "genres", "tags", "type", "status", "content_rating" or
+             "original_language".
+        values:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.meta.v1.FacetValue'
+          title: values
+          description: |-
+            Most frequent first (at most 50). Genre and tag values are tag keys
+             ("genre/fantasy"); the others are the filter's short names ("manga").
+      title: Facet
+      additionalProperties: false
+      description: The counts of one filter's values.
+    panelarr.meta.v1.FacetValue:
+      type: object
+      properties:
+        value:
+          type: string
+          title: value
+        count:
+          type: string
+          title: count
+          format: int64
+      title: FacetValue
+      additionalProperties: false
     panelarr.meta.v1.GetEntryRequest:
       type: object
       properties:
@@ -702,6 +748,23 @@ components:
             - $ref: '#/components/schemas/panelarr.meta.v1.JobRun'
           title: run
       title: GetJobRunResponse
+      additionalProperties: false
+    panelarr.meta.v1.GetSearchEngineRequest:
+      type: object
+      title: GetSearchEngineRequest
+      additionalProperties: false
+    panelarr.meta.v1.GetSearchEngineResponse:
+      type: object
+      properties:
+        settings:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.SearchEngineSettings'
+          title: settings
+        status:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.SearchEngineStatus'
+          title: status
+      title: GetSearchEngineResponse
       additionalProperties: false
     panelarr.meta.v1.GetSyncRunRequest:
       type: object
@@ -789,6 +852,14 @@ components:
           type: string
           title: default
           description: Used when the parameter is left out.
+        choices:
+          type: array
+          items:
+            type: string
+          title: choices
+          description: |-
+            The values allowed, when the set is fixed: a "string" takes one (the UI
+             shows a select), a "string_list" any of them (checkboxes).
       title: JobParam
       additionalProperties: false
     panelarr.meta.v1.JobProgress:
@@ -921,6 +992,7 @@ components:
         - JOB_TRIGGER_SCHEDULE
         - JOB_TRIGGER_MANUAL
         - JOB_TRIGGER_STARTUP
+        - JOB_TRIGGER_SYSTEM
     panelarr.meta.v1.LanguageCount:
       type: object
       properties:
@@ -1350,6 +1422,28 @@ components:
           title: profile
       title: PutProfileResponse
       additionalProperties: false
+    panelarr.meta.v1.PutSearchEngineRequest:
+      type: object
+      properties:
+        settings:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.SearchEngineSettings'
+          title: settings
+      title: PutSearchEngineRequest
+      additionalProperties: false
+    panelarr.meta.v1.PutSearchEngineResponse:
+      type: object
+      properties:
+        settings:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.SearchEngineSettings'
+          title: settings
+        status:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.SearchEngineStatus'
+          title: status
+      title: PutSearchEngineResponse
+      additionalProperties: false
     panelarr.meta.v1.PutSolverRequest:
       type: object
       properties:
@@ -1414,6 +1508,23 @@ components:
             title: value
           description: Providers that failed, with the reason.
       title: RefreshEntryResponse
+      additionalProperties: false
+    panelarr.meta.v1.ResetSearchEngineRequest:
+      type: object
+      title: ResetSearchEngineRequest
+      additionalProperties: false
+    panelarr.meta.v1.ResetSearchEngineResponse:
+      type: object
+      properties:
+        settings:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.SearchEngineSettings'
+          title: settings
+        status:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.SearchEngineStatus'
+          title: status
+      title: ResetSearchEngineResponse
       additionalProperties: false
     panelarr.meta.v1.RotateClientKeyRequest:
       type: object
@@ -1528,6 +1639,112 @@ components:
              Schedules are edited in the configuration, not here.
       title: Schedule
       description: 'When a job runs on its own. Neither cron nor interval: manual only.'
+    panelarr.meta.v1.SearchEngineSettings:
+      type: object
+      properties:
+        backend:
+          type: string
+          title: backend
+          description: '"postgres", "typesense" or "meilisearch".'
+        url:
+          type: string
+          title: url
+          description: |-
+            The engine's URL, e.g. http://typesense:8108. meta talks to it; browsers
+             never do.
+        apiKey:
+          type: string
+          title: api_key
+          description: 'Input only: never returned. Empty keeps the stored key.'
+        hasApiKey:
+          type: boolean
+          title: has_api_key
+          description: 'Output only: whether a key is stored.'
+        indexPrefix:
+          type: string
+          title: index_prefix
+          description: Names of meta's indexes start with it. Default "meta".
+        browse:
+          type: string
+          title: browse
+          description: |-
+            Who serves browsing (no search text): "facets" (the engine when facets
+             are asked for; default), "engine" or "postgres".
+        origin:
+          type: string
+          title: origin
+          description: 'Output only: "config" (the configuration file) or "admin".'
+      title: SearchEngineSettings
+      additionalProperties: false
+    panelarr.meta.v1.SearchEngineStatus:
+      type: object
+      properties:
+        backend:
+          type: string
+          title: backend
+          description: The backend answering searches.
+        typoTolerance:
+          type: boolean
+          title: typo_tolerance
+        substring:
+          type: boolean
+          title: substring
+        facets:
+          type: boolean
+          title: facets
+        ready:
+          type: boolean
+          title: ready
+          description: 'Engine only: the index is built and searches use it.'
+        reachable:
+          type: boolean
+          title: reachable
+        error:
+          type: string
+          title: error
+          description: Why the engine can't be reached, or why recent queries fell back.
+        errorAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: error_at
+        degraded:
+          type: boolean
+          title: degraded
+          description: Recent queries failed and PostgreSQL answered them.
+        index:
+          type: string
+          title: index
+        documents:
+          type: string
+          title: documents
+          format: int64
+        builtAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: built_at
+        pending:
+          type: string
+          title: pending
+          format: int64
+          description: Entry changes waiting for the engine, and the age of the oldest.
+        lag:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Duration'
+          title: lag
+        applied:
+          type: string
+          title: applied
+          format: int64
+          description: Changes the indexer applied since meta started, and its last error.
+        indexerError:
+          type: string
+          title: indexer_error
+        indexerErrorAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: indexer_error_at
+      title: SearchEngineStatus
+      additionalProperties: false
     panelarr.meta.v1.SearchHit:
       type: object
       properties:
@@ -1578,6 +1795,10 @@ components:
         language:
           type: string
           title: language
+        facets:
+          type: boolean
+          title: facets
+          description: Ask for counts per filter value (see BrowseRequest.facets).
       title: SearchRequest
       additionalProperties: false
     panelarr.meta.v1.SearchResponse:
@@ -1598,6 +1819,11 @@ components:
         noProviders:
           type: boolean
           title: no_providers
+        facets:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.meta.v1.Facet'
+          title: facets
       title: SearchResponse
       additionalProperties: false
     panelarr.meta.v1.SetDefaultProfileRequest:
@@ -1801,6 +2027,27 @@ components:
         - SYNC_RUN_STATUS_SUCCEEDED
         - SYNC_RUN_STATUS_FAILED
         - SYNC_RUN_STATUS_CANCELLED
+    panelarr.meta.v1.TestSearchEngineRequest:
+      type: object
+      properties:
+        settings:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.SearchEngineSettings'
+          title: settings
+      title: TestSearchEngineRequest
+      additionalProperties: false
+    panelarr.meta.v1.TestSearchEngineResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          title: ok
+        error:
+          type: string
+          title: error
+          description: Why it failed.
+      title: TestSearchEngineResponse
+      additionalProperties: false
     panelarr.meta.v1.UpdateClientRequest:
       type: object
       properties:
@@ -3880,6 +4127,91 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/panelarr.meta.v1.SetPushedProfileResponse'
+  /v1/admin/search-engine:
+    get:
+      tags:
+        - MetaIntegrationsService
+      summary: GetSearchEngine
+      description: |-
+        GetSearchEngine returns the search backend in force, where its settings
+         come from, and the state of its index and change feed. The API key is
+         never returned.
+      operationId: MetaIntegrationsService_GetSearchEngine
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.GetSearchEngineResponse'
+    put:
+      tags:
+        - MetaIntegrationsService
+      summary: PutSearchEngine
+      description: |-
+        PutSearchEngine saves search engine settings, which then win over the
+         configuration file, and switches to them at once. An empty api_key keeps
+         the stored key for the same engine and URL. A new or outdated index is
+         rebuilt in the background (the search-rebuild job); PostgreSQL answers
+         until it is ready.
+      operationId: MetaIntegrationsService_PutSearchEngine
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/panelarr.meta.v1.PutSearchEngineRequest'
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.PutSearchEngineResponse'
+  /v1/admin/search-engine:reset:
+    post:
+      tags:
+        - MetaIntegrationsService
+      summary: ResetSearchEngine
+      description: |-
+        ResetSearchEngine forgets the admin's settings and goes back to the
+         configuration file's.
+      operationId: MetaIntegrationsService_ResetSearchEngine
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/panelarr.meta.v1.ResetSearchEngineRequest'
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.ResetSearchEngineResponse'
+  /v1/admin/search-engine:test:
+    post:
+      tags:
+        - MetaIntegrationsService
+      summary: TestSearchEngine
+      description: |-
+        TestSearchEngine reaches an engine with the given settings without
+         saving them.
+      operationId: MetaIntegrationsService_TestSearchEngine
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/panelarr.meta.v1.TestSearchEngineRequest'
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.TestSearchEngineResponse'
   /v1/admin/solvers:
     get:
       tags:
@@ -4132,6 +4464,14 @@ paths:
           schema:
             type: string
             title: language
+        - name: facets
+          in: query
+          description: |-
+            Ask for counts per filter value. Only a search engine backend has
+             them; with PostgreSQL the response has none.
+          schema:
+            type: boolean
+            title: facets
       responses:
         "200":
           description: Success
@@ -4363,6 +4703,12 @@ paths:
           schema:
             type: string
             title: language
+        - name: facets
+          in: query
+          description: Ask for counts per filter value (see BrowseRequest.facets).
+          schema:
+            type: boolean
+            title: facets
       responses:
         "200":
           description: Success

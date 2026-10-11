@@ -134,6 +134,7 @@ func (m *Meta) Browse(ctx context.Context, req *connect.Request[metav1.BrowseReq
 	}
 	res, err := m.idx.Query(ctx, search.Query{
 		Filter: toFilter(r.GetFilter()), Sort: toSort(r.GetSort()), Reverse: r.GetReverse(), Limit: size, Offset: off,
+		Facets: r.GetFacets(),
 	})
 	if err != nil {
 		return nil, err
@@ -142,7 +143,7 @@ func (m *Meta) Browse(ctx context.Context, req *connect.Request[metav1.BrowseReq
 	if err != nil {
 		return nil, err
 	}
-	out := &metav1.BrowseResponse{Entries: sums, TotalSize: res.Total, NoProviders: m.host.Empty()}
+	out := &metav1.BrowseResponse{Entries: sums, TotalSize: res.Total, NoProviders: m.host.Empty(), Facets: facetsProto(res.Facets)}
 	if int64(off+size) < res.Total {
 		out.NextPageToken = encodeOffset(off + size)
 	}
@@ -164,6 +165,7 @@ func (m *Meta) Search(ctx context.Context, req *connect.Request[metav1.SearchReq
 	}
 	res, err := m.idx.Query(ctx, search.Query{
 		Text: r.GetQuery(), Filter: toFilter(r.GetFilter()), Sort: toSort(r.GetSort()), Reverse: r.GetReverse(), Limit: size, Offset: off,
+		Facets: r.GetFacets(),
 	})
 	if err != nil {
 		return nil, err
@@ -172,7 +174,7 @@ func (m *Meta) Search(ctx context.Context, req *connect.Request[metav1.SearchReq
 	if err != nil {
 		return nil, err
 	}
-	out := &metav1.SearchResponse{TotalSize: res.Total, NoProviders: m.host.Empty()}
+	out := &metav1.SearchResponse{TotalSize: res.Total, NoProviders: m.host.Empty(), Facets: facetsProto(res.Facets)}
 	for i, h := range res.Hits {
 		out.Hits = append(out.Hits, &metav1.SearchHit{Entry: sums[i], Score: h.Score, Matched: h.Matched, MatchedField: h.Field})
 	}
@@ -180,6 +182,18 @@ func (m *Meta) Search(ctx context.Context, req *connect.Request[metav1.SearchReq
 		out.NextPageToken = encodeOffset(off + size)
 	}
 	return connect.NewResponse(out), nil
+}
+
+func facetsProto(fs []search.Facet) []*metav1.Facet {
+	out := make([]*metav1.Facet, 0, len(fs))
+	for _, f := range fs {
+		pf := &metav1.Facet{Field: f.Field}
+		for _, v := range f.Values {
+			pf.Values = append(pf.Values, &metav1.FacetValue{Value: v.Value, Count: v.Count})
+		}
+		out = append(out, pf)
+	}
+	return out
 }
 
 func hitIDs(hits []search.Hit) []uuid.UUID {
