@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/panelarr/meta/internal/api"
+	"github.com/panelarr/meta/internal/duplicates"
 	"github.com/panelarr/meta/internal/ingest"
 	"github.com/panelarr/meta/internal/jobs"
 	"github.com/panelarr/meta/internal/searchsvc"
@@ -21,6 +22,7 @@ const (
 	jobStaleRefresh   = "stale-refresh"
 	jobSearchRebuild  = "search-rebuild"
 	jobSearchIndexer  = "search-indexer"
+	jobDuplicates     = duplicates.JobID
 )
 
 // newJobs registers every background job: a sync job per provider and
@@ -114,6 +116,24 @@ func (a *app) newJobs() *jobs.Manager {
 		}
 		r.Message("applied %d changes", n)
 		return nil
+	})
+	m.Add(jobs.Def{
+		ID:   jobDuplicates,
+		Name: "Find duplicates",
+		Description: "Compares the entries that changed since the last run with likely partners (equal title keys, " +
+			"similar titles, IDs at other sites in common) and keeps the pairs worth a look for a curator, under Duplicates. " +
+			"With a decision model on, it also rates the best pairs. Nothing is merged without a curator.",
+		Group: "Catalogue",
+		Schedule: jobs.Schedule{
+			Cron: a.cfg.Duplicates.Schedule, Enabled: a.cfg.Duplicates.Schedule != "", Source: "duplicates.schedule",
+		},
+		Params: []jobs.Param{
+			{Name: "full", Type: jobs.ParamBool, Default: "false", Description: "Compare every entry, not only those changed since the last run"},
+			{Name: "judge", Type: jobs.ParamBool, Default: "true", Description: "Let the decision model rate the best pairs, when one is on"},
+		},
+		Cancellable: true,
+	}, func(ctx context.Context, r *jobs.Recorder) error {
+		return a.dups.Run(ctx, r, jobs.Bool(r.Params(), "full"), jobs.Bool(r.Params(), "judge"))
 	})
 	return m
 }

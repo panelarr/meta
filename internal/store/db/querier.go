@@ -17,6 +17,7 @@ type Querier interface {
 	ClaimSearchOutbox(ctx context.Context, lim int32) ([]ClaimSearchOutboxRow, error)
 	ClearSearchOutbox(ctx context.Context) error
 	CountActiveEntries(ctx context.Context) (int64, error)
+	CountDuplicateCandidates(ctx context.Context, arg CountDuplicateCandidatesParams) (int64, error)
 	CountEntries(ctx context.Context) (int64, error)
 	CountProfiles(ctx context.Context) (int64, error)
 	CountProviderEntries(ctx context.Context) ([]CountProviderEntriesRow, error)
@@ -24,6 +25,7 @@ type Querier interface {
 	CreateJobRun(ctx context.Context, arg CreateJobRunParams) (JobRun, error)
 	// SPDX-License-Identifier: GPL-3.0-or-later
 	CreateSyncRun(ctx context.Context, arg CreateSyncRunParams) (SyncRun, error)
+	DecideDuplicate(ctx context.Context, arg DecideDuplicateParams) (DuplicateCandidate, error)
 	DeleteAssignment(ctx context.Context, provider string) error
 	DeleteClient(ctx context.Context, id string) (int64, error)
 	DeleteCompaniesOf(ctx context.Context, ids []uuid.UUID) error
@@ -42,6 +44,7 @@ type Querier interface {
 	DeleteExternalIDsOf(ctx context.Context, ids []uuid.UUID) error
 	DeleteFieldLock(ctx context.Context, arg DeleteFieldLockParams) error
 	DeleteImagesOf(ctx context.Context, ids []uuid.UUID) error
+	DeleteJudgeSettings(ctx context.Context) error
 	DeleteLinksOf(ctx context.Context, ids []uuid.UUID) error
 	DeleteProfile(ctx context.Context, id string) (int64, error)
 	DeletePushedProfile(ctx context.Context, provider string) error
@@ -53,6 +56,8 @@ type Querier interface {
 	DeleteTitlesOf(ctx context.Context, ids []uuid.UUID) error
 	// Tags no entry carries any more (after a rebuild).
 	DeleteUnusedTags(ctx context.Context) (int64, error)
+	// Pairs of an entry that just got merged away are moot.
+	DropOpenDuplicatesOf(ctx context.Context, entryID uuid.UUID) error
 	// SPDX-License-Identifier: GPL-3.0-or-later
 	EnqueueSearch(ctx context.Context, ids []uuid.UUID) error
 	// Whether the entry already holds an active record of the provider (other
@@ -84,6 +89,7 @@ type Querier interface {
 	GetClient(ctx context.Context, id string) (Client, error)
 	GetClientByKeyHash(ctx context.Context, keyHash []byte) (Client, error)
 	GetDefaultProfileID(ctx context.Context) (pgtype.Text, error)
+	GetDuplicateCandidate(ctx context.Context, id int64) (DuplicateCandidate, error)
 	// SPDX-License-Identifier: GPL-3.0-or-later
 	//
 	// Set-based variants used by the catalog writer, so a batch of records
@@ -92,6 +98,8 @@ type Querier interface {
 	GetEntry(ctx context.Context, id uuid.UUID) (Entry, error)
 	GetEntryHash(ctx context.Context, id uuid.UUID) ([]byte, error)
 	GetJobRun(ctx context.Context, id uuid.UUID) (JobRun, error)
+	// SPDX-License-Identifier: GPL-3.0-or-later
+	GetJudgeSettings(ctx context.Context) (JudgeSetting, error)
 	GetProfile(ctx context.Context, id string) (NetworkProfile, error)
 	GetProvider(ctx context.Context, id string) (Provider, error)
 	GetProviderEntry(ctx context.Context, arg GetProviderEntryParams) (ProviderEntry, error)
@@ -136,6 +144,7 @@ type Querier interface {
 	ListAttributionsForEntries(ctx context.Context, ids []uuid.UUID) ([]ListAttributionsForEntriesRow, error)
 	// SPDX-License-Identifier: GPL-3.0-or-later
 	ListClients(ctx context.Context) ([]Client, error)
+	ListDuplicateCandidates(ctx context.Context, arg ListDuplicateCandidatesParams) ([]DuplicateCandidate, error)
 	ListEntryCompanies(ctx context.Context, entryID uuid.UUID) ([]ListEntryCompaniesRow, error)
 	ListEntryCredits(ctx context.Context, entryID uuid.UUID) ([]ListEntryCreditsRow, error)
 	ListEntryDescriptions(ctx context.Context, entryID uuid.UUID) ([]EntryDescription, error)
@@ -194,10 +203,12 @@ type Querier interface {
 	PruneJobRuns(ctx context.Context, arg PruneJobRunsParams) (int64, error)
 	// Keeps the newest @keep finished runs of a provider and kind.
 	PruneSyncRuns(ctx context.Context, arg PruneSyncRunsParams) (int64, error)
+	PutJudgeSettings(ctx context.Context, arg PutJudgeSettingsParams) error
 	PutProfile(ctx context.Context, arg PutProfileParams) error
 	PutSearchSettings(ctx context.Context, arg PutSearchSettingsParams) error
 	PutSolver(ctx context.Context, arg PutSolverParams) error
 	RecountTags(ctx context.Context) error
+	ReopenDuplicate(ctx context.Context, id int64) (DuplicateCandidate, error)
 	// Keep redirect chains one hop long.
 	RepointRedirects(ctx context.Context, arg RepointRedirectsParams) error
 	RotateClientKey(ctx context.Context, arg RotateClientKeyParams) (Client, error)

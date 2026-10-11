@@ -1,0 +1,256 @@
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package panelarr.meta.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "panelarr/meta/v1/meta.proto";
+
+option go_package = "github.com/panelarr/meta/gen/panelarr/meta/v1;metav1";
+
+// MetaDuplicatesService lists entries that are probably the same work but
+// aren't linked, and lets a curator confirm (merge) or dismiss each pair.
+// Pairs are found by the "duplicates" job (MetaJobsService) and optionally
+// rated by a decision model. Nothing merges without a curator. Admin scope.
+service MetaDuplicatesService {
+  // ListDuplicates lists pairs, best score first.
+  rpc ListDuplicates(ListDuplicatesRequest) returns (ListDuplicatesResponse) {
+    option (google.api.http) = {get: "/v1/admin/duplicates"};
+  }
+
+  // GetDuplicate returns one pair.
+  rpc GetDuplicate(GetDuplicateRequest) returns (GetDuplicateResponse) {
+    option (google.api.http) = {get: "/v1/admin/duplicates/{id}"};
+  }
+
+  // ConfirmDuplicate merges the pair into one entry: the other entry's
+  // records move over, and its ID redirects to the one that stays.
+  rpc ConfirmDuplicate(ConfirmDuplicateRequest) returns (ConfirmDuplicateResponse) {
+    option (google.api.http) = {
+      post: "/v1/admin/duplicates/{id}:confirm"
+      body: "*"
+    };
+  }
+
+  // DismissDuplicate records that the two are different works. The pair
+  // never comes back.
+  rpc DismissDuplicate(DismissDuplicateRequest) returns (DismissDuplicateResponse) {
+    option (google.api.http) = {
+      post: "/v1/admin/duplicates/{id}:dismiss"
+      body: "*"
+    };
+  }
+
+  // ReopenDuplicate takes back a dismissal.
+  rpc ReopenDuplicate(ReopenDuplicateRequest) returns (ReopenDuplicateResponse) {
+    option (google.api.http) = {
+      post: "/v1/admin/duplicates/{id}:reopen"
+      body: "*"
+    };
+  }
+
+  // GetDecisionJudge returns the decision model settings in force. The API
+  // key is never returned.
+  rpc GetDecisionJudge(GetDecisionJudgeRequest) returns (GetDecisionJudgeResponse) {
+    option (google.api.http) = {get: "/v1/admin/decision-judge"};
+  }
+
+  // PutDecisionJudge saves decision model settings; they win over the
+  // configuration file. An empty api_key keeps the stored one for the same
+  // kind and URL.
+  rpc PutDecisionJudge(PutDecisionJudgeRequest) returns (PutDecisionJudgeResponse) {
+    option (google.api.http) = {
+      put: "/v1/admin/decision-judge"
+      body: "*"
+    };
+  }
+
+  // TestDecisionJudge asks the model about a made-up pair without saving
+  // the settings. It costs a few hundred tokens.
+  rpc TestDecisionJudge(TestDecisionJudgeRequest) returns (TestDecisionJudgeResponse) {
+    option (google.api.http) = {
+      post: "/v1/admin/decision-judge:test"
+      body: "*"
+    };
+  }
+
+  // ResetDecisionJudge forgets the admin's settings and uses the
+  // configuration file's.
+  rpc ResetDecisionJudge(ResetDecisionJudgeRequest) returns (ResetDecisionJudgeResponse) {
+    option (google.api.http) = {
+      post: "/v1/admin/decision-judge:reset"
+      body: "*"
+    };
+  }
+}
+
+enum DuplicateStatus {
+  DUPLICATE_STATUS_UNSPECIFIED = 0;
+  DUPLICATE_STATUS_OPEN = 1;
+  DUPLICATE_STATUS_CONFIRMED = 2;
+  DUPLICATE_STATUS_DISMISSED = 3;
+}
+
+message DuplicatePair {
+  int64 id = 1;
+  EntrySummary entry_a = 2;
+  EntrySummary entry_b = 3;
+  DuplicateStatus status = 4;
+  // 0..1: how likely meta's own comparison thinks the two are one work.
+  double score = 5;
+  DuplicateSignals signals = 6;
+  // The decision model's answer, if one was asked.
+  DuplicateVerdict verdict = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+  google.protobuf.Timestamp decided_at = 10;
+  // Who decided: "admin" or a client's name.
+  string decided_by = 11;
+  string note = 12;
+}
+
+// What the score is made of.
+message DuplicateSignals {
+  // Best title similarity (1: the same normalized title) and the titles.
+  double title = 1;
+  string title_a = 2;
+  string title_b = 3;
+  // Share of credited people in common (0..1); -1 when a side has none.
+  double people = 4;
+  repeated string shared_people = 5;
+  int32 year_a = 6;
+  int32 year_b = 7;
+  string type_a = 8;
+  string type_b = 9;
+  string language_a = 10;
+  string language_b = 11;
+  // IDs at another site both report ("anilist:30013").
+  repeated string shared_ids = 12;
+  // Both come from the same provider, which keeps records apart on
+  // purpose unless its data has duplicates.
+  bool same_provider = 13;
+}
+
+// A decision model's answer. Models give probabilities, not reasons.
+message DuplicateVerdict {
+  // "openai", "typesafe" or "clef", and the model.
+  string judge = 1;
+  string model = 2;
+  // Probability that the two are the same work.
+  double same = 3;
+  // "same_work", "related_work" or "different", with every option's
+  // probability.
+  string choice = 4;
+  map<string, double> probabilities = 5;
+  double confidence = 6;
+  int64 tokens = 7;
+  google.protobuf.Timestamp at = 8;
+}
+
+message ListDuplicatesRequest {
+  // Default: open pairs.
+  DuplicateStatus status = 1;
+  double min_score = 2;
+  // Only pairs the decision model rated.
+  bool judged_only = 3;
+  // 1..100, default 20.
+  int32 page_size = 4;
+  string page_token = 5;
+}
+
+message ListDuplicatesResponse {
+  repeated DuplicatePair pairs = 1;
+  string next_page_token = 2;
+  int64 total_size = 3;
+}
+
+message GetDuplicateRequest {
+  int64 id = 1;
+}
+
+message GetDuplicateResponse {
+  DuplicatePair pair = 1;
+}
+
+message ConfirmDuplicateRequest {
+  int64 id = 1;
+  // The entry that stays: "a" or "b". Empty keeps the more popular one.
+  string keep = 2;
+  string note = 3;
+}
+
+message ConfirmDuplicateResponse {
+  DuplicatePair pair = 1;
+  // The entry the two are now.
+  string entry_id = 2;
+}
+
+message DismissDuplicateRequest {
+  int64 id = 1;
+  string note = 2;
+}
+
+message DismissDuplicateResponse {
+  DuplicatePair pair = 1;
+}
+
+message ReopenDuplicateRequest {
+  int64 id = 1;
+}
+
+message ReopenDuplicateResponse {
+  DuplicatePair pair = 1;
+}
+
+message DecisionJudgeSettings {
+  // The model rates the best pairs after each duplicates run. Off by
+  // default: nothing is sent anywhere until it is on.
+  bool enabled = 1;
+  // "openai", "typesafe" or "clef".
+  string kind = 2;
+  // Base URL (default the provider's); for clef the model's run URL.
+  string url = 3;
+  // Default: gpt-6-luna (openai), jev-latest (typesafe), clef.
+  string model = 4;
+  // Input only: never returned. Empty keeps the stored key.
+  string api_key = 5;
+  // Output only.
+  bool has_api_key = 6;
+  // Send cover images to models that take them (openai, clef).
+  bool covers = 7;
+  // Output only: "config" or "admin".
+  string origin = 8;
+}
+
+message GetDecisionJudgeRequest {}
+
+message GetDecisionJudgeResponse {
+  DecisionJudgeSettings settings = 1;
+}
+
+message PutDecisionJudgeRequest {
+  DecisionJudgeSettings settings = 1;
+}
+
+message PutDecisionJudgeResponse {
+  DecisionJudgeSettings settings = 1;
+}
+
+message TestDecisionJudgeRequest {
+  DecisionJudgeSettings settings = 1;
+}
+
+message TestDecisionJudgeResponse {
+  bool ok = 1;
+  string error = 2;
+  // The answer about the made-up pair (two listings of one work).
+  DuplicateVerdict verdict = 3;
+}
+
+message ResetDecisionJudgeRequest {}
+
+message ResetDecisionJudgeResponse {
+  DecisionJudgeSettings settings = 1;
+}

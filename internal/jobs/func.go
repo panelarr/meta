@@ -226,6 +226,9 @@ type Recorder struct {
 	saved    time.Time
 }
 
+// RunID is the run's ID.
+func (r *Recorder) RunID() uuid.UUID { return r.run }
+
 // Params are the values the run was started with, defaults filled in.
 func (r *Recorder) Params() map[string]string { return r.params }
 

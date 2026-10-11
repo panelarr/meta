@@ -31,9 +31,9 @@ type FinderOptions struct {
 	// common to pair on by itself ("love", "untitled"). Default 50.
 	CommonTitle int
 	// SimilarLimit: runs that look at no more entries than this also pair
-	// on similar titles (trigrams), which costs tens of milliseconds per
-	// title in a large catalogue. Larger runs (the first one) pair on
-	// title keys and IDs only. Default 20000.
+	// on similar primary titles (trigrams), which costs tens of
+	// milliseconds per title in a large catalogue. Larger runs (the first
+	// one) pair on title keys and IDs only. Default 5000.
 	SimilarLimit int64
 	// Batch is how many entries are compared per round. Default 500.
 	Batch int
@@ -59,7 +59,7 @@ func (o *FinderOptions) defaults() {
 		o.Batch = 500
 	}
 	if o.SimilarLimit <= 0 {
-		o.SimilarLimit = 20000
+		o.SimilarLimit = 5000
 	}
 	if o.Workers <= 0 {
 		o.Workers = 4
@@ -373,12 +373,11 @@ func (f *Finder) partners(ctx context.Context, ids []uuid.UUID, similar bool, to
 		}
 		timed("same_title")
 		if similar {
-			// Similar titles: the display-worthy ones (primary, or long enough
-			// to mean something), a few best matches each.
+			// Similar titles: the primary ones, a few best matches each.
 			if err := add(tx.Query(ctx, `
 				SELECT s.entry_id, m.entry_id
 				FROM (SELECT DISTINCT entry_id, norm FROM entry_titles
-				      WHERE entry_id = ANY($1) AND (is_primary OR length(norm) >= 8)) s
+				      WHERE entry_id = ANY($1) AND is_primary AND length(norm) >= 3) s
 				CROSS JOIN LATERAL (
 					SELECT o.entry_id FROM entry_titles o
 					JOIN entries e ON e.id = o.entry_id AND e.state = 'active'

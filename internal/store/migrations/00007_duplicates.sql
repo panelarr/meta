@@ -73,6 +73,7 @@ CREATE TABLE judge_settings (
     url            text NOT NULL DEFAULT '',
     model          text NOT NULL DEFAULT '',
     api_key_sealed text,
+    covers         boolean NOT NULL DEFAULT false,
     updated_at     timestamptz NOT NULL DEFAULT now()
 );
 

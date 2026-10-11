@@ -44,6 +44,30 @@ type CompanyExternalID struct {
 	CompanyID  uuid.UUID
 }
 
+type DuplicateCandidate struct {
+	ID        int64
+	EntryA    uuid.UUID
+	EntryB    uuid.UUID
+	Status    string
+	Score     float64
+	Signals   []byte
+	PairHash  []byte
+	Verdict   []byte
+	RunID     uuid.NullUUID
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DecidedAt *time.Time
+	DecidedBy string
+	Note      string
+}
+
+type DuplicateVerdict struct {
+	PairHash  []byte
+	Judge     string
+	Verdict   []byte
+	CreatedAt time.Time
+}
+
 type Entry struct {
 	ID               uuid.UUID
 	State            string
@@ -201,6 +225,17 @@ type JobRun struct {
 	Params      []byte
 	Notes       []byte
 	Progress    []byte
+}
+
+type JudgeSetting struct {
+	ID           int32
+	Enabled      bool
+	Kind         string
+	Url          string
+	Model        string
+	ApiKeySealed pgtype.Text
+	Covers       bool
+	UpdatedAt    time.Time
 }
 
 type MaintenanceJob struct {

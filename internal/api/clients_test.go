@@ -40,6 +40,7 @@ type clientsFor struct {
 	admin        metav1connect.MetaAdminServiceClient
 	clients      metav1connect.MetaClientsServiceClient
 	jobs         metav1connect.MetaJobsServiceClient
+	duplicates   metav1connect.MetaDuplicatesServiceClient
 }
 
 func (f *fixture) as(token string) clientsFor {
@@ -51,6 +52,7 @@ func (f *fixture) as(token string) clientsFor {
 		admin:        metav1connect.NewMetaAdminServiceClient(hc, f.srv.URL, opt),
 		clients:      metav1connect.NewMetaClientsServiceClient(hc, f.srv.URL, opt),
 		jobs:         metav1connect.NewMetaJobsServiceClient(hc, f.srv.URL, opt),
+		duplicates:   metav1connect.NewMetaDuplicatesServiceClient(hc, f.srv.URL, opt),
 	}
 }
 

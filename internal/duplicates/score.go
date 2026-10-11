@@ -131,6 +131,10 @@ func Score(a, b *Features, opts Options) (float64, Signals, string) {
 	switch {
 	case s.People < 0:
 		score += 0.2 * 0.5
+	case s.People == 0:
+		// Both credit people and none match: different authors usually
+		// mean different works, whatever the title.
+		score -= 0.15
 	default:
 		score += 0.2 * math.Min(1, s.People*2) // half the people in common is plenty
 	}
