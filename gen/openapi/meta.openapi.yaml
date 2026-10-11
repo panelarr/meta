@@ -205,6 +205,42 @@ components:
           title: last_used_at
       title: Client
       additionalProperties: false
+    panelarr.meta.v1.ComponentHealth:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+          description: '"database", "search" or "provider:<id>".'
+        kind:
+          type: string
+          title: kind
+          description: '"database", "search" or "provider".'
+        status:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.HealthStatus'
+          title: status
+        message:
+          type: string
+          title: message
+        latency:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Duration'
+          title: latency
+          description: How long the check took.
+        checkedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: checked_at
+        details:
+          type: object
+          title: details
+          additionalProperties:
+            type: string
+            title: value
+          description: Extra facts, e.g. the search backend's capabilities or a plugin's version.
+      title: ComponentHealth
+      additionalProperties: false
     panelarr.meta.v1.CreateClientRequest:
       type: object
       properties:
@@ -588,6 +624,31 @@ components:
             Set when the requested ID was merged and the response is the entry it
              was merged into.
       title: GetEntryResponse
+      additionalProperties: false
+    panelarr.meta.v1.GetHealthRequest:
+      type: object
+      title: GetHealthRequest
+      additionalProperties: false
+    panelarr.meta.v1.GetHealthResponse:
+      type: object
+      properties:
+        status:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.HealthStatus'
+          title: status
+          description: |-
+            DOWN when the database is down; DEGRADED when the search backend or a
+             plugin is down or degraded; OK otherwise.
+        components:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.meta.v1.ComponentHealth'
+          title: components
+        version:
+          type: string
+          title: version
+          description: meta's version.
+      title: GetHealthResponse
       additionalProperties: false
     panelarr.meta.v1.GetSyncRunRequest:
       type: object
@@ -3040,6 +3101,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/panelarr.meta.v1.RefreshEntryResponse'
+  /v1/admin/health:
+    get:
+      tags:
+        - MetaAdminService
+      summary: GetHealth
+      description: |-
+        GetHealth reports the health of meta's parts: the database, the search
+         backend and every provider's plugin.
+      operationId: MetaAdminService_GetHealth
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.GetHealthResponse'
   /v1/admin/profiles:
     get:
       tags:
@@ -3742,6 +3819,7 @@ tags:
 
        Scopes:
        - `catalog:read`: browse, search and read the catalogue (MetaService).
+       - `metrics:read`: scrape /metrics when it is served on the API port.
        - `admin`: everything, including this service and MetaAdminService.
 
        Keys are shown once, when created or rotated, and stored only as hashes.

@@ -27,6 +27,7 @@ Each caller (a Panelarr server, a script) gets its own **client** with an API ke
 | Scope | Allows |
 |---|---|
 | `catalog:read` | `MetaService`: browse, search, entry details, lookups, tags |
+| `metrics:read` | `/metrics` when it's served on the API port |
 | `admin` | Everything, including `MetaAdminService`, `MetaClientsService` and gRPC reflection |
 
 Anything not listed needs `admin`. A missing or wrong token gets `unauthenticated` (HTTP 401), a missing scope `permission_denied` (403).
@@ -101,6 +102,7 @@ IDs of entries that were merged into another keep working: `GetEntry` returns th
 | `RunSync` | `POST /v1/admin/providers/{provider}/sync` with `{"kind": "dump", "force": false}` | Start a sync now; returns the run at once (409 if one is running) |
 | `ListSyncRuns` | `GET /v1/admin/sync-runs?provider=…` | Runs, newest first |
 | `GetSyncRun` | `GET /v1/admin/sync-runs/{id}` | One run: status, counts, progress, notices, error |
+| `GetHealth` | `GET /v1/admin/health` | Database, search backend and every plugin, with status, latency and details ([observability](observability.md)) |
 | `RefreshEntry` | `POST /v1/admin/entries/{id}/refresh` | Fetch fresh records for one entry from providers that support lookups |
 
 ## Errors

@@ -25,6 +25,7 @@ import (
 	"github.com/panelarr/meta/internal/enums"
 	"github.com/panelarr/meta/internal/host"
 	"github.com/panelarr/meta/internal/ingest"
+	"github.com/panelarr/meta/internal/search"
 	"github.com/panelarr/meta/internal/store"
 	"github.com/panelarr/meta/internal/store/db"
 	"github.com/panelarr/meta/sdk/plugin"
@@ -37,6 +38,7 @@ type Admin struct {
 	host   *host.Host
 	runner *ingest.Runner
 	writer *catalog.Writer
+	idx    search.Index
 	// base is the context syncs started from the API run in; it ends when
 	// meta shuts down, not when the request ends.
 	base context.Context

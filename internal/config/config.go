@@ -49,6 +49,17 @@ type Config struct {
 	Providers []Provider `yaml:"providers"`
 	// Log configures logging.
 	Log Log `yaml:"log"`
+	// Metrics configures the Prometheus metrics endpoint.
+	Metrics Metrics `yaml:"metrics"`
+}
+
+// Metrics configures Prometheus metrics. They are off by default and, when
+// on, served on their own address so they aren't open on the API port.
+type Metrics struct {
+	Enabled bool `yaml:"enabled"`
+	// Listen is the metrics address, e.g. ":9464". Empty serves /metrics on
+	// the API port instead, to callers with the metrics:read scope.
+	Listen string `yaml:"listen"`
 }
 
 type Search struct {
@@ -155,7 +166,8 @@ func expand(b []byte) []byte {
 //
 // Environment variables: META_CONFIG (file path, when path is empty),
 // META_LISTEN, META_ADMIN_TOKEN, META_DATA_DIR, META_SECRET_KEY, META_DATABASE_URL, META_API_KEYS (comma-separated),
-// META_LOG_LEVEL, META_LOG_FORMAT, META_SEARCH_BACKEND.
+// META_LOG_LEVEL, META_LOG_FORMAT, META_SEARCH_BACKEND, META_METRICS_ENABLED,
+// META_METRICS_LISTEN.
 func Load(path string) (Config, error) {
 	return LoadWith(path, nil)
 }
@@ -199,6 +211,12 @@ func applyEnv(cfg *Config) {
 	set(&cfg.Log.Level, "META_LOG_LEVEL")
 	set(&cfg.Log.Format, "META_LOG_FORMAT")
 	set(&cfg.Search.Backend, "META_SEARCH_BACKEND")
+	if v := os.Getenv("META_METRICS_ENABLED"); v != "" {
+		cfg.Metrics.Enabled = v == "true" || v == "1"
+	}
+	if v, ok := os.LookupEnv("META_METRICS_LISTEN"); ok {
+		cfg.Metrics.Listen = v
+	}
 	if v := os.Getenv("META_API_KEYS"); v != "" {
 		cfg.APIKeys = nil
 		for k := range strings.SplitSeq(v, ",") {

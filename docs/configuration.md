@@ -30,6 +30,8 @@ meta version
 | `merge.display_language` | | `en` | Language of display titles when a request doesn't ask for one |
 | `ingest.batch_size` | | `500` | Records per transaction when a plugin sends checkpoints rarely |
 | `ingest.stale_after` | | `168h` | Age after which a lookup refreshes an entry from its providers |
+| `metrics.enabled` | `META_METRICS_ENABLED` | `false` | Prometheus metrics (see [observability](observability.md)) |
+| `metrics.listen` | `META_METRICS_LISTEN` | `:9464` | Address of the metrics endpoint. Empty: `/metrics` on the API port for the `metrics:read` scope |
 | `log.level` | `META_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `log.format` | `META_LOG_FORMAT` | `json` | `json` or `text` |
 | `providers` | | none | Metadata plugins (below) |

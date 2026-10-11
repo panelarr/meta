@@ -22,6 +22,7 @@ import (
 	metadatav1 "github.com/panelarr/meta/gen/panelarr/metadata/v1"
 	"github.com/panelarr/meta/internal/config"
 	"github.com/panelarr/meta/internal/enums"
+	"github.com/panelarr/meta/internal/metrics"
 	"github.com/panelarr/meta/internal/store"
 	"github.com/panelarr/meta/internal/store/db"
 	"github.com/panelarr/meta/sdk/client"
@@ -55,6 +56,7 @@ type ProfileSource func(ctx context.Context, provider string) (*metadatav1.Netwo
 
 // Host owns the configured providers.
 type Host struct {
+	metrics   *metrics.Metrics
 	profiles  ProfileSource
 	st        *store.Store
 	log       *slog.Logger
@@ -88,6 +90,9 @@ func (h *Host) Start(ctx context.Context, interval time.Duration) {
 		go p.watch(ctx, interval)
 	}
 }
+
+// SetMetrics records plugin calls and health in m. Call it before Start.
+func (h *Host) SetMetrics(m *metrics.Metrics) { h.metrics = m }
 
 // SetProfileSource sets where network profiles come from. Call it before
 // Start.
@@ -269,6 +274,14 @@ func (p *Provider) disconnect() {
 
 func (p *Provider) setHealthLocked(ctx context.Context, s metadatav1.HealthStatus, msg string) {
 	p.health, p.message = s, msg
+	up := 0.0
+	switch s {
+	case metadatav1.HealthStatus_HEALTH_STATUS_OK:
+		up = 1
+	case metadatav1.HealthStatus_HEALTH_STATUS_DEGRADED:
+		up = 0.5
+	}
+	p.host.metrics.PluginHealth(p.cfg.ID, up)
 	var info []byte
 	if p.info != nil {
 		info, _ = protojson.Marshal(p.info)
@@ -293,7 +306,10 @@ func (p *Provider) pushProfile(ctx context.Context, c client.Client, info *metad
 	if err != nil {
 		return err
 	}
-	return c.SetNetworkProfile(ctx, np)
+	start := time.Now()
+	err = c.SetNetworkProfile(ctx, np)
+	p.host.metrics.PluginCall(p.cfg.ID, "set_network_profile", start, err)
+	return err
 }
 
 func declaresNetworkProfile(info *metadatav1.PluginInfo) bool {
@@ -312,7 +328,9 @@ func (p *Provider) CheckHealth(ctx context.Context) {
 	if err != nil {
 		return
 	}
+	start := time.Now()
 	h, err := c.Health(ctx)
+	p.host.metrics.PluginCall(p.cfg.ID, "health", start, err)
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if err != nil {
@@ -435,7 +453,10 @@ func (p *Provider) Get(ctx context.Context, ref *metadatav1.ExternalId) (*metada
 		return nil, err
 	}
 	defer release()
-	return c.Get(ctx, ref)
+	start := time.Now()
+	e, err := c.Get(ctx, ref)
+	p.host.metrics.PluginCall(p.cfg.ID, "get", start, err)
+	return e, err
 }
 
 // Search searches through the plugin's lookup, within its limits.
@@ -453,7 +474,10 @@ func (p *Provider) Search(ctx context.Context, req *metadatav1.SearchRequest) (*
 		return nil, err
 	}
 	defer release()
-	return c.Search(ctx, req)
+	start := time.Now()
+	res, err := c.Search(ctx, req)
+	p.host.metrics.PluginCall(p.cfg.ID, "search", start, err)
+	return res, err
 }
 
 // Sync starts a sync within the plugin's limits. Call release when the
@@ -470,7 +494,9 @@ func (p *Provider) Sync(ctx context.Context, req *metadatav1.SyncRequest) (clien
 	if err != nil {
 		return nil, nil, err
 	}
+	start := time.Now()
 	s, err := c.Sync(ctx, req)
+	p.host.metrics.PluginCall(p.cfg.ID, "sync", start, err)
 	if err != nil {
 		release()
 		return nil, nil, err

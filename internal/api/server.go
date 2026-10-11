@@ -22,6 +22,7 @@ import (
 	"github.com/panelarr/meta/gen/openapi"
 	"github.com/panelarr/meta/gen/panelarr/meta/v1/metav1connect"
 	"github.com/panelarr/meta/internal/auth"
+	"github.com/panelarr/meta/internal/metrics"
 	"github.com/panelarr/meta/sdk/plugin"
 )
 
@@ -44,6 +45,11 @@ type Services struct {
 
 // Options configure the server.
 type Options struct {
+	// Metrics records API calls; nil records nothing.
+	Metrics *metrics.Metrics
+	// MetricsHandler, when set, serves /metrics on the API port to callers
+	// with the metrics:read scope.
+	MetricsHandler http.Handler
 	// Auth checks credentials. Nil serves everything without credentials,
 	// which is only meant for tests.
 	Auth *auth.Authenticator
@@ -58,7 +64,7 @@ func New(svc Services, opts Options) (*Server, error) {
 	hopts := []connect.HandlerOption{
 		// Scope checks run first, so a caller without the scope learns
 		// nothing from the handler.
-		connect.WithInterceptors(scopeInterceptor{}, errorInterceptor{log: opts.Log}),
+		connect.WithInterceptors(metricsInterceptor{m: opts.Metrics}, scopeInterceptor{}, errorInterceptor{log: opts.Log}),
 		connect.WithReadMaxBytes(4 << 20),
 	}
 	var services []*vanguard.Service
@@ -91,6 +97,9 @@ func New(svc Services, opts Options) (*Server, error) {
 		w.Header().Set("Content-Type", "application/yaml")
 		_, _ = w.Write(openapi.Meta)
 	})
+	if opts.MetricsHandler != nil {
+		mux.Handle("GET /metrics", s.authn(requireScope(auth.ScopeMetricsRead, opts.MetricsHandler)))
+	}
 	mux.Handle("/", s.authn(transcoder))
 	s.handler = mux
 	return s, nil
@@ -161,6 +170,38 @@ func requireScope(scope string, next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// metricsInterceptor counts API calls by procedure and code. It runs
+// outermost, so it sees refused calls too.
+type metricsInterceptor struct{ m *metrics.Metrics }
+
+func (i metricsInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
+	if i.m == nil {
+		return next
+	}
+	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+		start := time.Now()
+		res, err := next(ctx, req)
+		i.m.API(req.Spec().Procedure, err, time.Since(start))
+		return res, err
+	}
+}
+
+func (metricsInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
+	return next
+}
+
+func (i metricsInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+	if i.m == nil {
+		return next
+	}
+	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
+		start := time.Now()
+		err := next(ctx, conn)
+		i.m.API(conn.Spec().Procedure, err, time.Since(start))
+		return err
+	}
 }
 
 // scopeInterceptor checks that the caller holds the scope each RPC needs

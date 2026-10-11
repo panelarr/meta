@@ -47,6 +47,9 @@ const (
 	// MetaAdminServiceGetSyncRunProcedure is the fully-qualified name of the MetaAdminService's
 	// GetSyncRun RPC.
 	MetaAdminServiceGetSyncRunProcedure = "/panelarr.meta.v1.MetaAdminService/GetSyncRun"
+	// MetaAdminServiceGetHealthProcedure is the fully-qualified name of the MetaAdminService's
+	// GetHealth RPC.
+	MetaAdminServiceGetHealthProcedure = "/panelarr.meta.v1.MetaAdminService/GetHealth"
 	// MetaAdminServiceRefreshEntryProcedure is the fully-qualified name of the MetaAdminService's
 	// RefreshEntry RPC.
 	MetaAdminServiceRefreshEntryProcedure = "/panelarr.meta.v1.MetaAdminService/RefreshEntry"
@@ -64,6 +67,9 @@ type MetaAdminServiceClient interface {
 	ListSyncRuns(context.Context, *connect.Request[v1.ListSyncRunsRequest]) (*connect.Response[v1.ListSyncRunsResponse], error)
 	// GetSyncRun returns one sync run.
 	GetSyncRun(context.Context, *connect.Request[v1.GetSyncRunRequest]) (*connect.Response[v1.GetSyncRunResponse], error)
+	// GetHealth reports the health of meta's parts: the database, the search
+	// backend and every provider's plugin.
+	GetHealth(context.Context, *connect.Request[v1.GetHealthRequest]) (*connect.Response[v1.GetHealthResponse], error)
 	// RefreshEntry asks the providers behind an entry for fresh data through
 	// their lookup ingestion, and returns once it is stored.
 	RefreshEntry(context.Context, *connect.Request[v1.RefreshEntryRequest]) (*connect.Response[v1.RefreshEntryResponse], error)
@@ -104,6 +110,12 @@ func NewMetaAdminServiceClient(httpClient connect.HTTPClient, baseURL string, op
 			connect.WithSchema(metaAdminServiceMethods.ByName("GetSyncRun")),
 			connect.WithClientOptions(opts...),
 		),
+		getHealth: connect.NewClient[v1.GetHealthRequest, v1.GetHealthResponse](
+			httpClient,
+			baseURL+MetaAdminServiceGetHealthProcedure,
+			connect.WithSchema(metaAdminServiceMethods.ByName("GetHealth")),
+			connect.WithClientOptions(opts...),
+		),
 		refreshEntry: connect.NewClient[v1.RefreshEntryRequest, v1.RefreshEntryResponse](
 			httpClient,
 			baseURL+MetaAdminServiceRefreshEntryProcedure,
@@ -119,6 +131,7 @@ type metaAdminServiceClient struct {
 	runSync       *connect.Client[v1.RunSyncRequest, v1.RunSyncResponse]
 	listSyncRuns  *connect.Client[v1.ListSyncRunsRequest, v1.ListSyncRunsResponse]
 	getSyncRun    *connect.Client[v1.GetSyncRunRequest, v1.GetSyncRunResponse]
+	getHealth     *connect.Client[v1.GetHealthRequest, v1.GetHealthResponse]
 	refreshEntry  *connect.Client[v1.RefreshEntryRequest, v1.RefreshEntryResponse]
 }
 
@@ -142,6 +155,11 @@ func (c *metaAdminServiceClient) GetSyncRun(ctx context.Context, req *connect.Re
 	return c.getSyncRun.CallUnary(ctx, req)
 }
 
+// GetHealth calls panelarr.meta.v1.MetaAdminService.GetHealth.
+func (c *metaAdminServiceClient) GetHealth(ctx context.Context, req *connect.Request[v1.GetHealthRequest]) (*connect.Response[v1.GetHealthResponse], error) {
+	return c.getHealth.CallUnary(ctx, req)
+}
+
 // RefreshEntry calls panelarr.meta.v1.MetaAdminService.RefreshEntry.
 func (c *metaAdminServiceClient) RefreshEntry(ctx context.Context, req *connect.Request[v1.RefreshEntryRequest]) (*connect.Response[v1.RefreshEntryResponse], error) {
 	return c.refreshEntry.CallUnary(ctx, req)
@@ -159,6 +177,9 @@ type MetaAdminServiceHandler interface {
 	ListSyncRuns(context.Context, *connect.Request[v1.ListSyncRunsRequest]) (*connect.Response[v1.ListSyncRunsResponse], error)
 	// GetSyncRun returns one sync run.
 	GetSyncRun(context.Context, *connect.Request[v1.GetSyncRunRequest]) (*connect.Response[v1.GetSyncRunResponse], error)
+	// GetHealth reports the health of meta's parts: the database, the search
+	// backend and every provider's plugin.
+	GetHealth(context.Context, *connect.Request[v1.GetHealthRequest]) (*connect.Response[v1.GetHealthResponse], error)
 	// RefreshEntry asks the providers behind an entry for fresh data through
 	// their lookup ingestion, and returns once it is stored.
 	RefreshEntry(context.Context, *connect.Request[v1.RefreshEntryRequest]) (*connect.Response[v1.RefreshEntryResponse], error)
@@ -195,6 +216,12 @@ func NewMetaAdminServiceHandler(svc MetaAdminServiceHandler, opts ...connect.Han
 		connect.WithSchema(metaAdminServiceMethods.ByName("GetSyncRun")),
 		connect.WithHandlerOptions(opts...),
 	)
+	metaAdminServiceGetHealthHandler := connect.NewUnaryHandler(
+		MetaAdminServiceGetHealthProcedure,
+		svc.GetHealth,
+		connect.WithSchema(metaAdminServiceMethods.ByName("GetHealth")),
+		connect.WithHandlerOptions(opts...),
+	)
 	metaAdminServiceRefreshEntryHandler := connect.NewUnaryHandler(
 		MetaAdminServiceRefreshEntryProcedure,
 		svc.RefreshEntry,
@@ -211,6 +238,8 @@ func NewMetaAdminServiceHandler(svc MetaAdminServiceHandler, opts ...connect.Han
 			metaAdminServiceListSyncRunsHandler.ServeHTTP(w, r)
 		case MetaAdminServiceGetSyncRunProcedure:
 			metaAdminServiceGetSyncRunHandler.ServeHTTP(w, r)
+		case MetaAdminServiceGetHealthProcedure:
+			metaAdminServiceGetHealthHandler.ServeHTTP(w, r)
 		case MetaAdminServiceRefreshEntryProcedure:
 			metaAdminServiceRefreshEntryHandler.ServeHTTP(w, r)
 		default:
@@ -236,6 +265,10 @@ func (UnimplementedMetaAdminServiceHandler) ListSyncRuns(context.Context, *conne
 
 func (UnimplementedMetaAdminServiceHandler) GetSyncRun(context.Context, *connect.Request[v1.GetSyncRunRequest]) (*connect.Response[v1.GetSyncRunResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("panelarr.meta.v1.MetaAdminService.GetSyncRun is not implemented"))
+}
+
+func (UnimplementedMetaAdminServiceHandler) GetHealth(context.Context, *connect.Request[v1.GetHealthRequest]) (*connect.Response[v1.GetHealthResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("panelarr.meta.v1.MetaAdminService.GetHealth is not implemented"))
 }
 
 func (UnimplementedMetaAdminServiceHandler) RefreshEntry(context.Context, *connect.Request[v1.RefreshEntryRequest]) (*connect.Response[v1.RefreshEntryResponse], error) {

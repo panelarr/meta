@@ -19,6 +19,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	metadatav1 "github.com/panelarr/meta/gen/panelarr/metadata/v1"
 	"github.com/panelarr/meta/internal/api"
 	"github.com/panelarr/meta/internal/auth"
@@ -28,6 +30,7 @@ import (
 	"github.com/panelarr/meta/internal/host"
 	"github.com/panelarr/meta/internal/ingest"
 	"github.com/panelarr/meta/internal/integrations"
+	"github.com/panelarr/meta/internal/metrics"
 	"github.com/panelarr/meta/internal/search"
 	"github.com/panelarr/meta/internal/secret"
 	"github.com/panelarr/meta/internal/store"
@@ -132,9 +135,9 @@ func newLogger(cfg config.Log, w io.Writer) *slog.Logger {
 	_ = level.UnmarshalText([]byte(cfg.Level))
 	opts := &slog.HandlerOptions{Level: level}
 	if strings.EqualFold(cfg.Format, "text") {
-		return slog.New(slog.NewTextHandler(w, opts))
+		return slog.New(slog.NewTextHandler(w, opts)).With("service", "meta")
 	}
-	return slog.New(slog.NewJSONHandler(w, opts))
+	return slog.New(slog.NewJSONHandler(w, opts)).With("service", "meta")
 }
 
 func migrate(ctx context.Context, args []string, out io.Writer) error {
@@ -208,13 +211,14 @@ func migrate(ctx context.Context, args []string, out io.Writer) error {
 
 // app is everything serve and sync share.
 type app struct {
-	cfg    config.Config
-	log    *slog.Logger
-	st     *store.Store
-	host   *host.Host
-	writer *catalog.Writer
-	runner *ingest.Runner
-	integ  *integrations.Service
+	cfg     config.Config
+	log     *slog.Logger
+	st      *store.Store
+	host    *host.Host
+	writer  *catalog.Writer
+	runner  *ingest.Runner
+	integ   *integrations.Service
+	metrics *metrics.Metrics
 }
 
 func open(ctx context.Context, c common, logOut io.Writer) (*app, error) {
@@ -241,12 +245,15 @@ func open(ctx context.Context, c common, logOut io.Writer) (*app, error) {
 	} else if n > 0 {
 		log.Warn("marked interrupted sync runs as failed", "runs", n)
 	}
-	h := host.New(cfg, st, log, nil)
+	m := metrics.New()
+	h := host.New(cfg, st, log.With("component", "host"), nil)
+	h.SetMetrics(m)
 	w := catalog.NewWriter(st, catalog.Options{
 		Priority:        catalog.Priority{PerField: cfg.Merge.Priority, Fallback: cfg.ProviderOrder()},
 		DisplayLanguage: cfg.Merge.DisplayLanguage,
 	})
-	r := ingest.NewRunner(st, h, w, log, cfg.Ingest.BatchSize)
+	r := ingest.NewRunner(st, h, w, log.With("component", "ingest"), cfg.Ingest.BatchSize)
+	r.SetMetrics(m)
 	// Plugins get their network profiles from the integrations, in serve
 	// and in one-off syncs alike.
 	integ := integrations.New(st, secret.NewBox(cfg.SecretKey, filepath.Join(cfg.DataDir, "secret.key")), func() []integrations.ProviderInfo {
@@ -260,7 +267,7 @@ func open(ctx context.Context, c common, logOut io.Writer) (*app, error) {
 		np, _, err := integ.Effective(ctx, provider)
 		return np, err
 	})
-	return &app{cfg: cfg, log: log, st: st, host: h, writer: w, runner: r, integ: integ}, nil
+	return &app{cfg: cfg, log: log, st: st, host: h, writer: w, runner: r, integ: integ, metrics: m}, nil
 }
 
 func (a *app) close() {
@@ -308,15 +315,41 @@ func serve(ctx context.Context, args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
+	idx = search.Instrumented(idx, a.metrics)
+	admin := api.NewAdmin(syncCtx, a.st, a.host, a.runner, a.writer)
+	admin.SetIndex(idx)
+	apiOpts := api.Options{Auth: authn, Ready: func(ctx context.Context) error { return a.st.Pool.Ping(ctx) }, Log: log.With("component", "api"), Metrics: a.metrics}
+	var metricsSrv *http.Server
+	if a.cfg.Metrics.Enabled {
+		handler := promhttp.HandlerFor(a.metrics.Registry, promhttp.HandlerOpts{})
+		if a.cfg.Metrics.Listen == "" {
+			apiOpts.MetricsHandler = handler
+			log.Info("metrics served on the API port at /metrics (metrics:read scope)")
+		} else {
+			mux := http.NewServeMux()
+			mux.Handle("GET /metrics", handler)
+			metricsSrv = &http.Server{Addr: a.cfg.Metrics.Listen, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+			mln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", a.cfg.Metrics.Listen)
+			if err != nil {
+				return fmt.Errorf("metrics listener: %w", err)
+			}
+			log.Info("metrics listening", "addr", mln.Addr().String())
+			go func() {
+				if err := metricsSrv.Serve(mln); err != nil && !errors.Is(err, http.ErrServerClosed) {
+					log.Error("metrics server", "err", err)
+				}
+			}()
+		}
+	}
 	srv, err := api.New(api.Services{
 		Meta: api.NewMeta(a.st, a.host, a.writer, api.MetaOptions{
 			DisplayLanguage: a.cfg.Merge.DisplayLanguage, StaleAfter: a.cfg.Ingest.StaleAfter,
 			Index: idx, Log: log, Base: syncCtx,
 		}),
-		Admin:        api.NewAdmin(syncCtx, a.st, a.host, a.runner, a.writer),
+		Admin:        admin,
 		Clients:      api.NewClients(a.st),
 		Integrations: api.NewIntegrations(a.integ),
-	}, api.Options{Auth: authn, Ready: func(ctx context.Context) error { return a.st.Pool.Ping(ctx) }, Log: log})
+	}, apiOpts)
 	if err != nil {
 		return err
 	}
@@ -339,6 +372,9 @@ func serve(ctx context.Context, args []string, out io.Writer) error {
 	sched.Stop()
 	stopSyncs()
 	a.runner.Wait()
+	if metricsSrv != nil {
+		_ = metricsSrv.Shutdown(shutdownCtx)
+	}
 	if serr := httpSrv.Shutdown(shutdownCtx); serr != nil && !errors.Is(serr, http.ErrServerClosed) {
 		return serr
 	}

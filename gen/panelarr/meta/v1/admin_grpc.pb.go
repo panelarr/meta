@@ -25,6 +25,7 @@ const (
 	MetaAdminService_RunSync_FullMethodName       = "/panelarr.meta.v1.MetaAdminService/RunSync"
 	MetaAdminService_ListSyncRuns_FullMethodName  = "/panelarr.meta.v1.MetaAdminService/ListSyncRuns"
 	MetaAdminService_GetSyncRun_FullMethodName    = "/panelarr.meta.v1.MetaAdminService/GetSyncRun"
+	MetaAdminService_GetHealth_FullMethodName     = "/panelarr.meta.v1.MetaAdminService/GetHealth"
 	MetaAdminService_RefreshEntry_FullMethodName  = "/panelarr.meta.v1.MetaAdminService/RefreshEntry"
 )
 
@@ -44,6 +45,9 @@ type MetaAdminServiceClient interface {
 	ListSyncRuns(ctx context.Context, in *ListSyncRunsRequest, opts ...grpc.CallOption) (*ListSyncRunsResponse, error)
 	// GetSyncRun returns one sync run.
 	GetSyncRun(ctx context.Context, in *GetSyncRunRequest, opts ...grpc.CallOption) (*GetSyncRunResponse, error)
+	// GetHealth reports the health of meta's parts: the database, the search
+	// backend and every provider's plugin.
+	GetHealth(ctx context.Context, in *GetHealthRequest, opts ...grpc.CallOption) (*GetHealthResponse, error)
 	// RefreshEntry asks the providers behind an entry for fresh data through
 	// their lookup ingestion, and returns once it is stored.
 	RefreshEntry(ctx context.Context, in *RefreshEntryRequest, opts ...grpc.CallOption) (*RefreshEntryResponse, error)
@@ -97,6 +101,16 @@ func (c *metaAdminServiceClient) GetSyncRun(ctx context.Context, in *GetSyncRunR
 	return out, nil
 }
 
+func (c *metaAdminServiceClient) GetHealth(ctx context.Context, in *GetHealthRequest, opts ...grpc.CallOption) (*GetHealthResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetHealthResponse)
+	err := c.cc.Invoke(ctx, MetaAdminService_GetHealth_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *metaAdminServiceClient) RefreshEntry(ctx context.Context, in *RefreshEntryRequest, opts ...grpc.CallOption) (*RefreshEntryResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RefreshEntryResponse)
@@ -123,6 +137,9 @@ type MetaAdminServiceServer interface {
 	ListSyncRuns(context.Context, *ListSyncRunsRequest) (*ListSyncRunsResponse, error)
 	// GetSyncRun returns one sync run.
 	GetSyncRun(context.Context, *GetSyncRunRequest) (*GetSyncRunResponse, error)
+	// GetHealth reports the health of meta's parts: the database, the search
+	// backend and every provider's plugin.
+	GetHealth(context.Context, *GetHealthRequest) (*GetHealthResponse, error)
 	// RefreshEntry asks the providers behind an entry for fresh data through
 	// their lookup ingestion, and returns once it is stored.
 	RefreshEntry(context.Context, *RefreshEntryRequest) (*RefreshEntryResponse, error)
@@ -147,6 +164,9 @@ func (UnimplementedMetaAdminServiceServer) ListSyncRuns(context.Context, *ListSy
 }
 func (UnimplementedMetaAdminServiceServer) GetSyncRun(context.Context, *GetSyncRunRequest) (*GetSyncRunResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetSyncRun not implemented")
+}
+func (UnimplementedMetaAdminServiceServer) GetHealth(context.Context, *GetHealthRequest) (*GetHealthResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetHealth not implemented")
 }
 func (UnimplementedMetaAdminServiceServer) RefreshEntry(context.Context, *RefreshEntryRequest) (*RefreshEntryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RefreshEntry not implemented")
@@ -244,6 +264,24 @@ func _MetaAdminService_GetSyncRun_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MetaAdminService_GetHealth_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetHealthRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MetaAdminServiceServer).GetHealth(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MetaAdminService_GetHealth_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MetaAdminServiceServer).GetHealth(ctx, req.(*GetHealthRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _MetaAdminService_RefreshEntry_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RefreshEntryRequest)
 	if err := dec(in); err != nil {
@@ -284,6 +322,10 @@ var MetaAdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetSyncRun",
 			Handler:    _MetaAdminService_GetSyncRun_Handler,
+		},
+		{
+			MethodName: "GetHealth",
+			Handler:    _MetaAdminService_GetHealth_Handler,
 		},
 		{
 			MethodName: "RefreshEntry",

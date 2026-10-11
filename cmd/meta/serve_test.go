@@ -80,17 +80,19 @@ func TestServeEndToEnd(t *testing.T) {
 	}
 	plugin := buildPlugin(t)
 	addr := freeAddr(t)
+	metricsAddr := freeAddr(t)
 	cfgPath := filepath.Join(t.TempDir(), "meta.yaml")
 	cfg := fmt.Sprintf(`
 listen: %q
 database_url: %q
 api_keys: [test-key]
 log: {level: warn}
+metrics: {enabled: true, listen: %q}
 providers:
   - id: static
     managed:
       path: %q
-`, addr, storetest.URL(t), plugin)
+`, addr, storetest.URL(t), metricsAddr, plugin)
 	if err := os.WriteFile(cfgPath, []byte(cfg), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -166,6 +168,21 @@ providers:
 	}
 	if got.Run.Status != "SYNC_RUN_STATUS_SUCCEEDED" || got.Run.Upserts != "3" || got.Run.Merges != "1" {
 		t.Fatalf("run: %+v", got.Run)
+	}
+
+	// Metrics on their own port, without a key.
+	mres, err := http.Get("http://" + metricsAddr + "/metrics") //nolint:noctx // test
+	if err != nil {
+		t.Fatal(err)
+	}
+	mbody, _ := io.ReadAll(mres.Body)
+	mres.Body.Close()
+	if !bytes.Contains(mbody, []byte(`meta_sync_runs_total{kind="dump",provider="static",status="succeeded"} 1`)) {
+		t.Fatalf("metrics:\n%s", mbody)
+	}
+	if code := c.do("GET", "/metrics", nil, nil); code != http.StatusNotFound && code != http.StatusUnauthorized && code != http.StatusMethodNotAllowed {
+		// Not on the API port when a metrics address is set.
+		t.Fatalf("metrics on the API port: %d", code)
 	}
 
 	var providers struct {

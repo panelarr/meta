@@ -38,6 +38,7 @@ const (
 //
 // Scopes:
 // - `catalog:read`: browse, search and read the catalogue (MetaService).
+// - `metrics:read`: scrape /metrics when it is served on the API port.
 // - `admin`: everything, including this service and MetaAdminService.
 //
 // Keys are shown once, when created or rotated, and stored only as hashes.
@@ -135,6 +136,7 @@ func (c *metaClientsServiceClient) DeleteClient(ctx context.Context, in *DeleteC
 //
 // Scopes:
 // - `catalog:read`: browse, search and read the catalogue (MetaService).
+// - `metrics:read`: scrape /metrics when it is served on the API port.
 // - `admin`: everything, including this service and MetaAdminService.
 //
 // Keys are shown once, when created or rotated, and stored only as hashes.

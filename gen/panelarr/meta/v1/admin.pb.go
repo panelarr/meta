@@ -13,6 +13,7 @@ import (
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
@@ -938,11 +939,206 @@ func (x *RefreshEntryResponse) GetFailed() map[string]string {
 	return nil
 }
 
+type GetHealthRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetHealthRequest) Reset() {
+	*x = GetHealthRequest{}
+	mi := &file_panelarr_meta_v1_admin_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetHealthRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetHealthRequest) ProtoMessage() {}
+
+func (x *GetHealthRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_panelarr_meta_v1_admin_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetHealthRequest.ProtoReflect.Descriptor instead.
+func (*GetHealthRequest) Descriptor() ([]byte, []int) {
+	return file_panelarr_meta_v1_admin_proto_rawDescGZIP(), []int{13}
+}
+
+type GetHealthResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// DOWN when the database is down; DEGRADED when the search backend or a
+	// plugin is down or degraded; OK otherwise.
+	Status     v1.HealthStatus    `protobuf:"varint,1,opt,name=status,proto3,enum=panelarr.metadata.v1.HealthStatus" json:"status,omitempty"`
+	Components []*ComponentHealth `protobuf:"bytes,2,rep,name=components,proto3" json:"components,omitempty"`
+	// meta's version.
+	Version       string `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetHealthResponse) Reset() {
+	*x = GetHealthResponse{}
+	mi := &file_panelarr_meta_v1_admin_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetHealthResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetHealthResponse) ProtoMessage() {}
+
+func (x *GetHealthResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_panelarr_meta_v1_admin_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetHealthResponse.ProtoReflect.Descriptor instead.
+func (*GetHealthResponse) Descriptor() ([]byte, []int) {
+	return file_panelarr_meta_v1_admin_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *GetHealthResponse) GetStatus() v1.HealthStatus {
+	if x != nil {
+		return x.Status
+	}
+	return v1.HealthStatus(0)
+}
+
+func (x *GetHealthResponse) GetComponents() []*ComponentHealth {
+	if x != nil {
+		return x.Components
+	}
+	return nil
+}
+
+func (x *GetHealthResponse) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+type ComponentHealth struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// "database", "search" or "provider:<id>".
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// "database", "search" or "provider".
+	Kind    string          `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
+	Status  v1.HealthStatus `protobuf:"varint,3,opt,name=status,proto3,enum=panelarr.metadata.v1.HealthStatus" json:"status,omitempty"`
+	Message string          `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
+	// How long the check took.
+	Latency   *durationpb.Duration   `protobuf:"bytes,5,opt,name=latency,proto3" json:"latency,omitempty"`
+	CheckedAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=checked_at,json=checkedAt,proto3" json:"checked_at,omitempty"`
+	// Extra facts, e.g. the search backend's capabilities or a plugin's version.
+	Details       map[string]string `protobuf:"bytes,7,rep,name=details,proto3" json:"details,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ComponentHealth) Reset() {
+	*x = ComponentHealth{}
+	mi := &file_panelarr_meta_v1_admin_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ComponentHealth) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ComponentHealth) ProtoMessage() {}
+
+func (x *ComponentHealth) ProtoReflect() protoreflect.Message {
+	mi := &file_panelarr_meta_v1_admin_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ComponentHealth.ProtoReflect.Descriptor instead.
+func (*ComponentHealth) Descriptor() ([]byte, []int) {
+	return file_panelarr_meta_v1_admin_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *ComponentHealth) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ComponentHealth) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *ComponentHealth) GetStatus() v1.HealthStatus {
+	if x != nil {
+		return x.Status
+	}
+	return v1.HealthStatus(0)
+}
+
+func (x *ComponentHealth) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *ComponentHealth) GetLatency() *durationpb.Duration {
+	if x != nil {
+		return x.Latency
+	}
+	return nil
+}
+
+func (x *ComponentHealth) GetCheckedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CheckedAt
+	}
+	return nil
+}
+
+func (x *ComponentHealth) GetDetails() map[string]string {
+	if x != nil {
+		return x.Details
+	}
+	return nil
+}
+
 var File_panelarr_meta_v1_admin_proto protoreflect.FileDescriptor
 
 const file_panelarr_meta_v1_admin_proto_rawDesc = "" +
 	"\n" +
-	"\x1cpanelarr/meta/v1/admin.proto\x12\x10panelarr.meta.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a!panelarr/metadata/v1/plugin.proto\"\xa9\x03\n" +
+	"\x1cpanelarr/meta/v1/admin.proto\x12\x10panelarr.meta.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a!panelarr/metadata/v1/plugin.proto\"\xa9\x03\n" +
 	"\bProvider\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04mode\x18\x02 \x01(\tR\x04mode\x124\n" +
@@ -1013,19 +1209,39 @@ const file_panelarr_meta_v1_admin_proto_rawDesc = "" +
 	"\x06failed\x18\x02 \x03(\v22.panelarr.meta.v1.RefreshEntryResponse.FailedEntryR\x06failed\x1a9\n" +
 	"\vFailedEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x12\n" +
+	"\x10GetHealthRequest\"\xac\x01\n" +
+	"\x11GetHealthResponse\x12:\n" +
+	"\x06status\x18\x01 \x01(\x0e2\".panelarr.metadata.v1.HealthStatusR\x06status\x12A\n" +
+	"\n" +
+	"components\x18\x02 \x03(\v2!.panelarr.meta.v1.ComponentHealthR\n" +
+	"components\x12\x18\n" +
+	"\aversion\x18\x03 \x01(\tR\aversion\"\x85\x03\n" +
+	"\x0fComponentHealth\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\x12:\n" +
+	"\x06status\x18\x03 \x01(\x0e2\".panelarr.metadata.v1.HealthStatusR\x06status\x12\x18\n" +
+	"\amessage\x18\x04 \x01(\tR\amessage\x123\n" +
+	"\alatency\x18\x05 \x01(\v2\x19.google.protobuf.DurationR\alatency\x129\n" +
+	"\n" +
+	"checked_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcheckedAt\x12H\n" +
+	"\adetails\x18\a \x03(\v2..panelarr.meta.v1.ComponentHealth.DetailsEntryR\adetails\x1a:\n" +
+	"\fDetailsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01*\xa7\x01\n" +
 	"\rSyncRunStatus\x12\x1f\n" +
 	"\x1bSYNC_RUN_STATUS_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17SYNC_RUN_STATUS_RUNNING\x10\x01\x12\x1d\n" +
 	"\x19SYNC_RUN_STATUS_SUCCEEDED\x10\x02\x12\x1a\n" +
 	"\x16SYNC_RUN_STATUS_FAILED\x10\x03\x12\x1d\n" +
-	"\x19SYNC_RUN_STATUS_CANCELLED\x10\x042\x93\x05\n" +
+	"\x19SYNC_RUN_STATUS_CANCELLED\x10\x042\x83\x06\n" +
 	"\x10MetaAdminService\x12}\n" +
 	"\rListProviders\x12&.panelarr.meta.v1.ListProvidersRequest\x1a'.panelarr.meta.v1.ListProvidersResponse\"\x1b\x82\xd3\xe4\x93\x02\x15\x12\x13/v1/admin/providers\x12~\n" +
 	"\aRunSync\x12 .panelarr.meta.v1.RunSyncRequest\x1a!.panelarr.meta.v1.RunSyncResponse\".\x82\xd3\xe4\x93\x02(:\x01*\"#/v1/admin/providers/{provider}/sync\x12z\n" +
 	"\fListSyncRuns\x12%.panelarr.meta.v1.ListSyncRunsRequest\x1a&.panelarr.meta.v1.ListSyncRunsResponse\"\x1b\x82\xd3\xe4\x93\x02\x15\x12\x13/v1/admin/sync-runs\x12y\n" +
 	"\n" +
-	"GetSyncRun\x12#.panelarr.meta.v1.GetSyncRunRequest\x1a$.panelarr.meta.v1.GetSyncRunResponse\" \x82\xd3\xe4\x93\x02\x1a\x12\x18/v1/admin/sync-runs/{id}\x12\x88\x01\n" +
+	"GetSyncRun\x12#.panelarr.meta.v1.GetSyncRunRequest\x1a$.panelarr.meta.v1.GetSyncRunResponse\" \x82\xd3\xe4\x93\x02\x1a\x12\x18/v1/admin/sync-runs/{id}\x12n\n" +
+	"\tGetHealth\x12\".panelarr.meta.v1.GetHealthRequest\x1a#.panelarr.meta.v1.GetHealthResponse\"\x18\x82\xd3\xe4\x93\x02\x12\x12\x10/v1/admin/health\x12\x88\x01\n" +
 	"\fRefreshEntry\x12%.panelarr.meta.v1.RefreshEntryRequest\x1a&.panelarr.meta.v1.RefreshEntryResponse\")\x82\xd3\xe4\x93\x02#:\x01*\"\x1e/v1/admin/entries/{id}/refreshB\xba\x01\n" +
 	"\x14com.panelarr.meta.v1B\n" +
 	"AdminProtoP\x01Z4github.com/panelarr/meta/gen/panelarr/meta/v1;metav1\xa2\x02\x03PMX\xaa\x02\x10Panelarr.Meta.V1\xca\x02\x10Panelarr\\Meta\\V1\xe2\x02\x1cPanelarr\\Meta\\V1\\GPBMetadata\xea\x02\x12Panelarr::Meta::V1b\x06proto3"
@@ -1043,7 +1259,7 @@ func file_panelarr_meta_v1_admin_proto_rawDescGZIP() []byte {
 }
 
 var file_panelarr_meta_v1_admin_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_panelarr_meta_v1_admin_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_panelarr_meta_v1_admin_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_panelarr_meta_v1_admin_proto_goTypes = []any{
 	(SyncRunStatus)(0),            // 0: panelarr.meta.v1.SyncRunStatus
 	(*Provider)(nil),              // 1: panelarr.meta.v1.Provider
@@ -1059,46 +1275,59 @@ var file_panelarr_meta_v1_admin_proto_goTypes = []any{
 	(*GetSyncRunResponse)(nil),    // 11: panelarr.meta.v1.GetSyncRunResponse
 	(*RefreshEntryRequest)(nil),   // 12: panelarr.meta.v1.RefreshEntryRequest
 	(*RefreshEntryResponse)(nil),  // 13: panelarr.meta.v1.RefreshEntryResponse
-	nil,                           // 14: panelarr.meta.v1.Provider.SchedulesEntry
-	nil,                           // 15: panelarr.meta.v1.RefreshEntryResponse.FailedEntry
-	(*v1.PluginInfo)(nil),         // 16: panelarr.metadata.v1.PluginInfo
-	(v1.HealthStatus)(0),          // 17: panelarr.metadata.v1.HealthStatus
-	(*timestamppb.Timestamp)(nil), // 18: google.protobuf.Timestamp
-	(*structpb.Struct)(nil),       // 19: google.protobuf.Struct
-	(v1.NoticeLevel)(0),           // 20: panelarr.metadata.v1.NoticeLevel
+	(*GetHealthRequest)(nil),      // 14: panelarr.meta.v1.GetHealthRequest
+	(*GetHealthResponse)(nil),     // 15: panelarr.meta.v1.GetHealthResponse
+	(*ComponentHealth)(nil),       // 16: panelarr.meta.v1.ComponentHealth
+	nil,                           // 17: panelarr.meta.v1.Provider.SchedulesEntry
+	nil,                           // 18: panelarr.meta.v1.RefreshEntryResponse.FailedEntry
+	nil,                           // 19: panelarr.meta.v1.ComponentHealth.DetailsEntry
+	(*v1.PluginInfo)(nil),         // 20: panelarr.metadata.v1.PluginInfo
+	(v1.HealthStatus)(0),          // 21: panelarr.metadata.v1.HealthStatus
+	(*timestamppb.Timestamp)(nil), // 22: google.protobuf.Timestamp
+	(*structpb.Struct)(nil),       // 23: google.protobuf.Struct
+	(v1.NoticeLevel)(0),           // 24: panelarr.metadata.v1.NoticeLevel
+	(*durationpb.Duration)(nil),   // 25: google.protobuf.Duration
 }
 var file_panelarr_meta_v1_admin_proto_depIdxs = []int32{
-	16, // 0: panelarr.meta.v1.Provider.info:type_name -> panelarr.metadata.v1.PluginInfo
-	17, // 1: panelarr.meta.v1.Provider.health:type_name -> panelarr.metadata.v1.HealthStatus
-	14, // 2: panelarr.meta.v1.Provider.schedules:type_name -> panelarr.meta.v1.Provider.SchedulesEntry
+	20, // 0: panelarr.meta.v1.Provider.info:type_name -> panelarr.metadata.v1.PluginInfo
+	21, // 1: panelarr.meta.v1.Provider.health:type_name -> panelarr.metadata.v1.HealthStatus
+	17, // 2: panelarr.meta.v1.Provider.schedules:type_name -> panelarr.meta.v1.Provider.SchedulesEntry
 	6,  // 3: panelarr.meta.v1.Provider.last_runs:type_name -> panelarr.meta.v1.SyncRun
 	1,  // 4: panelarr.meta.v1.ListProvidersResponse.providers:type_name -> panelarr.meta.v1.Provider
 	6,  // 5: panelarr.meta.v1.RunSyncResponse.run:type_name -> panelarr.meta.v1.SyncRun
 	0,  // 6: panelarr.meta.v1.SyncRun.status:type_name -> panelarr.meta.v1.SyncRunStatus
-	18, // 7: panelarr.meta.v1.SyncRun.started_at:type_name -> google.protobuf.Timestamp
-	18, // 8: panelarr.meta.v1.SyncRun.finished_at:type_name -> google.protobuf.Timestamp
+	22, // 7: panelarr.meta.v1.SyncRun.started_at:type_name -> google.protobuf.Timestamp
+	22, // 8: panelarr.meta.v1.SyncRun.finished_at:type_name -> google.protobuf.Timestamp
 	7,  // 9: panelarr.meta.v1.SyncRun.notices:type_name -> panelarr.meta.v1.SyncRunNotice
-	19, // 10: panelarr.meta.v1.SyncRun.progress:type_name -> google.protobuf.Struct
-	20, // 11: panelarr.meta.v1.SyncRunNotice.level:type_name -> panelarr.metadata.v1.NoticeLevel
-	18, // 12: panelarr.meta.v1.SyncRunNotice.at:type_name -> google.protobuf.Timestamp
+	23, // 10: panelarr.meta.v1.SyncRun.progress:type_name -> google.protobuf.Struct
+	24, // 11: panelarr.meta.v1.SyncRunNotice.level:type_name -> panelarr.metadata.v1.NoticeLevel
+	22, // 12: panelarr.meta.v1.SyncRunNotice.at:type_name -> google.protobuf.Timestamp
 	6,  // 13: panelarr.meta.v1.ListSyncRunsResponse.runs:type_name -> panelarr.meta.v1.SyncRun
 	6,  // 14: panelarr.meta.v1.GetSyncRunResponse.run:type_name -> panelarr.meta.v1.SyncRun
-	15, // 15: panelarr.meta.v1.RefreshEntryResponse.failed:type_name -> panelarr.meta.v1.RefreshEntryResponse.FailedEntry
-	2,  // 16: panelarr.meta.v1.MetaAdminService.ListProviders:input_type -> panelarr.meta.v1.ListProvidersRequest
-	4,  // 17: panelarr.meta.v1.MetaAdminService.RunSync:input_type -> panelarr.meta.v1.RunSyncRequest
-	8,  // 18: panelarr.meta.v1.MetaAdminService.ListSyncRuns:input_type -> panelarr.meta.v1.ListSyncRunsRequest
-	10, // 19: panelarr.meta.v1.MetaAdminService.GetSyncRun:input_type -> panelarr.meta.v1.GetSyncRunRequest
-	12, // 20: panelarr.meta.v1.MetaAdminService.RefreshEntry:input_type -> panelarr.meta.v1.RefreshEntryRequest
-	3,  // 21: panelarr.meta.v1.MetaAdminService.ListProviders:output_type -> panelarr.meta.v1.ListProvidersResponse
-	5,  // 22: panelarr.meta.v1.MetaAdminService.RunSync:output_type -> panelarr.meta.v1.RunSyncResponse
-	9,  // 23: panelarr.meta.v1.MetaAdminService.ListSyncRuns:output_type -> panelarr.meta.v1.ListSyncRunsResponse
-	11, // 24: panelarr.meta.v1.MetaAdminService.GetSyncRun:output_type -> panelarr.meta.v1.GetSyncRunResponse
-	13, // 25: panelarr.meta.v1.MetaAdminService.RefreshEntry:output_type -> panelarr.meta.v1.RefreshEntryResponse
-	21, // [21:26] is the sub-list for method output_type
-	16, // [16:21] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	18, // 15: panelarr.meta.v1.RefreshEntryResponse.failed:type_name -> panelarr.meta.v1.RefreshEntryResponse.FailedEntry
+	21, // 16: panelarr.meta.v1.GetHealthResponse.status:type_name -> panelarr.metadata.v1.HealthStatus
+	16, // 17: panelarr.meta.v1.GetHealthResponse.components:type_name -> panelarr.meta.v1.ComponentHealth
+	21, // 18: panelarr.meta.v1.ComponentHealth.status:type_name -> panelarr.metadata.v1.HealthStatus
+	25, // 19: panelarr.meta.v1.ComponentHealth.latency:type_name -> google.protobuf.Duration
+	22, // 20: panelarr.meta.v1.ComponentHealth.checked_at:type_name -> google.protobuf.Timestamp
+	19, // 21: panelarr.meta.v1.ComponentHealth.details:type_name -> panelarr.meta.v1.ComponentHealth.DetailsEntry
+	2,  // 22: panelarr.meta.v1.MetaAdminService.ListProviders:input_type -> panelarr.meta.v1.ListProvidersRequest
+	4,  // 23: panelarr.meta.v1.MetaAdminService.RunSync:input_type -> panelarr.meta.v1.RunSyncRequest
+	8,  // 24: panelarr.meta.v1.MetaAdminService.ListSyncRuns:input_type -> panelarr.meta.v1.ListSyncRunsRequest
+	10, // 25: panelarr.meta.v1.MetaAdminService.GetSyncRun:input_type -> panelarr.meta.v1.GetSyncRunRequest
+	14, // 26: panelarr.meta.v1.MetaAdminService.GetHealth:input_type -> panelarr.meta.v1.GetHealthRequest
+	12, // 27: panelarr.meta.v1.MetaAdminService.RefreshEntry:input_type -> panelarr.meta.v1.RefreshEntryRequest
+	3,  // 28: panelarr.meta.v1.MetaAdminService.ListProviders:output_type -> panelarr.meta.v1.ListProvidersResponse
+	5,  // 29: panelarr.meta.v1.MetaAdminService.RunSync:output_type -> panelarr.meta.v1.RunSyncResponse
+	9,  // 30: panelarr.meta.v1.MetaAdminService.ListSyncRuns:output_type -> panelarr.meta.v1.ListSyncRunsResponse
+	11, // 31: panelarr.meta.v1.MetaAdminService.GetSyncRun:output_type -> panelarr.meta.v1.GetSyncRunResponse
+	15, // 32: panelarr.meta.v1.MetaAdminService.GetHealth:output_type -> panelarr.meta.v1.GetHealthResponse
+	13, // 33: panelarr.meta.v1.MetaAdminService.RefreshEntry:output_type -> panelarr.meta.v1.RefreshEntryResponse
+	28, // [28:34] is the sub-list for method output_type
+	22, // [22:28] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_panelarr_meta_v1_admin_proto_init() }
@@ -1112,7 +1341,7 @@ func file_panelarr_meta_v1_admin_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_panelarr_meta_v1_admin_proto_rawDesc), len(file_panelarr_meta_v1_admin_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   15,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

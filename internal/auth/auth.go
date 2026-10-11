@@ -42,12 +42,14 @@ import (
 const (
 	// ScopeCatalogRead allows browsing, searching and reading the catalogue.
 	ScopeCatalogRead = "catalog:read"
+	// ScopeMetricsRead allows scraping /metrics on the API port.
+	ScopeMetricsRead = "metrics:read"
 	// ScopeAdmin allows everything.
 	ScopeAdmin = "admin"
 )
 
 // KnownScopes lists every scope, in display order.
-var KnownScopes = []string{ScopeCatalogRead, ScopeAdmin}
+var KnownScopes = []string{ScopeCatalogRead, ScopeMetricsRead, ScopeAdmin}
 
 // Token prefixes tell the kinds apart at a glance (and in secret scanners).
 const (

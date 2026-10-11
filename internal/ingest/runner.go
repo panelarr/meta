@@ -24,6 +24,7 @@ import (
 	"github.com/panelarr/meta/internal/catalog"
 	"github.com/panelarr/meta/internal/enums"
 	"github.com/panelarr/meta/internal/host"
+	"github.com/panelarr/meta/internal/metrics"
 	"github.com/panelarr/meta/internal/store"
 	"github.com/panelarr/meta/internal/store/db"
 	"github.com/panelarr/meta/sdk/plugin"
@@ -41,6 +42,7 @@ const maxNotices = 200
 
 // Runner runs syncs, at most one per provider at a time.
 type Runner struct {
+	metrics   *metrics.Metrics
 	st        *store.Store
 	host      *host.Host
 	writer    *catalog.Writer
@@ -60,6 +62,9 @@ func NewRunner(st *store.Store, h *host.Host, w *catalog.Writer, log *slog.Logge
 	}
 	return &Runner{st: st, host: h, writer: w, log: log, batchSize: batchSize, running: map[string]uuid.UUID{}, locks: map[string]*pgxpool.Conn{}}
 }
+
+// SetMetrics records sync runs in m.
+func (r *Runner) SetMetrics(m *metrics.Metrics) { r.metrics = m }
 
 // ErrRunning is returned when the provider already has a sync running.
 var ErrRunning = errors.New("a sync is already running for this provider")
@@ -222,6 +227,7 @@ func (r *Runner) execute(ctx context.Context, run db.SyncRun, force bool) (err e
 	}
 	s.log.Info("sync started", "trigger", run.Trigger, "cursor", run.CursorStart)
 	start := time.Now()
+	r.metrics.SyncStarted(run.Provider)
 	marked := int64(0)
 	defer func() {
 		status, msg := "succeeded", ""
@@ -235,6 +241,10 @@ func (r *Runner) execute(ctx context.Context, run db.SyncRun, force bool) (err e
 		bg, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 		defer cancel()
 		s.saveCounts(bg, true)
+		r.metrics.SyncFinished(run.Provider, run.Kind, status, time.Since(start), metrics.SyncCounts{
+			Upserts: s.counts.upserts, Changed: s.counts.changed, Merges: s.counts.merges,
+			Removals: s.counts.removals, Skipped: s.counts.skipped, MarkedRemoved: marked,
+		})
 		if ferr := r.st.FinishSyncRun(bg, db.FinishSyncRunParams{ID: run.ID, Status: status, Error: msg, MarkedRemoved: marked}); ferr != nil {
 			s.log.Error("record sync result", "err", ferr)
 		}

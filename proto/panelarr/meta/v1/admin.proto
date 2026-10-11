@@ -5,6 +5,7 @@ syntax = "proto3";
 package panelarr.meta.v1;
 
 import "google/api/annotations.proto";
+import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 import "panelarr/metadata/v1/plugin.proto";
@@ -36,6 +37,12 @@ service MetaAdminService {
   // GetSyncRun returns one sync run.
   rpc GetSyncRun(GetSyncRunRequest) returns (GetSyncRunResponse) {
     option (google.api.http) = {get: "/v1/admin/sync-runs/{id}"};
+  }
+
+  // GetHealth reports the health of meta's parts: the database, the search
+  // backend and every provider's plugin.
+  rpc GetHealth(GetHealthRequest) returns (GetHealthResponse) {
+    option (google.api.http) = {get: "/v1/admin/health"};
   }
 
   // RefreshEntry asks the providers behind an entry for fresh data through
@@ -158,4 +165,29 @@ message RefreshEntryResponse {
   repeated string refreshed = 1;
   // Providers that failed, with the reason.
   map<string, string> failed = 2;
+}
+
+message GetHealthRequest {}
+
+message GetHealthResponse {
+  // DOWN when the database is down; DEGRADED when the search backend or a
+  // plugin is down or degraded; OK otherwise.
+  panelarr.metadata.v1.HealthStatus status = 1;
+  repeated ComponentHealth components = 2;
+  // meta's version.
+  string version = 3;
+}
+
+message ComponentHealth {
+  // "database", "search" or "provider:<id>".
+  string name = 1;
+  // "database", "search" or "provider".
+  string kind = 2;
+  panelarr.metadata.v1.HealthStatus status = 3;
+  string message = 4;
+  // How long the check took.
+  google.protobuf.Duration latency = 5;
+  google.protobuf.Timestamp checked_at = 6;
+  // Extra facts, e.g. the search backend's capabilities or a plugin's version.
+  map<string, string> details = 7;
 }

@@ -15,6 +15,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	metav1 "github.com/panelarr/meta/gen/panelarr/meta/v1"
 	"github.com/panelarr/meta/gen/panelarr/meta/v1/metav1connect"
@@ -26,6 +27,8 @@ import (
 	"github.com/panelarr/meta/internal/host"
 	"github.com/panelarr/meta/internal/ingest"
 	"github.com/panelarr/meta/internal/integrations"
+	"github.com/panelarr/meta/internal/metrics"
+	"github.com/panelarr/meta/internal/search"
 	"github.com/panelarr/meta/internal/secret"
 	"github.com/panelarr/meta/internal/store"
 	"github.com/panelarr/meta/internal/store/db"
@@ -35,12 +38,13 @@ import (
 )
 
 type fixture struct {
-	integ  *integrations.Service
-	st     *store.Store
-	srv    *httptest.Server
-	meta   metav1connect.MetaServiceClient
-	fake   *plugintest.Fake
-	writer *catalog.Writer
+	metrics *metrics.Metrics
+	integ   *integrations.Service
+	st      *store.Store
+	srv     *httptest.Server
+	meta    metav1connect.MetaServiceClient
+	fake    *plugintest.Fake
+	writer  *catalog.Writer
 }
 
 func p[T any](v T) *T { return &v }
@@ -144,18 +148,22 @@ func setup(t *testing.T, apiKeys ...string) *fixture {
 	integ := integrations.New(st, secret.NewBox("", filepath.Join(t.TempDir(), "secret.key")), func() []integrations.ProviderInfo {
 		return []integrations.ProviderInfo{{ID: "fake"}}
 	})
+	m := metrics.New()
+	admin := api.NewAdmin(ctx, st, h, r, w)
+	idx := search.Instrumented(search.NewPostgres(st.Pool), m)
+	admin.SetIndex(idx)
 	srv, err := api.New(api.Services{
-		Meta:         api.NewMeta(st, h, w, api.MetaOptions{DisplayLanguage: "en", Log: log}),
-		Admin:        api.NewAdmin(ctx, st, h, r, w),
+		Meta:         api.NewMeta(st, h, w, api.MetaOptions{DisplayLanguage: "en", Log: log, Index: idx}),
+		Admin:        admin,
 		Clients:      api.NewClients(st),
 		Integrations: api.NewIntegrations(integ),
-	}, api.Options{Auth: authn, Log: log})
+	}, api.Options{Auth: authn, Log: log, Metrics: m, MetricsHandler: promhttp.HandlerFor(m.Registry, promhttp.HandlerOpts{})})
 	if err != nil {
 		t.Fatal(err)
 	}
 	hs := httptest.NewServer(srv.Handler())
 	t.Cleanup(hs.Close)
-	return &fixture{integ: integ, st: st, srv: hs, meta: metav1connect.NewMetaServiceClient(hs.Client(), hs.URL), fake: fake, writer: w}
+	return &fixture{metrics: m, integ: integ, st: st, srv: hs, meta: metav1connect.NewMetaServiceClient(hs.Client(), hs.URL), fake: fake, writer: w}
 }
 
 func (f *fixture) entryID(t *testing.T, provider, id string) string {

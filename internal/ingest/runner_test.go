@@ -10,11 +10,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/testutil"
+
 	metadatav1 "github.com/panelarr/meta/gen/panelarr/metadata/v1"
 	"github.com/panelarr/meta/internal/catalog"
 	"github.com/panelarr/meta/internal/config"
 	"github.com/panelarr/meta/internal/host"
 	"github.com/panelarr/meta/internal/ingest"
+	"github.com/panelarr/meta/internal/metrics"
 	"github.com/panelarr/meta/internal/store"
 	"github.com/panelarr/meta/internal/store/db"
 	"github.com/panelarr/meta/internal/store/storetest"
@@ -23,10 +26,11 @@ import (
 )
 
 type env struct {
-	st     *store.Store
-	fake   *plugintest.Fake
-	runner *ingest.Runner
-	host   *host.Host
+	metrics *metrics.Metrics
+	st      *store.Store
+	fake    *plugintest.Fake
+	runner  *ingest.Runner
+	host    *host.Host
 }
 
 func setup(t *testing.T) *env {
@@ -46,7 +50,11 @@ func setup(t *testing.T) *env {
 		return client.InProcess(fake), nil
 	})
 	w := catalog.NewWriter(st, catalog.Options{Priority: catalog.Priority{Fallback: cfg.ProviderOrder()}, DisplayLanguage: "en"})
-	return &env{st: st, fake: fake, host: h, runner: ingest.NewRunner(st, h, w, log, 3)}
+	m := metrics.New()
+	h.SetMetrics(m)
+	r := ingest.NewRunner(st, h, w, log, 3)
+	r.SetMetrics(m)
+	return &env{metrics: m, st: st, fake: fake, host: h, runner: r}
 }
 
 func (e *env) count(t *testing.T, q string) int {
@@ -69,6 +77,11 @@ func TestFullSyncAndUnchangedResync(t *testing.T) {
 	}
 	if run.Status != "succeeded" || run.Kind != "dump" || run.Upserts != 4 || run.Changed != 4 || run.SnapshotID != "snap-1" || !run.FullSnapshot {
 		t.Fatalf("first run: %+v", run)
+	}
+	if testutil.ToFloat64(e.metrics.SyncRuns.WithLabelValues("fake", "dump", "succeeded")) != 1 ||
+		testutil.ToFloat64(e.metrics.SyncRecords.WithLabelValues("fake", "upsert")) != 4 ||
+		testutil.ToFloat64(e.metrics.PluginCalls.WithLabelValues("fake", "sync", "ok")) != 1 {
+		t.Fatal("sync metrics not recorded")
 	}
 	if n := e.count(t, `SELECT count(*) FROM entries WHERE state = 'active'`); n != 4 {
 		t.Fatalf("entries: %d", n)
