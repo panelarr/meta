@@ -19,6 +19,7 @@ import (
 	"github.com/panelarr/meta/internal/config"
 	"github.com/panelarr/meta/internal/host"
 	"github.com/panelarr/meta/internal/ingest"
+	"github.com/panelarr/meta/internal/search"
 	"github.com/panelarr/meta/internal/store/storetest"
 	"github.com/panelarr/meta/sdk/client"
 	"github.com/panelarr/meta/sdk/plugin"
@@ -58,7 +59,7 @@ func (g generator) record(i int) *metadatav1.ProviderEntry {
 		Attribution:      &metadatav1.Attribution{ProviderName: "Generator", License: "CC0-1.0"},
 	}
 	for j := range 5 {
-		e.Titles = append(e.Titles, &metadatav1.Title{Text: fmt.Sprintf("Series %d title %d", i, j), Language: []string{"en", "ja", "ja-Latn", "ko", "fr"}[j], IsPrimary: j == 0})
+		e.Titles = append(e.Titles, &metadatav1.Title{Text: words(i*5+j, 2+(i+j)%4), Language: []string{"en", "ja", "ja-Latn", "ko", "fr"}[j], IsPrimary: j == 0})
 	}
 	for j := range 2 {
 		e.Credits = append(e.Credits, &metadatav1.Credit{Person: &metadatav1.Person{Name: fmt.Sprintf("Person %d", (i*7+j)%120000)}, Role: metadatav1.PersonRole(1 + j)})
@@ -115,6 +116,25 @@ func (g generator) Sync(ctx context.Context, req *metadatav1.SyncRequest, send p
 
 func ptr[T any](v T) *T { return &v }
 
+// words makes a deterministic pseudo-title of n made-up words, so titles
+// look as varied as real ones do.
+func words(seed, n int) string {
+	syl := []string{"ka", "ri", "no", "shi", "ta", "mo", "ren", "zu", "ha", "ki", "lo", "van", "tor", "el", "mi", "sa", "dra", "go", "un", "bel"}
+	x := uint64(seed)*2654435761 + 12345
+	var b []byte
+	for w := range n {
+		if w > 0 {
+			b = append(b, ' ')
+		}
+		for range 2 + int(x%3) {
+			x = x*6364136223846793005 + 1442695040888963407
+			b = append(b, syl[(x>>33)%uint64(len(syl))]...)
+		}
+		x = x*6364136223846793005 + 1442695040888963407
+	}
+	return string(b)
+}
+
 // TestScale measures a large ingest. It only runs when META_SCALE is set to
 // the number of records, e.g. META_SCALE=564040 META_SCALE_MERGED=46.
 func TestScale(t *testing.T) {
@@ -148,5 +168,22 @@ func TestScale(t *testing.T) {
 		_ = st.Pool.QueryRow(ctx, `SELECT pg_size_pretty(pg_database_size(current_database()))`).Scan(&size)
 		t.Logf("pass %d: %d records (%d changed, %d merges) in %s; %d active entries, %d merged records linked; database %s",
 			pass, run.Upserts, run.Changed, run.Merges, time.Since(start).Round(time.Second), entries, redirects, size)
+	}
+	idx := search.NewPostgres(st.Pool)
+	for _, q := range []search.Query{
+		{Limit: 24},
+		{Limit: 24, Sort: search.SortRating, Filter: search.Filter{Types: []string{"manga"}, Genres: []string{"Tag 3"}}},
+		{Limit: 24, Filter: search.Filter{Tags: []string{"Tag 10", "Tag 27"}}},
+		{Text: words(4242*5, 2+4242%4), Limit: 24},
+		{Text: words(777*5, 2+777%4)[1:], Limit: 24},
+		{Text: "kari", Limit: 24},
+		{Text: "Person 777", Limit: 24},
+	} {
+		start := time.Now()
+		res, err := idx.Query(ctx, q)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("query %q %+v: %d of %d in %s", q.Text, q.Filter, len(res.Hits), res.Total, time.Since(start).Round(time.Millisecond))
 	}
 }

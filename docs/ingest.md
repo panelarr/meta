@@ -30,7 +30,9 @@ Measured with the synthetic scale test (made-up records shaped like a large dump
 | 20,000 | 19 s | 1 s | 0.2 GB |
 | 100,000 | 1 min 27 s | 6 s | 0.8 GB |
 
-That is roughly 8 to 9 minutes for half a million records. Run it yourself:
+That is roughly 8 to 9 minutes for half a million records. With 54,000 active entries, browse pages take 15–60 ms (filters and sorts included) and title searches 100–300 ms.
+
+Run it yourself:
 
 ```sh
 META_SCALE=100000 META_SCALE_MERGED=46 go test -run TestScale -v -timeout 30m ./internal/ingest/

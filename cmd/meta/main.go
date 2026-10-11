@@ -24,6 +24,7 @@ import (
 	"github.com/panelarr/meta/internal/config"
 	"github.com/panelarr/meta/internal/host"
 	"github.com/panelarr/meta/internal/ingest"
+	"github.com/panelarr/meta/internal/search"
 	"github.com/panelarr/meta/internal/store"
 )
 
@@ -270,8 +271,15 @@ func serve(ctx context.Context, args []string, _ io.Writer) error {
 	}
 	sched.Start()
 
+	idx, err := search.New(a.cfg.Search.Backend, search.NewPostgres(a.st.Pool))
+	if err != nil {
+		return err
+	}
 	srv, err := api.New(
-		api.NewMeta(a.st, a.host, a.writer, api.MetaOptions{DisplayLanguage: a.cfg.Merge.DisplayLanguage, StaleAfter: a.cfg.Ingest.StaleAfter, Log: log}),
+		api.NewMeta(a.st, a.host, a.writer, api.MetaOptions{
+			DisplayLanguage: a.cfg.Merge.DisplayLanguage, StaleAfter: a.cfg.Ingest.StaleAfter,
+			Index: idx, Log: log, Base: syncCtx,
+		}),
 		api.NewAdmin(syncCtx, a.st, a.host, a.runner, a.writer),
 		api.Options{APIKeys: a.cfg.APIKeys, Ready: func(ctx context.Context) error { return a.st.Pool.Ping(ctx) }, Log: log},
 	)

@@ -91,6 +91,7 @@ type Querier interface {
 	// point at their target's entry. One statement for the whole provider;
 	// repeat to follow chains.
 	LinkMergedRecords(ctx context.Context, provider string) (int64, error)
+	ListAttributionsForEntries(ctx context.Context, ids []uuid.UUID) ([]ListAttributionsForEntriesRow, error)
 	ListEntryCompanies(ctx context.Context, entryID uuid.UUID) ([]ListEntryCompaniesRow, error)
 	ListEntryCredits(ctx context.Context, entryID uuid.UUID) ([]ListEntryCreditsRow, error)
 	ListEntryDescriptions(ctx context.Context, entryID uuid.UUID) ([]EntryDescription, error)
@@ -103,14 +104,22 @@ type Querier interface {
 	ListEntryTitles(ctx context.Context, entryID uuid.UUID) ([]EntryTitle, error)
 	ListFieldLocks(ctx context.Context, entryID uuid.UUID) ([]FieldLock, error)
 	ListFieldLocksForEntries(ctx context.Context, ids []uuid.UUID) ([]FieldLock, error)
+	ListGenresForEntries(ctx context.Context, ids []uuid.UUID) ([]ListGenresForEntriesRow, error)
 	// Provider merges whose records still sit in different entries. With
 	// external_ids empty, checks every merged record of the provider.
 	ListMergeTargets(ctx context.Context, arg ListMergeTargetsParams) ([]ListMergeTargetsRow, error)
 	ListProviderEntriesForEntries(ctx context.Context, ids []uuid.UUID) ([]ProviderEntry, error)
 	ListProviderEntriesForEntry(ctx context.Context, entryID uuid.NullUUID) ([]ProviderEntry, error)
 	ListProviders(ctx context.Context) ([]Provider, error)
+	ListSourcesForEntry(ctx context.Context, entryID uuid.NullUUID) ([]ListSourcesForEntryRow, error)
 	ListSyncRuns(ctx context.Context, arg ListSyncRunsParams) ([]SyncRun, error)
 	ListTags(ctx context.Context, arg ListTagsParams) ([]Tag, error)
+	ListTagsWithParent(ctx context.Context, arg ListTagsWithParentParams) ([]ListTagsWithParentRow, error)
+	// SPDX-License-Identifier: GPL-3.0-or-later
+	//
+	// Reads for the API: everything a page of results needs, for many entries
+	// at once.
+	ListTitlesForEntries(ctx context.Context, ids []uuid.UUID) ([]EntryTitle, error)
 	// Entries an ID points at: through the IDs entries carry, or through the
 	// provider record itself (records a provider merged keep pointing at the
 	// entry of their target).
