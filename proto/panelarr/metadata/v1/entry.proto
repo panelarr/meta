@@ -1,0 +1,665 @@
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package panelarr.metadata.v1;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/panelarr/meta/gen/panelarr/metadata/v1;metadatav1";
+
+// ProviderEntry is what one provider says about one catalogue item (a series,
+// a novel, a comic run, ...). Plugins send these; meta stores each one as it
+// arrived and builds its merged Entry on top.
+//
+// Every field is optional: a provider fills what it knows. Every enum travels
+// with the provider's original string in a raw_* field, so nothing is lost
+// when a provider's value does not fit our list.
+message ProviderEntry {
+  // The provider's own ID for this item. ref.provider is the plugin's
+  // provider key (for example "mangabaka").
+  ExternalId ref = 1;
+  // The item's page at the provider, for people to follow.
+  string url = 2;
+
+  EntryType type = 3;
+  string raw_type = 4;
+  EntryStatus status = 5;
+  string raw_status = 6;
+  ContentRating content_rating = 7;
+  string raw_content_rating = 8;
+
+  // All titles: main, native, romanized, alternatives and per-language titles.
+  repeated Title titles = 9;
+  repeated Description descriptions = 10;
+  // People and their roles (authors, artists, editors, ...).
+  repeated Credit credits = 11;
+  // Publishers, magazines, imprints, licensors, studios, ...
+  repeated CompanyCredit companies = 12;
+  repeated License licenses = 13;
+  // Tags, genres included (Tag.is_genre).
+  repeated TagAssignment tags = 14;
+  repeated Relation relations = 15;
+  repeated Adaptation adaptations = 16;
+  // Known releases: chapters, volumes, issues, ...
+  repeated Item items = 17;
+  Progress progress = 18;
+  Dates dates = 19;
+  // BCP 47 language tag of the original work, e.g. "ja", "ko", "zh".
+  string original_language = 20;
+  repeated Image images = 21;
+  repeated Link links = 22;
+  // IDs of the same item at other providers. Shared IDs link provider
+  // entries into one merged entry.
+  repeated ExternalId external_ids = 23;
+  Stats stats = 24;
+
+  // Whether the provider still has the item as its own record.
+  EntryState state = 25;
+  // Set when state is ENTRY_STATE_MERGED: the provider's record this one was
+  // merged into.
+  ExternalId merged_into = 26;
+
+  // When the provider last changed this record, if it says.
+  google.protobuf.Timestamp updated_at = 27;
+  // Who the data comes from and under which terms. Shown wherever the data is.
+  Attribution attribution = 28;
+  // The provider's original record, kept so nothing is lost and records can
+  // be re-mapped later without a new download.
+  google.protobuf.Struct raw = 29;
+}
+
+// ExternalId names an item (or person, company, tag) at one provider.
+message ExternalId {
+  // Provider key, lower case, e.g. "mangabaka", "anilist", "mal",
+  // "mangaupdates", "kitsu", "animeplanet", "ann", "shikimori", "mangadex",
+  // "comicvine", "isbn". The list is open.
+  string provider = 1;
+  // The provider's ID, always as a string.
+  string id = 2;
+  // A link to the item at the provider, if known.
+  string url = 3;
+}
+
+// Attribution says where data comes from and under which terms.
+message Attribution {
+  // Display name, e.g. "MangaBaka".
+  string provider_name = 1;
+  // The provider's home page or the record's page.
+  string url = 2;
+  // Licence name, e.g. "CC BY-NC-SA 4.0".
+  string license = 3;
+  string license_url = 4;
+  // A short notice to show next to the data.
+  string notice = 5;
+}
+
+message Title {
+  string text = 1;
+  // BCP 47 tag with an optional script, e.g. "ja", "ja-Latn", "en".
+  string language = 2;
+  TitleKind kind = 3;
+  bool is_primary = 4;
+  // Free-form traits from the provider, e.g. "abbreviation", "old".
+  repeated string traits = 5;
+  string note = 6;
+}
+
+message Description {
+  string language = 1;
+  string text = 2;
+  DescriptionFormat format = 3;
+}
+
+// PartialDate is a date where only some parts may be known. Many sources only
+// know a year. Zero means unknown.
+message PartialDate {
+  int32 year = 1;
+  int32 month = 2;
+  int32 day = 3;
+  // The provider marked the date as an estimate.
+  bool estimated = 4;
+}
+
+message Dates {
+  PartialDate announced = 1;
+  PartialDate start = 2;
+  PartialDate end = 3;
+}
+
+// Ref points at a position in a work, e.g. "volume 12", "chapter 108.5".
+message Ref {
+  RefUnit unit = 1;
+  string raw_unit = 2;
+  RefQualifier qualifier = 3;
+  // A string, so "12.5" and "Extra" fit.
+  string value = 4;
+}
+
+message Progress {
+  Ref total = 1;
+  Ref latest = 2;
+  Ref final = 3;
+}
+
+// Item is a known release: a chapter, volume, issue, ...
+message Item {
+  RefUnit unit = 1;
+  string raw_unit = 2;
+  optional double number = 3;
+  string value = 4;
+  string name = 5;
+  string description = 6;
+  PartialDate release_date = 7;
+  string language = 8;
+  repeated Link links = 9;
+}
+
+message Period {
+  PartialDate start = 1;
+  PartialDate end = 2;
+}
+
+// Person is shared between entries. Providers that only know a name (plain
+// author strings) send a Person with no external IDs.
+message Person {
+  // meta's ID. Empty in records sent by plugins; set by meta when serving.
+  string id = 1;
+  string name = 2;
+  string name_original = 3;
+  repeated string aliases = 4;
+  repeated string aliases_original = 5;
+  PartialDate birth = 6;
+  PartialDate death = 7;
+  string gender = 8;
+  // ISO 3166-1 alpha-2.
+  string country = 9;
+  string language = 10;
+  string biography = 11;
+  repeated Image images = 12;
+  repeated Link links = 13;
+  repeated ExternalId external_ids = 14;
+}
+
+message Character {
+  string name = 1;
+  string name_original = 2;
+}
+
+message Credit {
+  Person person = 1;
+  PersonRole role = 2;
+  string raw_role = 3;
+  // For voice actors and actors: who they play.
+  Character character = 4;
+  int32 order = 5;
+  string note = 6;
+  Period period = 7;
+}
+
+message Company {
+  // meta's ID. Empty in records sent by plugins; set by meta when serving.
+  string id = 1;
+  string name = 2;
+  string name_original = 3;
+  repeated string aliases = 4;
+  repeated string aliases_original = 5;
+  CompanyType type = 6;
+  string raw_type = 7;
+  CompanyStatus status = 8;
+  PartialDate founded = 9;
+  PartialDate closed = 10;
+  string country = 11;
+  string language = 12;
+  string description = 13;
+  repeated Image images = 14;
+  repeated Link links = 15;
+  repeated ExternalId external_ids = 16;
+}
+
+message CompanyCredit {
+  Company company = 1;
+  CompanyRole role = 2;
+  string raw_role = 3;
+  int32 order = 4;
+  string note = 5;
+  Period period = 6;
+  repeated Link links = 7;
+  // The language or market of this credit, e.g. an English publisher.
+  string language = 8;
+}
+
+message License {
+  string language = 1;
+  bool licensed = 2;
+  PartialDate date = 3;
+  Company company = 4;
+}
+
+// Tag is shared between entries. Genres are tags with is_genre set.
+message Tag {
+  // meta's ID. Empty in records sent by plugins; set by meta when serving.
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  // Name of the parent tag, for hierarchies.
+  string parent = 4;
+  int32 level = 5;
+  // Names of tags that imply this one.
+  repeated string implied_by = 6;
+  bool is_genre = 7;
+  bool is_spoiler = 8;
+  bool is_explicit = 9;
+  ContentRating content_rating = 10;
+  // How many entries carry the tag. Computed by meta; providers may send
+  // their own count.
+  int64 entry_count = 11;
+  repeated string aliases = 12;
+  repeated ExternalId external_ids = 13;
+}
+
+message TagAssignment {
+  Tag tag = 1;
+  TagWeight weight = 2;
+  string raw_weight = 3;
+  // 0..1, from votes where the provider has them.
+  optional double score = 4;
+  // The tag is a spoiler for this entry (independent of Tag.is_spoiler).
+  bool is_spoiler = 5;
+}
+
+message Relation {
+  RelationType type = 1;
+  string raw_type = 2;
+  // The related item at the provider.
+  ExternalId target = 3;
+  // meta's entry ID of the target, when meta knows it. Set by meta.
+  string entry_id = 4;
+  // A display title for the target, when the provider sends one.
+  string title = 5;
+  RelationChronology chronology = 6;
+  // Set by a curator rather than a provider.
+  bool manual = 7;
+  string note = 8;
+}
+
+// Adaptation is the work in another medium (anime, live action, games, ...),
+// which may not be in meta at all.
+message Adaptation {
+  AdaptationType type = 1;
+  string raw_type = 2;
+  string title = 3;
+  // Where in the source work the adaptation starts and ends.
+  Ref start = 4;
+  Ref end = 5;
+  Dates dates = 6;
+  repeated ExternalId external_ids = 7;
+}
+
+message ImageVariant {
+  int32 width = 1;
+  int32 height = 2;
+  // Pixel density the variant is meant for: 1, 2, 3, ...
+  int32 density = 3;
+  string url = 4;
+}
+
+message Image {
+  ImageKind kind = 1;
+  string url = 2;
+  // "jpeg", "png", "webp", ...
+  string format = 3;
+  int32 width = 4;
+  int32 height = 5;
+  int64 file_size = 6;
+  string sha256 = 7;
+  // Compact placeholders a client can draw while the image loads.
+  string blurhash = 8;
+  string thumbhash = 9;
+  repeated ImageVariant variants = 10;
+  // Covers can differ per edition or language.
+  string language = 11;
+}
+
+message Link {
+  LinkType type = 1;
+  string raw_type = 2;
+  string url = 3;
+  string title = 4;
+  string description = 5;
+  string language = 6;
+  // For social links: the platform and the handle on it.
+  string platform = 7;
+  string handle = 8;
+}
+
+// Stats are one provider's numbers. They are never mixed across providers,
+// because ratings and popularity are not comparable between sites.
+message Stats {
+  // Average rating on a 0..100 scale.
+  optional double rating = 1;
+  optional int64 rating_count = 2;
+  // A provider's popularity score: higher is more popular.
+  optional double popularity = 3;
+  // A provider's popularity position: 1 is the most popular.
+  optional int64 popularity_rank = 4;
+  // A provider's overall rank: 1 is the best.
+  optional int64 rank = 5;
+}
+
+enum EntryState {
+  ENTRY_STATE_UNSPECIFIED = 0;
+  ENTRY_STATE_ACTIVE = 1;
+  // The provider merged this record into another one (merged_into).
+  ENTRY_STATE_MERGED = 2;
+  // The provider no longer has the record. meta keeps it so links still work.
+  ENTRY_STATE_REMOVED = 3;
+}
+
+enum EntryType {
+  ENTRY_TYPE_UNSPECIFIED = 0;
+  ENTRY_TYPE_NOVEL = 1;
+  ENTRY_TYPE_LIGHT_NOVEL = 2;
+  ENTRY_TYPE_WEB_NOVEL = 3;
+  ENTRY_TYPE_MANGA = 4;
+  ENTRY_TYPE_MANHWA = 5;
+  ENTRY_TYPE_MANHUA = 6;
+  ENTRY_TYPE_OEL = 7;
+  ENTRY_TYPE_COMIC = 8;
+  ENTRY_TYPE_WESTERN_COMIC = 9;
+  ENTRY_TYPE_GRAPHIC_NOVEL = 10;
+  ENTRY_TYPE_WEBCOMIC = 11;
+  ENTRY_TYPE_WEBTOON = 12;
+  ENTRY_TYPE_DOUJINSHI = 13;
+  ENTRY_TYPE_ONE_SHOT = 14;
+  ENTRY_TYPE_ANTHOLOGY = 15;
+  ENTRY_TYPE_VISUAL_NOVEL = 16;
+  ENTRY_TYPE_ARTBOOK = 17;
+  ENTRY_TYPE_GUIDEBOOK = 18;
+  ENTRY_TYPE_MAGAZINE = 19;
+  ENTRY_TYPE_FANFIC = 20;
+  ENTRY_TYPE_OTHER = 21;
+}
+
+enum EntryStatus {
+  ENTRY_STATUS_UNSPECIFIED = 0;
+  ENTRY_STATUS_RELEASING = 1;
+  ENTRY_STATUS_COMPLETED = 2;
+  ENTRY_STATUS_HIATUS = 3;
+  ENTRY_STATUS_CANCELLED = 4;
+  ENTRY_STATUS_UPCOMING = 5;
+  ENTRY_STATUS_UNKNOWN = 6;
+}
+
+enum ContentRating {
+  CONTENT_RATING_UNSPECIFIED = 0;
+  CONTENT_RATING_SAFE = 1;
+  CONTENT_RATING_SUGGESTIVE = 2;
+  CONTENT_RATING_EROTIC = 3;
+  CONTENT_RATING_PORNOGRAPHIC = 4;
+  CONTENT_RATING_UNKNOWN = 5;
+}
+
+enum TitleKind {
+  TITLE_KIND_UNSPECIFIED = 0;
+  TITLE_KIND_OFFICIAL = 1;
+  TITLE_KIND_NATIVE = 2;
+  TITLE_KIND_ROMANIZED = 3;
+  TITLE_KIND_ALTERNATIVE = 4;
+  TITLE_KIND_UNOFFICIAL = 5;
+  TITLE_KIND_UNKNOWN = 6;
+}
+
+enum DescriptionFormat {
+  DESCRIPTION_FORMAT_UNSPECIFIED = 0;
+  DESCRIPTION_FORMAT_PLAIN = 1;
+  DESCRIPTION_FORMAT_MARKDOWN = 2;
+  DESCRIPTION_FORMAT_HTML = 3;
+}
+
+enum RefUnit {
+  REF_UNIT_UNSPECIFIED = 0;
+  REF_UNIT_CHAPTER = 1;
+  REF_UNIT_VOLUME = 2;
+  REF_UNIT_PART = 3;
+  REF_UNIT_ARC = 4;
+  REF_UNIT_ACT = 5;
+  REF_UNIT_SEASON = 6;
+  REF_UNIT_COUR = 7;
+  REF_UNIT_EPISODE = 8;
+  REF_UNIT_SPECIAL = 9;
+  REF_UNIT_OVA = 10;
+  REF_UNIT_ONA = 11;
+  REF_UNIT_MOVIE = 12;
+  REF_UNIT_FILM = 13;
+  REF_UNIT_SHORT = 14;
+  REF_UNIT_BOOK = 15;
+  REF_UNIT_NOVEL = 16;
+  REF_UNIT_LIGHT_NOVEL_VOLUME = 17;
+  REF_UNIT_ISSUE = 18;
+  REF_UNIT_PAGE = 19;
+  REF_UNIT_ROUTE = 20;
+  REF_UNIT_SCENARIO = 21;
+  REF_UNIT_GAME = 22;
+  REF_UNIT_DLC = 23;
+  REF_UNIT_STAGE = 24;
+  REF_UNIT_TRACK = 25;
+  REF_UNIT_WHOLE_WORK = 26;
+  REF_UNIT_OTHER = 27;
+  REF_UNIT_UNKNOWN = 28;
+}
+
+enum RefQualifier {
+  REF_QUALIFIER_UNSPECIFIED = 0;
+  REF_QUALIFIER_EXACT = 1;
+  REF_QUALIFIER_APPROXIMATE = 2;
+  REF_QUALIFIER_ESTIMATED = 3;
+  REF_QUALIFIER_BEFORE = 4;
+  REF_QUALIFIER_AFTER = 5;
+  REF_QUALIFIER_UP_TO = 6;
+  REF_QUALIFIER_THROUGH = 7;
+  REF_QUALIFIER_UNKNOWN = 8;
+}
+
+enum PersonRole {
+  PERSON_ROLE_UNSPECIFIED = 0;
+  PERSON_ROLE_AUTHOR = 1;
+  PERSON_ROLE_ARTIST = 2;
+  PERSON_ROLE_WRITER = 3;
+  PERSON_ROLE_ILLUSTRATOR = 4;
+  PERSON_ROLE_ORIGINAL_CREATOR = 5;
+  PERSON_ROLE_DIRECTOR = 6;
+  PERSON_ROLE_PRODUCER = 7;
+  PERSON_ROLE_SCREENWRITER = 8;
+  PERSON_ROLE_CHARACTER_DESIGNER = 9;
+  PERSON_ROLE_ANIMATOR = 10;
+  PERSON_ROLE_COMPOSER = 11;
+  PERSON_ROLE_VOICE_ACTOR = 12;
+  PERSON_ROLE_ACTOR = 13;
+  PERSON_ROLE_TRANSLATOR = 14;
+  PERSON_ROLE_EDITOR = 15;
+  PERSON_ROLE_PUBLISHER = 16;
+  PERSON_ROLE_STUDIO_STAFF = 17;
+  PERSON_ROLE_OTHER = 18;
+  PERSON_ROLE_UNKNOWN = 19;
+}
+
+enum CompanyRole {
+  COMPANY_ROLE_UNSPECIFIED = 0;
+  COMPANY_ROLE_ORIGINAL_PUBLISHER = 1;
+  COMPANY_ROLE_PUBLISHER = 2;
+  COMPANY_ROLE_IMPRINT = 3;
+  COMPANY_ROLE_MAGAZINE = 4;
+  COMPANY_ROLE_STUDIO = 5;
+  COMPANY_ROLE_ANIMATION_PRODUCTION = 6;
+  COMPANY_ROLE_PRODUCTION = 7;
+  COMPANY_ROLE_PRODUCTION_COMMITTEE = 8;
+  COMPANY_ROLE_DISTRIBUTOR = 9;
+  COMPANY_ROLE_LICENSOR = 10;
+  COMPANY_ROLE_LOCALIZER = 11;
+  COMPANY_ROLE_STREAMING_SERVICE = 12;
+  COMPANY_ROLE_PLATFORM = 13;
+  COMPANY_ROLE_RECORD_LABEL = 14;
+  COMPANY_ROLE_MUSIC_PRODUCTION = 15;
+  COMPANY_ROLE_GAME_DEVELOPER = 16;
+  COMPANY_ROLE_GAME_PUBLISHER = 17;
+  COMPANY_ROLE_SPONSOR = 18;
+  COMPANY_ROLE_OTHER = 19;
+  COMPANY_ROLE_UNKNOWN = 20;
+}
+
+enum CompanyType {
+  COMPANY_TYPE_UNSPECIFIED = 0;
+  COMPANY_TYPE_PUBLISHER = 1;
+  COMPANY_TYPE_IMPRINT = 2;
+  COMPANY_TYPE_MAGAZINE = 3;
+  COMPANY_TYPE_STUDIO = 4;
+  COMPANY_TYPE_ANIMATION_STUDIO = 5;
+  COMPANY_TYPE_PRODUCTION_COMPANY = 6;
+  COMPANY_TYPE_PRODUCTION_COMMITTEE = 7;
+  COMPANY_TYPE_DISTRIBUTOR = 8;
+  COMPANY_TYPE_LICENSOR = 9;
+  COMPANY_TYPE_LOCALIZER = 10;
+  COMPANY_TYPE_TRANSLATION_GROUP = 11;
+  COMPANY_TYPE_STREAMING_SERVICE = 12;
+  COMPANY_TYPE_PLATFORM = 13;
+  COMPANY_TYPE_RETAILER = 14;
+  COMPANY_TYPE_RECORD_LABEL = 15;
+  COMPANY_TYPE_MUSIC_PRODUCTION = 16;
+  COMPANY_TYPE_GAME_STUDIO = 17;
+  COMPANY_TYPE_SOFTWARE_COMPANY = 18;
+  COMPANY_TYPE_AGENCY = 19;
+  COMPANY_TYPE_TALENT_AGENCY = 20;
+  COMPANY_TYPE_OTHER = 21;
+  COMPANY_TYPE_UNKNOWN = 22;
+}
+
+enum CompanyStatus {
+  COMPANY_STATUS_UNSPECIFIED = 0;
+  COMPANY_STATUS_ACTIVE = 1;
+  COMPANY_STATUS_INACTIVE = 2;
+  COMPANY_STATUS_DEFUNCT = 3;
+  COMPANY_STATUS_MERGED = 4;
+  COMPANY_STATUS_ACQUIRED = 5;
+  COMPANY_STATUS_RENAMED = 6;
+  COMPANY_STATUS_UNKNOWN = 7;
+}
+
+enum TagWeight {
+  TAG_WEIGHT_UNSPECIFIED = 0;
+  TAG_WEIGHT_CORE = 1;
+  TAG_WEIGHT_DEFINING = 2;
+  TAG_WEIGHT_RECURRENT = 3;
+  TAG_WEIGHT_INCIDENTAL = 4;
+  TAG_WEIGHT_UNWEIGHTED = 5;
+}
+
+enum RelationType {
+  RELATION_TYPE_UNSPECIFIED = 0;
+  RELATION_TYPE_ADAPTATION = 1;
+  RELATION_TYPE_ALTERNATIVE = 2;
+  RELATION_TYPE_CAMEO = 3;
+  RELATION_TYPE_CHARACTER_FOCUS = 4;
+  RELATION_TYPE_COMPILATION = 5;
+  RELATION_TYPE_CONTAINS = 6;
+  RELATION_TYPE_CROSSOVER = 7;
+  RELATION_TYPE_EXPANSION = 8;
+  RELATION_TYPE_MAIN = 9;
+  RELATION_TYPE_PARENT = 10;
+  RELATION_TYPE_PARODY = 11;
+  RELATION_TYPE_PREQUEL = 12;
+  RELATION_TYPE_REBOOT = 13;
+  RELATION_TYPE_REMAKE = 14;
+  RELATION_TYPE_SEQUEL = 15;
+  RELATION_TYPE_SERIES = 16;
+  RELATION_TYPE_SIDE_STORY = 17;
+  RELATION_TYPE_SOURCE = 18;
+  RELATION_TYPE_SPIN_OFF = 19;
+  RELATION_TYPE_SUMMARY = 20;
+  RELATION_TYPE_UNCOLLECTED = 21;
+  RELATION_TYPE_OTHER = 22;
+}
+
+enum RelationChronology {
+  RELATION_CHRONOLOGY_UNSPECIFIED = 0;
+  RELATION_CHRONOLOGY_NARRATIVE = 1;
+  RELATION_CHRONOLOGY_RELEASE = 2;
+  RELATION_CHRONOLOGY_UNKNOWN = 3;
+}
+
+enum AdaptationType {
+  ADAPTATION_TYPE_UNSPECIFIED = 0;
+  ADAPTATION_TYPE_ANIME = 1;
+  ADAPTATION_TYPE_ANIME_MOVIE = 2;
+  ADAPTATION_TYPE_ANIME_SHORT = 3;
+  ADAPTATION_TYPE_ANIME_OVA = 4;
+  ADAPTATION_TYPE_ANIME_ONA = 5;
+  ADAPTATION_TYPE_ANIME_SPECIAL = 6;
+  ADAPTATION_TYPE_LIVE_ACTION_SERIES = 7;
+  ADAPTATION_TYPE_LIVE_ACTION_MOVIE = 8;
+  ADAPTATION_TYPE_LIVE_ACTION_SPECIAL = 9;
+  ADAPTATION_TYPE_TV_DRAMA = 10;
+  ADAPTATION_TYPE_MOVIE = 11;
+  ADAPTATION_TYPE_SHORT_FILM = 12;
+  ADAPTATION_TYPE_WEB_SERIES = 13;
+  ADAPTATION_TYPE_ANIMATED_SERIES = 14;
+  ADAPTATION_TYPE_ANIMATED_MOVIE = 15;
+  ADAPTATION_TYPE_GAME = 16;
+  ADAPTATION_TYPE_VISUAL_NOVEL = 17;
+  ADAPTATION_TYPE_AUDIO_DRAMA = 18;
+  ADAPTATION_TYPE_RADIO_DRAMA = 19;
+  ADAPTATION_TYPE_STAGE_PLAY = 20;
+  ADAPTATION_TYPE_MUSICAL = 21;
+  ADAPTATION_TYPE_DOUJIN = 22;
+  ADAPTATION_TYPE_SPIN_OFF = 23;
+  ADAPTATION_TYPE_UNKNOWN = 24;
+}
+
+enum ImageKind {
+  IMAGE_KIND_UNSPECIFIED = 0;
+  IMAGE_KIND_COVER = 1;
+  IMAGE_KIND_BANNER = 2;
+  IMAGE_KIND_THUMBNAIL = 3;
+  IMAGE_KIND_PORTRAIT = 4;
+  IMAGE_KIND_LOGO = 5;
+  IMAGE_KIND_OTHER = 6;
+}
+
+enum LinkType {
+  LINK_TYPE_UNSPECIFIED = 0;
+  LINK_TYPE_OFFICIAL_WEBSITE = 1;
+  LINK_TYPE_OFFICIAL_PROFILE = 2;
+  LINK_TYPE_PERSONAL_WEBSITE = 3;
+  LINK_TYPE_PORTFOLIO = 4;
+  LINK_TYPE_BLOG = 5;
+  LINK_TYPE_WIKI = 6;
+  LINK_TYPE_DATABASE = 7;
+  LINK_TYPE_ENCYCLOPEDIA = 8;
+  LINK_TYPE_SOCIAL = 9;
+  LINK_TYPE_STORE = 10;
+  LINK_TYPE_SHOP = 11;
+  LINK_TYPE_MERCH = 12;
+  LINK_TYPE_PUBLISHER = 13;
+  LINK_TYPE_MAGAZINE = 14;
+  LINK_TYPE_LABEL = 15;
+  LINK_TYPE_STUDIO = 16;
+  LINK_TYPE_STREAMING = 17;
+  LINK_TYPE_WATCH = 18;
+  LINK_TYPE_READ = 19;
+  LINK_TYPE_NEWS = 20;
+  LINK_TYPE_INTERVIEW = 21;
+  LINK_TYPE_ARTICLE = 22;
+  LINK_TYPE_REVIEW = 23;
+  LINK_TYPE_IMAGE_GALLERY = 24;
+  LINK_TYPE_VIDEO = 25;
+  LINK_TYPE_TRAILER = 26;
+  LINK_TYPE_FORUM = 27;
+  LINK_TYPE_COMMUNITY = 28;
+  LINK_TYPE_DISCORD = 29;
+  LINK_TYPE_REDDIT = 30;
+  LINK_TYPE_DONATION = 31;
+  LINK_TYPE_EMAIL = 32;
+  LINK_TYPE_OTHER = 33;
+  LINK_TYPE_UNKNOWN = 34;
+}

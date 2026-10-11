@@ -1,0 +1,256 @@
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package panelarr.meta.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "panelarr/metadata/v1/entry.proto";
+
+option go_package = "github.com/panelarr/meta/gen/panelarr/meta/v1;metav1";
+
+// MetaService serves meta's catalogue: discovery (browse), search and
+// details over every entry meta knows, not only those in a library.
+//
+// Every RPC is available over gRPC, Connect and plain HTTP/JSON (the paths
+// in the annotations below).
+service MetaService {
+  // Browse lists entries with filters and a sort order, for discovery pages
+  // such as "popular manhwa" or "completed romance from 2015 on".
+  rpc Browse(BrowseRequest) returns (BrowseResponse) {
+    option (google.api.http) = {get: "/v1/entries"};
+  }
+
+  // Search finds entries by title in every language (main, native,
+  // romanized and alternative titles) and by the people credited on them.
+  rpc Search(SearchRequest) returns (SearchResponse) {
+    option (google.api.http) = {get: "/v1/search"};
+  }
+
+  // GetEntry returns one entry with full details and attribution. IDs of
+  // entries that were merged into another resolve to the surviving entry.
+  rpc GetEntry(GetEntryRequest) returns (GetEntryResponse) {
+    option (google.api.http) = {get: "/v1/entries/{id}"};
+  }
+
+  // LookupExternal finds the entry for an ID at another provider, e.g.
+  // anilist 30013. When meta doesn't know the ID yet, it may ask a plugin that
+  // can look it up.
+  rpc LookupExternal(LookupExternalRequest) returns (LookupExternalResponse) {
+    option (google.api.http) = {get: "/v1/lookup/{provider}/{external_id}"};
+  }
+
+  // ListTags lists the tags and genres meta knows, with entry counts, for
+  // building browse filters.
+  rpc ListTags(ListTagsRequest) returns (ListTagsResponse) {
+    option (google.api.http) = {get: "/v1/tags"};
+  }
+}
+
+// EntrySummary is the short form of an entry used in lists.
+message EntrySummary {
+  string id = 1;
+  // The display title: the primary title in the requested language when
+  // there is one, otherwise the main title.
+  string title = 2;
+  panelarr.metadata.v1.EntryType type = 3;
+  panelarr.metadata.v1.EntryStatus status = 4;
+  panelarr.metadata.v1.ContentRating content_rating = 5;
+  string original_language = 6;
+  // Year the work started, 0 if unknown.
+  int32 year = 7;
+  panelarr.metadata.v1.Image cover = 8;
+  // Genre names.
+  repeated string genres = 9;
+  // Rating on a 0..100 scale from the preferred provider, if any.
+  optional double rating = 10;
+  // Who the data comes from.
+  repeated panelarr.metadata.v1.Attribution attributions = 11;
+}
+
+// Entry is meta's merged record for one catalogue item. Each field comes from
+// the provider with the highest priority for it (field_sources says which),
+// unless a curator locked the field.
+message Entry {
+  string id = 1;
+  string title = 2;
+  panelarr.metadata.v1.EntryType type = 3;
+  string raw_type = 4;
+  panelarr.metadata.v1.EntryStatus status = 5;
+  string raw_status = 6;
+  panelarr.metadata.v1.ContentRating content_rating = 7;
+  string raw_content_rating = 8;
+  repeated panelarr.metadata.v1.Title titles = 9;
+  repeated panelarr.metadata.v1.Description descriptions = 10;
+  repeated panelarr.metadata.v1.Credit credits = 11;
+  repeated panelarr.metadata.v1.CompanyCredit companies = 12;
+  repeated panelarr.metadata.v1.License licenses = 13;
+  repeated panelarr.metadata.v1.TagAssignment tags = 14;
+  repeated panelarr.metadata.v1.Relation relations = 15;
+  repeated panelarr.metadata.v1.Adaptation adaptations = 16;
+  repeated panelarr.metadata.v1.Item items = 17;
+  panelarr.metadata.v1.Progress progress = 18;
+  panelarr.metadata.v1.Dates dates = 19;
+  string original_language = 20;
+  repeated panelarr.metadata.v1.Image images = 21;
+  repeated panelarr.metadata.v1.Link links = 22;
+  repeated panelarr.metadata.v1.ExternalId external_ids = 23;
+  // Each provider's numbers, kept apart because they are not comparable.
+  repeated ProviderStats stats = 24;
+  panelarr.metadata.v1.EntryState state = 25;
+  // When state is merged: the entry this one was merged into.
+  string merged_into = 26;
+  // The provider records this entry is built from.
+  repeated EntrySource sources = 27;
+  // Which provider each field came from: field name -> provider key, or
+  // "manual" for fields a curator set.
+  map<string, string> field_sources = 28;
+  google.protobuf.Timestamp created_at = 29;
+  google.protobuf.Timestamp updated_at = 30;
+}
+
+message ProviderStats {
+  string provider = 1;
+  panelarr.metadata.v1.Stats stats = 2;
+}
+
+// EntrySource is one provider record behind an entry.
+message EntrySource {
+  panelarr.metadata.v1.ExternalId ref = 1;
+  panelarr.metadata.v1.Attribution attribution = 2;
+  panelarr.metadata.v1.EntryState state = 3;
+  // When meta last received the record.
+  google.protobuf.Timestamp fetched_at = 4;
+  // When the provider last changed it, if known.
+  google.protobuf.Timestamp provider_updated_at = 5;
+}
+
+// EntryFilter narrows Browse and Search. Repeated fields match any of their
+// values; different fields must all match.
+message EntryFilter {
+  // Genre names.
+  repeated string genres = 1;
+  // Tag names. An entry must have all of them.
+  repeated string tags = 2;
+  // Tag or genre names to leave out.
+  repeated string exclude_tags = 3;
+  repeated panelarr.metadata.v1.EntryType types = 4;
+  repeated panelarr.metadata.v1.EntryStatus statuses = 5;
+  repeated panelarr.metadata.v1.ContentRating content_ratings = 6;
+  // Original languages (BCP 47), e.g. "ja", "ko".
+  repeated string languages = 7;
+  // Start year range, inclusive. 0 means open.
+  int32 year_from = 8;
+  int32 year_to = 9;
+  // Only entries with titles in one of these languages.
+  repeated string title_languages = 10;
+  // Include merged and removed entries. Off by default.
+  bool include_inactive = 11;
+}
+
+enum SortField {
+  SORT_FIELD_UNSPECIFIED = 0;
+  // Most popular first.
+  SORT_FIELD_POPULARITY = 1;
+  // Highest rated first.
+  SORT_FIELD_RATING = 2;
+  // Most recently updated first.
+  SORT_FIELD_UPDATED = 3;
+  // Newest start year first.
+  SORT_FIELD_YEAR = 4;
+  // Alphabetical by display title.
+  SORT_FIELD_TITLE = 5;
+  // Best match first (Search only).
+  SORT_FIELD_RELEVANCE = 6;
+}
+
+message BrowseRequest {
+  EntryFilter filter = 1;
+  SortField sort = 2;
+  // Reverse the sort's natural direction.
+  bool reverse = 3;
+  // 1..100, default 24.
+  int32 page_size = 4;
+  string page_token = 5;
+  // Preferred language for display titles (BCP 47).
+  string language = 6;
+}
+
+message BrowseResponse {
+  repeated EntrySummary entries = 1;
+  string next_page_token = 2;
+  // Number of matching entries.
+  int64 total_size = 3;
+  // True when meta has no providers configured, so an empty result means
+  // "nothing set up" rather than "nothing matched".
+  bool no_providers = 4;
+}
+
+message SearchRequest {
+  string query = 1;
+  EntryFilter filter = 2;
+  // Defaults to relevance.
+  SortField sort = 3;
+  bool reverse = 4;
+  int32 page_size = 5;
+  string page_token = 6;
+  string language = 7;
+}
+
+message SearchHit {
+  EntrySummary entry = 1;
+  // Relevance, higher is better. Only comparable within one response.
+  double score = 2;
+  // The title or name that matched.
+  string matched = 3;
+  // What matched: "title" or "person".
+  string matched_field = 4;
+}
+
+message SearchResponse {
+  repeated SearchHit hits = 1;
+  string next_page_token = 2;
+  int64 total_size = 3;
+  bool no_providers = 4;
+}
+
+message GetEntryRequest {
+  string id = 1;
+  string language = 2;
+}
+
+message GetEntryResponse {
+  Entry entry = 1;
+  // Set when the requested ID was merged and the response is the entry it
+  // was merged into.
+  string redirected_from = 2;
+}
+
+message LookupExternalRequest {
+  // Provider key, e.g. "anilist", "mal", "mangabaka".
+  string provider = 1;
+  string external_id = 2;
+  // Ask a plugin even if meta already knows the ID, to get fresh data.
+  bool refresh = 3;
+  string language = 4;
+}
+
+message LookupExternalResponse {
+  Entry entry = 1;
+}
+
+message ListTagsRequest {
+  // Only genres.
+  bool genres_only = 1;
+  // Prefix filter on the name, case-insensitive.
+  string prefix = 2;
+  // 1..1000, default 200.
+  int32 page_size = 3;
+  string page_token = 4;
+}
+
+message ListTagsResponse {
+  repeated panelarr.metadata.v1.Tag tags = 1;
+  string next_page_token = 2;
+}

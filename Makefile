@@ -75,7 +75,7 @@ gen-check: gen ## Fail if generated code is out of date
 	@git diff --exit-code -- gen store/db openapi || (echo "generated code is stale: run make gen" && exit 1)
 
 run: build ## Run meta locally (needs META_DATABASE_URL) and print its URL
-	@echo "meta listening on http://localhost:8080"
+	@echo "meta listening on http://localhost:8901"
 	$(BIN)/meta serve
 
 docker: ## Build the container image ($(IMAGE))

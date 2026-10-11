@@ -1,0 +1,2658 @@
+openapi: 3.1.0
+info:
+  title: meta API
+  description: |
+    meta serves a metadata catalogue for manga, manhwa, manhua and comics: browse with
+    filters, search across titles in every language, entry details with attribution,
+    lookups by external ID, and provider administration.
+
+    Every call needs an API key, sent as `Authorization: Bearer <key>`. The same API is
+    also served over gRPC and Connect.
+  version: v1
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+security:
+  - apiKey: []
+components:
+  securitySchemes:
+    apiKey:
+      type: http
+      scheme: bearer
+  schemas:
+    google.protobuf.Duration:
+      type: string
+      format: duration
+      description: A signed duration in seconds, with up to nine fractional digits and an `s` suffix (for example, `3s` or `-0.001s`).
+    google.protobuf.ListValue:
+      type: array
+      items:
+        $ref: '#/components/schemas/google.protobuf.Value'
+      description: A JSON array whose elements may be any JSON value.
+    google.protobuf.NullValue:
+      type: string
+      title: NullValue
+      enum:
+        - NULL_VALUE
+      description: |-
+        Represents a JSON `null`.
+
+         `NullValue` is a sentinel, using an enum with only one value to represent
+         the null value for the `Value` type union.
+
+         A field of type `NullValue` with any value other than `0` is considered
+         invalid. Most ProtoJSON serializers will emit a Value with a `null_value` set
+         as a JSON `null` regardless of the integer value, and so will round trip to
+         a `0` value.
+    google.protobuf.Struct:
+      type: object
+      additionalProperties:
+        $ref: '#/components/schemas/google.protobuf.Value'
+      description: A JSON object whose property values may be any JSON value.
+    google.protobuf.Timestamp:
+      type: string
+      examples:
+        - "2023-01-15T01:30:15.01Z"
+        - "2024-12-25T12:00:00Z"
+      format: date-time
+      description: A point in time in RFC 3339 format, with up to nanosecond precision. Output uses UTC (`Z`); input may use an offset from UTC.
+    google.protobuf.Value:
+      oneOf:
+        - type: "null"
+        - type: number
+        - type: string
+        - type: boolean
+        - type: array
+        - type: object
+          additionalProperties: true
+      description: 'Any JSON value: `null`, number, string, boolean, array, or object.'
+    panelarr.meta.v1.BrowseRequest:
+      type: object
+      properties:
+        filter:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.EntryFilter'
+          title: filter
+        sort:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.SortField'
+          title: sort
+        reverse:
+          type: boolean
+          title: reverse
+          description: Reverse the sort's natural direction.
+        pageSize:
+          type: integer
+          title: page_size
+          format: int32
+          description: 1..100, default 24.
+        pageToken:
+          type: string
+          title: page_token
+        language:
+          type: string
+          title: language
+          description: Preferred language for display titles (BCP 47).
+      title: BrowseRequest
+      additionalProperties: false
+    panelarr.meta.v1.BrowseResponse:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.meta.v1.EntrySummary'
+          title: entries
+        nextPageToken:
+          type: string
+          title: next_page_token
+        totalSize:
+          type: string
+          title: total_size
+          format: int64
+          description: Number of matching entries.
+        noProviders:
+          type: boolean
+          title: no_providers
+          description: |-
+            True when meta has no providers configured, so an empty result means
+             "nothing set up" rather than "nothing matched".
+      title: BrowseResponse
+      additionalProperties: false
+    panelarr.meta.v1.Entry:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+        title:
+          type: string
+          title: title
+        type:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.EntryType'
+          title: type
+        rawType:
+          type: string
+          title: raw_type
+        status:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.EntryStatus'
+          title: status
+        rawStatus:
+          type: string
+          title: raw_status
+        contentRating:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.ContentRating'
+          title: content_rating
+        rawContentRating:
+          type: string
+          title: raw_content_rating
+        titles:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.Title'
+          title: titles
+        descriptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.Description'
+          title: descriptions
+        credits:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.Credit'
+          title: credits
+        companies:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.CompanyCredit'
+          title: companies
+        licenses:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.License'
+          title: licenses
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.TagAssignment'
+          title: tags
+        relations:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.Relation'
+          title: relations
+        adaptations:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.Adaptation'
+          title: adaptations
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.Item'
+          title: items
+        progress:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.Progress'
+          title: progress
+        dates:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.Dates'
+          title: dates
+        originalLanguage:
+          type: string
+          title: original_language
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.Image'
+          title: images
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.Link'
+          title: links
+        externalIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.ExternalId'
+          title: external_ids
+        stats:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.meta.v1.ProviderStats'
+          title: stats
+          description: Each provider's numbers, kept apart because they are not comparable.
+        state:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.EntryState'
+          title: state
+        mergedInto:
+          type: string
+          title: merged_into
+          description: 'When state is merged: the entry this one was merged into.'
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.meta.v1.EntrySource'
+          title: sources
+          description: The provider records this entry is built from.
+        fieldSources:
+          type: object
+          title: field_sources
+          additionalProperties:
+            type: string
+            title: value
+          description: |-
+            Which provider each field came from: field name -> provider key, or
+             "manual" for fields a curator set.
+        createdAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: created_at
+        updatedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: updated_at
+      title: Entry
+      additionalProperties: false
+      description: |-
+        Entry is meta's merged record for one catalogue item. Each field comes from
+         the provider with the highest priority for it (field_sources says which),
+         unless a curator locked the field.
+    panelarr.meta.v1.EntryFilter:
+      type: object
+      properties:
+        genres:
+          type: array
+          items:
+            type: string
+          title: genres
+          description: Genre names.
+        tags:
+          type: array
+          items:
+            type: string
+          title: tags
+          description: Tag names. An entry must have all of them.
+        excludeTags:
+          type: array
+          items:
+            type: string
+          title: exclude_tags
+          description: Tag or genre names to leave out.
+        types:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.EntryType'
+          title: types
+        statuses:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.EntryStatus'
+          title: statuses
+        contentRatings:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.ContentRating'
+          title: content_ratings
+        languages:
+          type: array
+          items:
+            type: string
+          title: languages
+          description: Original languages (BCP 47), e.g. "ja", "ko".
+        yearFrom:
+          type: integer
+          title: year_from
+          format: int32
+          description: Start year range, inclusive. 0 means open.
+        yearTo:
+          type: integer
+          title: year_to
+          format: int32
+        titleLanguages:
+          type: array
+          items:
+            type: string
+          title: title_languages
+          description: Only entries with titles in one of these languages.
+        includeInactive:
+          type: boolean
+          title: include_inactive
+          description: Include merged and removed entries. Off by default.
+      title: EntryFilter
+      additionalProperties: false
+      description: |-
+        EntryFilter narrows Browse and Search. Repeated fields match any of their
+         values; different fields must all match.
+    panelarr.meta.v1.EntrySource:
+      type: object
+      properties:
+        ref:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.ExternalId'
+          title: ref
+        attribution:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.Attribution'
+          title: attribution
+        state:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.EntryState'
+          title: state
+        fetchedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: fetched_at
+          description: When meta last received the record.
+        providerUpdatedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: provider_updated_at
+          description: When the provider last changed it, if known.
+      title: EntrySource
+      additionalProperties: false
+      description: EntrySource is one provider record behind an entry.
+    panelarr.meta.v1.EntrySummary:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+        title:
+          type: string
+          title: title
+          description: |-
+            The display title: the primary title in the requested language when
+             there is one, otherwise the main title.
+        type:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.EntryType'
+          title: type
+        status:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.EntryStatus'
+          title: status
+        contentRating:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.ContentRating'
+          title: content_rating
+        originalLanguage:
+          type: string
+          title: original_language
+        year:
+          type: integer
+          title: year
+          format: int32
+          description: Year the work started, 0 if unknown.
+        cover:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.Image'
+          title: cover
+        genres:
+          type: array
+          items:
+            type: string
+          title: genres
+          description: Genre names.
+        rating:
+          type:
+            - number
+            - "null"
+          title: rating
+          format: double
+          description: Rating on a 0..100 scale from the preferred provider, if any.
+        attributions:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.Attribution'
+          title: attributions
+          description: Who the data comes from.
+      title: EntrySummary
+      additionalProperties: false
+      description: EntrySummary is the short form of an entry used in lists.
+    panelarr.meta.v1.GetEntryRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+        language:
+          type: string
+          title: language
+      title: GetEntryRequest
+      additionalProperties: false
+    panelarr.meta.v1.GetEntryResponse:
+      type: object
+      properties:
+        entry:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.Entry'
+          title: entry
+        redirectedFrom:
+          type: string
+          title: redirected_from
+          description: |-
+            Set when the requested ID was merged and the response is the entry it
+             was merged into.
+      title: GetEntryResponse
+      additionalProperties: false
+    panelarr.meta.v1.GetSyncRunRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+      title: GetSyncRunRequest
+      additionalProperties: false
+    panelarr.meta.v1.GetSyncRunResponse:
+      type: object
+      properties:
+        run:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.SyncRun'
+          title: run
+      title: GetSyncRunResponse
+      additionalProperties: false
+    panelarr.meta.v1.ListProvidersRequest:
+      type: object
+      title: ListProvidersRequest
+      additionalProperties: false
+    panelarr.meta.v1.ListProvidersResponse:
+      type: object
+      properties:
+        providers:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.meta.v1.Provider'
+          title: providers
+      title: ListProvidersResponse
+      additionalProperties: false
+    panelarr.meta.v1.ListSyncRunsRequest:
+      type: object
+      properties:
+        provider:
+          type: string
+          title: provider
+          description: Only runs of this provider.
+        pageSize:
+          type: integer
+          title: page_size
+          format: int32
+          description: 1..100, default 20.
+        pageToken:
+          type: string
+          title: page_token
+      title: ListSyncRunsRequest
+      additionalProperties: false
+    panelarr.meta.v1.ListSyncRunsResponse:
+      type: object
+      properties:
+        runs:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.meta.v1.SyncRun'
+          title: runs
+        nextPageToken:
+          type: string
+          title: next_page_token
+      title: ListSyncRunsResponse
+      additionalProperties: false
+    panelarr.meta.v1.ListTagsRequest:
+      type: object
+      properties:
+        genresOnly:
+          type: boolean
+          title: genres_only
+          description: Only genres.
+        prefix:
+          type: string
+          title: prefix
+          description: Prefix filter on the name, case-insensitive.
+        pageSize:
+          type: integer
+          title: page_size
+          format: int32
+          description: 1..1000, default 200.
+        pageToken:
+          type: string
+          title: page_token
+      title: ListTagsRequest
+      additionalProperties: false
+    panelarr.meta.v1.ListTagsResponse:
+      type: object
+      properties:
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.Tag'
+          title: tags
+        nextPageToken:
+          type: string
+          title: next_page_token
+      title: ListTagsResponse
+      additionalProperties: false
+    panelarr.meta.v1.LookupExternalRequest:
+      type: object
+      properties:
+        provider:
+          type: string
+          title: provider
+          description: Provider key, e.g. "anilist", "mal", "mangabaka".
+        externalId:
+          type: string
+          title: external_id
+        refresh:
+          type: boolean
+          title: refresh
+          description: Ask a plugin even if meta already knows the ID, to get fresh data.
+        language:
+          type: string
+          title: language
+      title: LookupExternalRequest
+      additionalProperties: false
+    panelarr.meta.v1.LookupExternalResponse:
+      type: object
+      properties:
+        entry:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.Entry'
+          title: entry
+      title: LookupExternalResponse
+      additionalProperties: false
+    panelarr.meta.v1.Provider:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          description: The provider key, e.g. "mangabaka".
+        mode:
+          type: string
+          title: mode
+          description: 'How meta reaches the plugin: "managed" or "remote".'
+        info:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.PluginInfo'
+          title: info
+          description: What the plugin reported in GetInfo. Empty if it couldn't be reached.
+        health:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.HealthStatus'
+          title: health
+        healthMessage:
+          type: string
+          title: health_message
+        schedules:
+          type: object
+          title: schedules
+          additionalProperties:
+            type: string
+            title: value
+          description: 'Schedules per ingestion kind (cron expressions), e.g. {"dump": "0 3 * * *"}.'
+        lastRuns:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.meta.v1.SyncRun'
+          title: last_runs
+          description: The latest run per ingestion kind.
+        recordCount:
+          type: string
+          title: record_count
+          format: int64
+          description: Number of provider records stored.
+      title: Provider
+      additionalProperties: false
+    panelarr.meta.v1.ProviderStats:
+      type: object
+      properties:
+        provider:
+          type: string
+          title: provider
+        stats:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.Stats'
+          title: stats
+      title: ProviderStats
+      additionalProperties: false
+    panelarr.meta.v1.RefreshEntryRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+      title: RefreshEntryRequest
+      additionalProperties: false
+    panelarr.meta.v1.RefreshEntryResponse:
+      type: object
+      properties:
+        refreshed:
+          type: array
+          items:
+            type: string
+          title: refreshed
+          description: Providers that returned fresh data.
+        failed:
+          type: object
+          title: failed
+          additionalProperties:
+            type: string
+            title: value
+          description: Providers that failed, with the reason.
+      title: RefreshEntryResponse
+      additionalProperties: false
+    panelarr.meta.v1.RunSyncRequest:
+      type: object
+      properties:
+        provider:
+          type: string
+          title: provider
+        kind:
+          type: string
+          title: kind
+          description: '"dump" or "delta".'
+        force:
+          type: boolean
+          title: force
+          description: Run even if the plugin reports nothing changed.
+      title: RunSyncRequest
+      additionalProperties: false
+    panelarr.meta.v1.RunSyncResponse:
+      type: object
+      properties:
+        run:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.SyncRun'
+          title: run
+      title: RunSyncResponse
+      additionalProperties: false
+    panelarr.meta.v1.SearchHit:
+      type: object
+      properties:
+        entry:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.EntrySummary'
+          title: entry
+        score:
+          type: number
+          title: score
+          format: double
+          description: Relevance, higher is better. Only comparable within one response.
+        matched:
+          type: string
+          title: matched
+          description: The title or name that matched.
+        matchedField:
+          type: string
+          title: matched_field
+          description: 'What matched: "title" or "person".'
+      title: SearchHit
+      additionalProperties: false
+    panelarr.meta.v1.SearchRequest:
+      type: object
+      properties:
+        query:
+          type: string
+          title: query
+        filter:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.EntryFilter'
+          title: filter
+        sort:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.SortField'
+          title: sort
+          description: Defaults to relevance.
+        reverse:
+          type: boolean
+          title: reverse
+        pageSize:
+          type: integer
+          title: page_size
+          format: int32
+        pageToken:
+          type: string
+          title: page_token
+        language:
+          type: string
+          title: language
+      title: SearchRequest
+      additionalProperties: false
+    panelarr.meta.v1.SearchResponse:
+      type: object
+      properties:
+        hits:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.meta.v1.SearchHit'
+          title: hits
+        nextPageToken:
+          type: string
+          title: next_page_token
+        totalSize:
+          type: string
+          title: total_size
+          format: int64
+        noProviders:
+          type: boolean
+          title: no_providers
+      title: SearchResponse
+      additionalProperties: false
+    panelarr.meta.v1.SortField:
+      type: string
+      title: SortField
+      enum:
+        - SORT_FIELD_UNSPECIFIED
+        - SORT_FIELD_POPULARITY
+        - SORT_FIELD_RATING
+        - SORT_FIELD_UPDATED
+        - SORT_FIELD_YEAR
+        - SORT_FIELD_TITLE
+        - SORT_FIELD_RELEVANCE
+    panelarr.meta.v1.SyncRun:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+        provider:
+          type: string
+          title: provider
+        kind:
+          type: string
+          title: kind
+        status:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.SyncRunStatus'
+          title: status
+        trigger:
+          type: string
+          title: trigger
+          description: '"manual" or "schedule".'
+        startedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: started_at
+        finishedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: finished_at
+        snapshotId:
+          type: string
+          title: snapshot_id
+        cursorStart:
+          type: string
+          title: cursor_start
+          description: The cursor the run started from and the last one it committed.
+        cursorEnd:
+          type: string
+          title: cursor_end
+        upserts:
+          type: string
+          title: upserts
+          format: int64
+          description: Records received.
+        changed:
+          type: string
+          title: changed
+          format: int64
+          description: Records that changed what meta had stored.
+        removals:
+          type: string
+          title: removals
+          format: int64
+        merges:
+          type: string
+          title: merges
+          format: int64
+        skipped:
+          type: string
+          title: skipped
+          format: int64
+        markedRemoved:
+          type: string
+          title: marked_removed
+          format: int64
+          description: Records marked removed because a full snapshot no longer had them.
+        error:
+          type: string
+          title: error
+          description: Error message when the run failed.
+        notices:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.meta.v1.SyncRunNotice'
+          title: notices
+          description: Warnings and errors the plugin reported, newest last (capped).
+        progress:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Struct'
+          title: progress
+          description: Last progress report, e.g. download bytes.
+      title: SyncRun
+      additionalProperties: false
+    panelarr.meta.v1.SyncRunNotice:
+      type: object
+      properties:
+        level:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.NoticeLevel'
+          title: level
+        message:
+          type: string
+          title: message
+        ref:
+          type: string
+          title: ref
+        at:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: at
+      title: SyncRunNotice
+      additionalProperties: false
+    panelarr.meta.v1.SyncRunStatus:
+      type: string
+      title: SyncRunStatus
+      enum:
+        - SYNC_RUN_STATUS_UNSPECIFIED
+        - SYNC_RUN_STATUS_RUNNING
+        - SYNC_RUN_STATUS_SUCCEEDED
+        - SYNC_RUN_STATUS_FAILED
+        - SYNC_RUN_STATUS_CANCELLED
+    panelarr.metadata.v1.Adaptation:
+      type: object
+      properties:
+        type:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.AdaptationType'
+          title: type
+        rawType:
+          type: string
+          title: raw_type
+        title:
+          type: string
+          title: title
+        start:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.Ref'
+          title: start
+          description: Where in the source work the adaptation starts and ends.
+        end:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.Ref'
+          title: end
+        dates:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.Dates'
+          title: dates
+        externalIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.ExternalId'
+          title: external_ids
+      title: Adaptation
+      additionalProperties: false
+      description: |-
+        Adaptation is the work in another medium (anime, live action, games, ...),
+         which may not be in meta at all.
+    panelarr.metadata.v1.AdaptationType:
+      type: string
+      title: AdaptationType
+      enum:
+        - ADAPTATION_TYPE_UNSPECIFIED
+        - ADAPTATION_TYPE_ANIME
+        - ADAPTATION_TYPE_ANIME_MOVIE
+        - ADAPTATION_TYPE_ANIME_SHORT
+        - ADAPTATION_TYPE_ANIME_OVA
+        - ADAPTATION_TYPE_ANIME_ONA
+        - ADAPTATION_TYPE_ANIME_SPECIAL
+        - ADAPTATION_TYPE_LIVE_ACTION_SERIES
+        - ADAPTATION_TYPE_LIVE_ACTION_MOVIE
+        - ADAPTATION_TYPE_LIVE_ACTION_SPECIAL
+        - ADAPTATION_TYPE_TV_DRAMA
+        - ADAPTATION_TYPE_MOVIE
+        - ADAPTATION_TYPE_SHORT_FILM
+        - ADAPTATION_TYPE_WEB_SERIES
+        - ADAPTATION_TYPE_ANIMATED_SERIES
+        - ADAPTATION_TYPE_ANIMATED_MOVIE
+        - ADAPTATION_TYPE_GAME
+        - ADAPTATION_TYPE_VISUAL_NOVEL
+        - ADAPTATION_TYPE_AUDIO_DRAMA
+        - ADAPTATION_TYPE_RADIO_DRAMA
+        - ADAPTATION_TYPE_STAGE_PLAY
+        - ADAPTATION_TYPE_MUSICAL
+        - ADAPTATION_TYPE_DOUJIN
+        - ADAPTATION_TYPE_SPIN_OFF
+        - ADAPTATION_TYPE_UNKNOWN
+    panelarr.metadata.v1.Attribution:
+      type: object
+      properties:
+        providerName:
+          type: string
+          title: provider_name
+          description: Display name, e.g. "MangaBaka".
+        url:
+          type: string
+          title: url
+          description: The provider's home page or the record's page.
+        license:
+          type: string
+          title: license
+          description: Licence name, e.g. "CC BY-NC-SA 4.0".
+        licenseUrl:
+          type: string
+          title: license_url
+        notice:
+          type: string
+          title: notice
+          description: A short notice to show next to the data.
+      title: Attribution
+      additionalProperties: false
+      description: Attribution says where data comes from and under which terms.
+    panelarr.metadata.v1.Character:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+        nameOriginal:
+          type: string
+          title: name_original
+      title: Character
+      additionalProperties: false
+    panelarr.metadata.v1.CommonService:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+          description: |-
+            Well-known names: "network_profile" (per-plugin proxy and network
+             settings), "solver" (challenge solving for scrapers). The list is open.
+        required:
+          type: boolean
+          title: required
+          description: The plugin can't work without it.
+        purpose:
+          type: string
+          title: purpose
+          description: Why the plugin wants it, for the admin.
+      title: CommonService
+      additionalProperties: false
+      description: CommonService is something the host offers that a plugin can use.
+    panelarr.metadata.v1.Company:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          description: meta's ID. Empty in records sent by plugins; set by meta when serving.
+        name:
+          type: string
+          title: name
+        nameOriginal:
+          type: string
+          title: name_original
+        aliases:
+          type: array
+          items:
+            type: string
+          title: aliases
+        aliasesOriginal:
+          type: array
+          items:
+            type: string
+          title: aliases_original
+        type:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.CompanyType'
+          title: type
+        rawType:
+          type: string
+          title: raw_type
+        status:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.CompanyStatus'
+          title: status
+        founded:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.PartialDate'
+          title: founded
+        closed:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.PartialDate'
+          title: closed
+        country:
+          type: string
+          title: country
+        language:
+          type: string
+          title: language
+        description:
+          type: string
+          title: description
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.Image'
+          title: images
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.Link'
+          title: links
+        externalIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.ExternalId'
+          title: external_ids
+      title: Company
+      additionalProperties: false
+    panelarr.metadata.v1.CompanyCredit:
+      type: object
+      properties:
+        company:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.Company'
+          title: company
+        role:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.CompanyRole'
+          title: role
+        rawRole:
+          type: string
+          title: raw_role
+        order:
+          type: integer
+          title: order
+          format: int32
+        note:
+          type: string
+          title: note
+        period:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.Period'
+          title: period
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.Link'
+          title: links
+        language:
+          type: string
+          title: language
+          description: The language or market of this credit, e.g. an English publisher.
+      title: CompanyCredit
+      additionalProperties: false
+    panelarr.metadata.v1.CompanyRole:
+      type: string
+      title: CompanyRole
+      enum:
+        - COMPANY_ROLE_UNSPECIFIED
+        - COMPANY_ROLE_ORIGINAL_PUBLISHER
+        - COMPANY_ROLE_PUBLISHER
+        - COMPANY_ROLE_IMPRINT
+        - COMPANY_ROLE_MAGAZINE
+        - COMPANY_ROLE_STUDIO
+        - COMPANY_ROLE_ANIMATION_PRODUCTION
+        - COMPANY_ROLE_PRODUCTION
+        - COMPANY_ROLE_PRODUCTION_COMMITTEE
+        - COMPANY_ROLE_DISTRIBUTOR
+        - COMPANY_ROLE_LICENSOR
+        - COMPANY_ROLE_LOCALIZER
+        - COMPANY_ROLE_STREAMING_SERVICE
+        - COMPANY_ROLE_PLATFORM
+        - COMPANY_ROLE_RECORD_LABEL
+        - COMPANY_ROLE_MUSIC_PRODUCTION
+        - COMPANY_ROLE_GAME_DEVELOPER
+        - COMPANY_ROLE_GAME_PUBLISHER
+        - COMPANY_ROLE_SPONSOR
+        - COMPANY_ROLE_OTHER
+        - COMPANY_ROLE_UNKNOWN
+    panelarr.metadata.v1.CompanyStatus:
+      type: string
+      title: CompanyStatus
+      enum:
+        - COMPANY_STATUS_UNSPECIFIED
+        - COMPANY_STATUS_ACTIVE
+        - COMPANY_STATUS_INACTIVE
+        - COMPANY_STATUS_DEFUNCT
+        - COMPANY_STATUS_MERGED
+        - COMPANY_STATUS_ACQUIRED
+        - COMPANY_STATUS_RENAMED
+        - COMPANY_STATUS_UNKNOWN
+    panelarr.metadata.v1.CompanyType:
+      type: string
+      title: CompanyType
+      enum:
+        - COMPANY_TYPE_UNSPECIFIED
+        - COMPANY_TYPE_PUBLISHER
+        - COMPANY_TYPE_IMPRINT
+        - COMPANY_TYPE_MAGAZINE
+        - COMPANY_TYPE_STUDIO
+        - COMPANY_TYPE_ANIMATION_STUDIO
+        - COMPANY_TYPE_PRODUCTION_COMPANY
+        - COMPANY_TYPE_PRODUCTION_COMMITTEE
+        - COMPANY_TYPE_DISTRIBUTOR
+        - COMPANY_TYPE_LICENSOR
+        - COMPANY_TYPE_LOCALIZER
+        - COMPANY_TYPE_TRANSLATION_GROUP
+        - COMPANY_TYPE_STREAMING_SERVICE
+        - COMPANY_TYPE_PLATFORM
+        - COMPANY_TYPE_RETAILER
+        - COMPANY_TYPE_RECORD_LABEL
+        - COMPANY_TYPE_MUSIC_PRODUCTION
+        - COMPANY_TYPE_GAME_STUDIO
+        - COMPANY_TYPE_SOFTWARE_COMPANY
+        - COMPANY_TYPE_AGENCY
+        - COMPANY_TYPE_TALENT_AGENCY
+        - COMPANY_TYPE_OTHER
+        - COMPANY_TYPE_UNKNOWN
+    panelarr.metadata.v1.ContentRating:
+      type: string
+      title: ContentRating
+      enum:
+        - CONTENT_RATING_UNSPECIFIED
+        - CONTENT_RATING_SAFE
+        - CONTENT_RATING_SUGGESTIVE
+        - CONTENT_RATING_EROTIC
+        - CONTENT_RATING_PORNOGRAPHIC
+        - CONTENT_RATING_UNKNOWN
+    panelarr.metadata.v1.Credit:
+      type: object
+      properties:
+        person:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.Person'
+          title: person
+        role:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.PersonRole'
+          title: role
+        rawRole:
+          type: string
+          title: raw_role
+        character:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.Character'
+          title: character
+          description: 'For voice actors and actors: who they play.'
+        order:
+          type: integer
+          title: order
+          format: int32
+        note:
+          type: string
+          title: note
+        period:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.Period'
+          title: period
+      title: Credit
+      additionalProperties: false
+    panelarr.metadata.v1.Dates:
+      type: object
+      properties:
+        announced:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.PartialDate'
+          title: announced
+        start:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.PartialDate'
+          title: start
+        end:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.PartialDate'
+          title: end
+      title: Dates
+      additionalProperties: false
+    panelarr.metadata.v1.Description:
+      type: object
+      properties:
+        language:
+          type: string
+          title: language
+        text:
+          type: string
+          title: text
+        format:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.DescriptionFormat'
+          title: format
+      title: Description
+      additionalProperties: false
+    panelarr.metadata.v1.DescriptionFormat:
+      type: string
+      title: DescriptionFormat
+      enum:
+        - DESCRIPTION_FORMAT_UNSPECIFIED
+        - DESCRIPTION_FORMAT_PLAIN
+        - DESCRIPTION_FORMAT_MARKDOWN
+        - DESCRIPTION_FORMAT_HTML
+    panelarr.metadata.v1.EntryState:
+      type: string
+      title: EntryState
+      enum:
+        - ENTRY_STATE_UNSPECIFIED
+        - ENTRY_STATE_ACTIVE
+        - ENTRY_STATE_MERGED
+        - ENTRY_STATE_REMOVED
+    panelarr.metadata.v1.EntryStatus:
+      type: string
+      title: EntryStatus
+      enum:
+        - ENTRY_STATUS_UNSPECIFIED
+        - ENTRY_STATUS_RELEASING
+        - ENTRY_STATUS_COMPLETED
+        - ENTRY_STATUS_HIATUS
+        - ENTRY_STATUS_CANCELLED
+        - ENTRY_STATUS_UPCOMING
+        - ENTRY_STATUS_UNKNOWN
+    panelarr.metadata.v1.EntryType:
+      type: string
+      title: EntryType
+      enum:
+        - ENTRY_TYPE_UNSPECIFIED
+        - ENTRY_TYPE_NOVEL
+        - ENTRY_TYPE_LIGHT_NOVEL
+        - ENTRY_TYPE_WEB_NOVEL
+        - ENTRY_TYPE_MANGA
+        - ENTRY_TYPE_MANHWA
+        - ENTRY_TYPE_MANHUA
+        - ENTRY_TYPE_OEL
+        - ENTRY_TYPE_COMIC
+        - ENTRY_TYPE_WESTERN_COMIC
+        - ENTRY_TYPE_GRAPHIC_NOVEL
+        - ENTRY_TYPE_WEBCOMIC
+        - ENTRY_TYPE_WEBTOON
+        - ENTRY_TYPE_DOUJINSHI
+        - ENTRY_TYPE_ONE_SHOT
+        - ENTRY_TYPE_ANTHOLOGY
+        - ENTRY_TYPE_VISUAL_NOVEL
+        - ENTRY_TYPE_ARTBOOK
+        - ENTRY_TYPE_GUIDEBOOK
+        - ENTRY_TYPE_MAGAZINE
+        - ENTRY_TYPE_FANFIC
+        - ENTRY_TYPE_OTHER
+    panelarr.metadata.v1.ExternalId:
+      type: object
+      properties:
+        provider:
+          type: string
+          title: provider
+          description: |-
+            Provider key, lower case, e.g. "mangabaka", "anilist", "mal",
+             "mangaupdates", "kitsu", "animeplanet", "ann", "shikimori", "mangadex",
+             "comicvine", "isbn". The list is open.
+        id:
+          type: string
+          title: id
+          description: The provider's ID, always as a string.
+        url:
+          type: string
+          title: url
+          description: A link to the item at the provider, if known.
+      title: ExternalId
+      additionalProperties: false
+      description: ExternalId names an item (or person, company, tag) at one provider.
+    panelarr.metadata.v1.HealthStatus:
+      type: string
+      title: HealthStatus
+      enum:
+        - HEALTH_STATUS_UNSPECIFIED
+        - HEALTH_STATUS_OK
+        - HEALTH_STATUS_DEGRADED
+        - HEALTH_STATUS_DOWN
+    panelarr.metadata.v1.Image:
+      type: object
+      properties:
+        kind:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.ImageKind'
+          title: kind
+        url:
+          type: string
+          title: url
+        format:
+          type: string
+          title: format
+          description: '"jpeg", "png", "webp", ...'
+        width:
+          type: integer
+          title: width
+          format: int32
+        height:
+          type: integer
+          title: height
+          format: int32
+        fileSize:
+          type: string
+          title: file_size
+          format: int64
+        sha256:
+          type: string
+          title: sha256
+        blurhash:
+          type: string
+          title: blurhash
+          description: Compact placeholders a client can draw while the image loads.
+        thumbhash:
+          type: string
+          title: thumbhash
+        variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.ImageVariant'
+          title: variants
+        language:
+          type: string
+          title: language
+          description: Covers can differ per edition or language.
+      title: Image
+      additionalProperties: false
+    panelarr.metadata.v1.ImageKind:
+      type: string
+      title: ImageKind
+      enum:
+        - IMAGE_KIND_UNSPECIFIED
+        - IMAGE_KIND_COVER
+        - IMAGE_KIND_BANNER
+        - IMAGE_KIND_THUMBNAIL
+        - IMAGE_KIND_PORTRAIT
+        - IMAGE_KIND_LOGO
+        - IMAGE_KIND_OTHER
+    panelarr.metadata.v1.ImageVariant:
+      type: object
+      properties:
+        width:
+          type: integer
+          title: width
+          format: int32
+        height:
+          type: integer
+          title: height
+          format: int32
+        density:
+          type: integer
+          title: density
+          format: int32
+          description: 'Pixel density the variant is meant for: 1, 2, 3, ...'
+        url:
+          type: string
+          title: url
+      title: ImageVariant
+      additionalProperties: false
+    panelarr.metadata.v1.Ingestion:
+      type: object
+      properties:
+        kind:
+          type: string
+          title: kind
+          description: |-
+            Well-known kinds:
+               "lookup": on-demand Search/Get through a provider API;
+               "scrape": on-demand Search/Get by fetching and parsing pages;
+               "dump":   download a full snapshot and stream every record (Sync);
+               "delta":  stream only the changes since a cursor (Sync).
+             The list is open: hosts ignore kinds they don't know.
+        description:
+          type: string
+          title: description
+        limits:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.Limits'
+          title: limits
+        scheduleHint:
+          type: string
+          title: schedule_hint
+          description: |-
+            A suggested schedule for Sync-based kinds, as a cron expression
+             ("0 3 * * *"). The hoster decides the real schedule.
+        fullSnapshot:
+          type: boolean
+          title: full_snapshot
+          description: |-
+            A Sync of this kind lists every record the provider has, so the host
+             may mark records that did not appear as removed.
+      title: Ingestion
+      additionalProperties: false
+      description: Ingestion is one way a plugin gets data to meta.
+    panelarr.metadata.v1.Item:
+      type: object
+      properties:
+        unit:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.RefUnit'
+          title: unit
+        rawUnit:
+          type: string
+          title: raw_unit
+        number:
+          type:
+            - number
+            - "null"
+          title: number
+          format: double
+        value:
+          type: string
+          title: value
+        name:
+          type: string
+          title: name
+        description:
+          type: string
+          title: description
+        releaseDate:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.PartialDate'
+          title: release_date
+        language:
+          type: string
+          title: language
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.Link'
+          title: links
+      title: Item
+      additionalProperties: false
+      description: 'Item is a known release: a chapter, volume, issue, ...'
+    panelarr.metadata.v1.License:
+      type: object
+      properties:
+        language:
+          type: string
+          title: language
+        licensed:
+          type: boolean
+          title: licensed
+        date:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.PartialDate'
+          title: date
+        company:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.Company'
+          title: company
+      title: License
+      additionalProperties: false
+    panelarr.metadata.v1.Limits:
+      type: object
+      properties:
+        rateLimits:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.RateLimit'
+          title: rate_limits
+        maxConcurrency:
+          type: integer
+          title: max_concurrency
+          format: int32
+          description: Concurrent calls the host may make. 0 means no limit.
+      title: Limits
+      additionalProperties: false
+      description: |-
+        Limits tell the host how hard it may use an ingestion type. The host
+         enforces them, and plugins should enforce them too.
+    panelarr.metadata.v1.Link:
+      type: object
+      properties:
+        type:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.LinkType'
+          title: type
+        rawType:
+          type: string
+          title: raw_type
+        url:
+          type: string
+          title: url
+        title:
+          type: string
+          title: title
+        description:
+          type: string
+          title: description
+        language:
+          type: string
+          title: language
+        platform:
+          type: string
+          title: platform
+          description: 'For social links: the platform and the handle on it.'
+        handle:
+          type: string
+          title: handle
+      title: Link
+      additionalProperties: false
+    panelarr.metadata.v1.LinkType:
+      type: string
+      title: LinkType
+      enum:
+        - LINK_TYPE_UNSPECIFIED
+        - LINK_TYPE_OFFICIAL_WEBSITE
+        - LINK_TYPE_OFFICIAL_PROFILE
+        - LINK_TYPE_PERSONAL_WEBSITE
+        - LINK_TYPE_PORTFOLIO
+        - LINK_TYPE_BLOG
+        - LINK_TYPE_WIKI
+        - LINK_TYPE_DATABASE
+        - LINK_TYPE_ENCYCLOPEDIA
+        - LINK_TYPE_SOCIAL
+        - LINK_TYPE_STORE
+        - LINK_TYPE_SHOP
+        - LINK_TYPE_MERCH
+        - LINK_TYPE_PUBLISHER
+        - LINK_TYPE_MAGAZINE
+        - LINK_TYPE_LABEL
+        - LINK_TYPE_STUDIO
+        - LINK_TYPE_STREAMING
+        - LINK_TYPE_WATCH
+        - LINK_TYPE_READ
+        - LINK_TYPE_NEWS
+        - LINK_TYPE_INTERVIEW
+        - LINK_TYPE_ARTICLE
+        - LINK_TYPE_REVIEW
+        - LINK_TYPE_IMAGE_GALLERY
+        - LINK_TYPE_VIDEO
+        - LINK_TYPE_TRAILER
+        - LINK_TYPE_FORUM
+        - LINK_TYPE_COMMUNITY
+        - LINK_TYPE_DISCORD
+        - LINK_TYPE_REDDIT
+        - LINK_TYPE_DONATION
+        - LINK_TYPE_EMAIL
+        - LINK_TYPE_OTHER
+        - LINK_TYPE_UNKNOWN
+    panelarr.metadata.v1.NoticeLevel:
+      type: string
+      title: NoticeLevel
+      enum:
+        - NOTICE_LEVEL_UNSPECIFIED
+        - NOTICE_LEVEL_INFO
+        - NOTICE_LEVEL_WARNING
+        - NOTICE_LEVEL_ERROR
+    panelarr.metadata.v1.PartialDate:
+      type: object
+      properties:
+        year:
+          type: integer
+          title: year
+          format: int32
+        month:
+          type: integer
+          title: month
+          format: int32
+        day:
+          type: integer
+          title: day
+          format: int32
+        estimated:
+          type: boolean
+          title: estimated
+          description: The provider marked the date as an estimate.
+      title: PartialDate
+      additionalProperties: false
+      description: |-
+        PartialDate is a date where only some parts may be known. Many sources only
+         know a year. Zero means unknown.
+    panelarr.metadata.v1.Period:
+      type: object
+      properties:
+        start:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.PartialDate'
+          title: start
+        end:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.PartialDate'
+          title: end
+      title: Period
+      additionalProperties: false
+    panelarr.metadata.v1.Person:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          description: meta's ID. Empty in records sent by plugins; set by meta when serving.
+        name:
+          type: string
+          title: name
+        nameOriginal:
+          type: string
+          title: name_original
+        aliases:
+          type: array
+          items:
+            type: string
+          title: aliases
+        aliasesOriginal:
+          type: array
+          items:
+            type: string
+          title: aliases_original
+        birth:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.PartialDate'
+          title: birth
+        death:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.PartialDate'
+          title: death
+        gender:
+          type: string
+          title: gender
+        country:
+          type: string
+          title: country
+          description: ISO 3166-1 alpha-2.
+        language:
+          type: string
+          title: language
+        biography:
+          type: string
+          title: biography
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.Image'
+          title: images
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.Link'
+          title: links
+        externalIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.ExternalId'
+          title: external_ids
+      title: Person
+      additionalProperties: false
+      description: |-
+        Person is shared between entries. Providers that only know a name (plain
+         author strings) send a Person with no external IDs.
+    panelarr.metadata.v1.PersonRole:
+      type: string
+      title: PersonRole
+      enum:
+        - PERSON_ROLE_UNSPECIFIED
+        - PERSON_ROLE_AUTHOR
+        - PERSON_ROLE_ARTIST
+        - PERSON_ROLE_WRITER
+        - PERSON_ROLE_ILLUSTRATOR
+        - PERSON_ROLE_ORIGINAL_CREATOR
+        - PERSON_ROLE_DIRECTOR
+        - PERSON_ROLE_PRODUCER
+        - PERSON_ROLE_SCREENWRITER
+        - PERSON_ROLE_CHARACTER_DESIGNER
+        - PERSON_ROLE_ANIMATOR
+        - PERSON_ROLE_COMPOSER
+        - PERSON_ROLE_VOICE_ACTOR
+        - PERSON_ROLE_ACTOR
+        - PERSON_ROLE_TRANSLATOR
+        - PERSON_ROLE_EDITOR
+        - PERSON_ROLE_PUBLISHER
+        - PERSON_ROLE_STUDIO_STAFF
+        - PERSON_ROLE_OTHER
+        - PERSON_ROLE_UNKNOWN
+    panelarr.metadata.v1.PluginInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          description: Stable plugin ID, lower case, e.g. "mangabaka".
+        name:
+          type: string
+          title: name
+        version:
+          type: string
+          title: version
+        description:
+          type: string
+          title: description
+        homepage:
+          type: string
+          title: homepage
+        provider:
+          type: string
+          title: provider
+          description: |-
+            The provider key the plugin uses in ExternalId.provider for its own
+             records. Usually the same as id.
+        protocols:
+          type: array
+          items:
+            type: string
+          title: protocols
+          description: Protocol packages the plugin speaks, e.g. "panelarr.metadata.v1".
+        ingestions:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.Ingestion'
+          title: ingestions
+          description: The ingestion types the plugin supports, with their limits.
+        capabilities:
+          type: array
+          items:
+            type: string
+          title: capabilities
+          description: |-
+            What kind of data the plugin can provide. Well-known values: "titles",
+             "descriptions", "people", "companies", "tags", "covers", "relations",
+             "adaptations", "items", "links", "external_ids", "stats", "characters",
+             "lookup_by_external_id". The list is open.
+        commonServices:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.CommonService'
+          title: common_services
+          description: Services the host can offer that the plugin can use.
+        attribution:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.Attribution'
+          title: attribution
+          description: Default attribution for the plugin's records.
+      title: PluginInfo
+      additionalProperties: false
+    panelarr.metadata.v1.Progress:
+      type: object
+      properties:
+        total:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.Ref'
+          title: total
+        latest:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.Ref'
+          title: latest
+        final:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.Ref'
+          title: final
+      title: Progress
+      additionalProperties: false
+    panelarr.metadata.v1.RateLimit:
+      type: object
+      properties:
+        operation:
+          type: string
+          title: operation
+          description: |-
+            The operation the limit applies to: "search", "get", "sync", or "*" for
+             every call of the ingestion type.
+        requests:
+          type: integer
+          title: requests
+          format: int32
+          description: At most `requests` calls per `per`.
+        per:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Duration'
+          title: per
+        burst:
+          type: integer
+          title: burst
+          format: int32
+          description: Calls that may go out at once before the rate applies. 0 means 1.
+      title: RateLimit
+      additionalProperties: false
+    panelarr.metadata.v1.Ref:
+      type: object
+      properties:
+        unit:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.RefUnit'
+          title: unit
+        rawUnit:
+          type: string
+          title: raw_unit
+        qualifier:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.RefQualifier'
+          title: qualifier
+        value:
+          type: string
+          title: value
+          description: A string, so "12.5" and "Extra" fit.
+      title: Ref
+      additionalProperties: false
+      description: Ref points at a position in a work, e.g. "volume 12", "chapter 108.5".
+    panelarr.metadata.v1.RefQualifier:
+      type: string
+      title: RefQualifier
+      enum:
+        - REF_QUALIFIER_UNSPECIFIED
+        - REF_QUALIFIER_EXACT
+        - REF_QUALIFIER_APPROXIMATE
+        - REF_QUALIFIER_ESTIMATED
+        - REF_QUALIFIER_BEFORE
+        - REF_QUALIFIER_AFTER
+        - REF_QUALIFIER_UP_TO
+        - REF_QUALIFIER_THROUGH
+        - REF_QUALIFIER_UNKNOWN
+    panelarr.metadata.v1.RefUnit:
+      type: string
+      title: RefUnit
+      enum:
+        - REF_UNIT_UNSPECIFIED
+        - REF_UNIT_CHAPTER
+        - REF_UNIT_VOLUME
+        - REF_UNIT_PART
+        - REF_UNIT_ARC
+        - REF_UNIT_ACT
+        - REF_UNIT_SEASON
+        - REF_UNIT_COUR
+        - REF_UNIT_EPISODE
+        - REF_UNIT_SPECIAL
+        - REF_UNIT_OVA
+        - REF_UNIT_ONA
+        - REF_UNIT_MOVIE
+        - REF_UNIT_FILM
+        - REF_UNIT_SHORT
+        - REF_UNIT_BOOK
+        - REF_UNIT_NOVEL
+        - REF_UNIT_LIGHT_NOVEL_VOLUME
+        - REF_UNIT_ISSUE
+        - REF_UNIT_PAGE
+        - REF_UNIT_ROUTE
+        - REF_UNIT_SCENARIO
+        - REF_UNIT_GAME
+        - REF_UNIT_DLC
+        - REF_UNIT_STAGE
+        - REF_UNIT_TRACK
+        - REF_UNIT_WHOLE_WORK
+        - REF_UNIT_OTHER
+        - REF_UNIT_UNKNOWN
+    panelarr.metadata.v1.Relation:
+      type: object
+      properties:
+        type:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.RelationType'
+          title: type
+        rawType:
+          type: string
+          title: raw_type
+        target:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.ExternalId'
+          title: target
+          description: The related item at the provider.
+        entryId:
+          type: string
+          title: entry_id
+          description: meta's entry ID of the target, when meta knows it. Set by meta.
+        title:
+          type: string
+          title: title
+          description: A display title for the target, when the provider sends one.
+        chronology:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.RelationChronology'
+          title: chronology
+        manual:
+          type: boolean
+          title: manual
+          description: Set by a curator rather than a provider.
+        note:
+          type: string
+          title: note
+      title: Relation
+      additionalProperties: false
+    panelarr.metadata.v1.RelationChronology:
+      type: string
+      title: RelationChronology
+      enum:
+        - RELATION_CHRONOLOGY_UNSPECIFIED
+        - RELATION_CHRONOLOGY_NARRATIVE
+        - RELATION_CHRONOLOGY_RELEASE
+        - RELATION_CHRONOLOGY_UNKNOWN
+    panelarr.metadata.v1.RelationType:
+      type: string
+      title: RelationType
+      enum:
+        - RELATION_TYPE_UNSPECIFIED
+        - RELATION_TYPE_ADAPTATION
+        - RELATION_TYPE_ALTERNATIVE
+        - RELATION_TYPE_CAMEO
+        - RELATION_TYPE_CHARACTER_FOCUS
+        - RELATION_TYPE_COMPILATION
+        - RELATION_TYPE_CONTAINS
+        - RELATION_TYPE_CROSSOVER
+        - RELATION_TYPE_EXPANSION
+        - RELATION_TYPE_MAIN
+        - RELATION_TYPE_PARENT
+        - RELATION_TYPE_PARODY
+        - RELATION_TYPE_PREQUEL
+        - RELATION_TYPE_REBOOT
+        - RELATION_TYPE_REMAKE
+        - RELATION_TYPE_SEQUEL
+        - RELATION_TYPE_SERIES
+        - RELATION_TYPE_SIDE_STORY
+        - RELATION_TYPE_SOURCE
+        - RELATION_TYPE_SPIN_OFF
+        - RELATION_TYPE_SUMMARY
+        - RELATION_TYPE_UNCOLLECTED
+        - RELATION_TYPE_OTHER
+    panelarr.metadata.v1.Stats:
+      type: object
+      properties:
+        rating:
+          type:
+            - number
+            - "null"
+          title: rating
+          format: double
+          description: Average rating on a 0..100 scale.
+        ratingCount:
+          type:
+            - string
+            - "null"
+          title: rating_count
+          format: int64
+        popularity:
+          type:
+            - number
+            - "null"
+          title: popularity
+          format: double
+          description: 'A provider''s popularity score: higher is more popular.'
+        popularityRank:
+          type:
+            - string
+            - "null"
+          title: popularity_rank
+          format: int64
+          description: 'A provider''s popularity position: 1 is the most popular.'
+        rank:
+          type:
+            - string
+            - "null"
+          title: rank
+          format: int64
+          description: 'A provider''s overall rank: 1 is the best.'
+      title: Stats
+      additionalProperties: false
+      description: |-
+        Stats are one provider's numbers. They are never mixed across providers,
+         because ratings and popularity are not comparable between sites.
+    panelarr.metadata.v1.Tag:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          description: meta's ID. Empty in records sent by plugins; set by meta when serving.
+        name:
+          type: string
+          title: name
+        description:
+          type: string
+          title: description
+        parent:
+          type: string
+          title: parent
+          description: Name of the parent tag, for hierarchies.
+        level:
+          type: integer
+          title: level
+          format: int32
+        impliedBy:
+          type: array
+          items:
+            type: string
+          title: implied_by
+          description: Names of tags that imply this one.
+        isGenre:
+          type: boolean
+          title: is_genre
+        isSpoiler:
+          type: boolean
+          title: is_spoiler
+        isExplicit:
+          type: boolean
+          title: is_explicit
+        contentRating:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.ContentRating'
+          title: content_rating
+        entryCount:
+          type: string
+          title: entry_count
+          format: int64
+          description: |-
+            How many entries carry the tag. Computed by meta; providers may send
+             their own count.
+        aliases:
+          type: array
+          items:
+            type: string
+          title: aliases
+        externalIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.metadata.v1.ExternalId'
+          title: external_ids
+      title: Tag
+      additionalProperties: false
+      description: Tag is shared between entries. Genres are tags with is_genre set.
+    panelarr.metadata.v1.TagAssignment:
+      type: object
+      properties:
+        tag:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.Tag'
+          title: tag
+        weight:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.TagWeight'
+          title: weight
+        rawWeight:
+          type: string
+          title: raw_weight
+        score:
+          type:
+            - number
+            - "null"
+          title: score
+          format: double
+          description: 0..1, from votes where the provider has them.
+        isSpoiler:
+          type: boolean
+          title: is_spoiler
+          description: The tag is a spoiler for this entry (independent of Tag.is_spoiler).
+      title: TagAssignment
+      additionalProperties: false
+    panelarr.metadata.v1.TagWeight:
+      type: string
+      title: TagWeight
+      enum:
+        - TAG_WEIGHT_UNSPECIFIED
+        - TAG_WEIGHT_CORE
+        - TAG_WEIGHT_DEFINING
+        - TAG_WEIGHT_RECURRENT
+        - TAG_WEIGHT_INCIDENTAL
+        - TAG_WEIGHT_UNWEIGHTED
+    panelarr.metadata.v1.Title:
+      type: object
+      properties:
+        text:
+          type: string
+          title: text
+        language:
+          type: string
+          title: language
+          description: BCP 47 tag with an optional script, e.g. "ja", "ja-Latn", "en".
+        kind:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.TitleKind'
+          title: kind
+        isPrimary:
+          type: boolean
+          title: is_primary
+        traits:
+          type: array
+          items:
+            type: string
+          title: traits
+          description: Free-form traits from the provider, e.g. "abbreviation", "old".
+        note:
+          type: string
+          title: note
+      title: Title
+      additionalProperties: false
+    panelarr.metadata.v1.TitleKind:
+      type: string
+      title: TitleKind
+      enum:
+        - TITLE_KIND_UNSPECIFIED
+        - TITLE_KIND_OFFICIAL
+        - TITLE_KIND_NATIVE
+        - TITLE_KIND_ROMANIZED
+        - TITLE_KIND_ALTERNATIVE
+        - TITLE_KIND_UNOFFICIAL
+        - TITLE_KIND_UNKNOWN
+paths:
+  /v1/admin/entries/{id}/refresh:
+    post:
+      tags:
+        - MetaAdminService
+      summary: RefreshEntry
+      description: |-
+        RefreshEntry asks the providers behind an entry for fresh data through
+         their lookup ingestion, and returns once it is stored.
+      operationId: MetaAdminService_RefreshEntry
+      parameters:
+        - name: id
+          in: path
+          description: The id path parameter.
+          required: true
+          schema:
+            type: string
+            title: id
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.RefreshEntryResponse'
+  /v1/admin/providers:
+    get:
+      tags:
+        - MetaAdminService
+      summary: ListProviders
+      description: |-
+        ListProviders lists the configured metadata plugins with what they
+         support, their health and their last sync.
+      operationId: MetaAdminService_ListProviders
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.ListProvidersResponse'
+  /v1/admin/providers/{provider}/sync:
+    post:
+      tags:
+        - MetaAdminService
+      summary: RunSync
+      description: |-
+        RunSync starts a dump or delta sync now. It returns at once with the new
+         run; follow it with GetSyncRun.
+      operationId: MetaAdminService_RunSync
+      parameters:
+        - name: provider
+          in: path
+          description: The provider path parameter.
+          required: true
+          schema:
+            type: string
+            title: provider
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                kind:
+                  type: string
+                  title: kind
+                  description: '"dump" or "delta".'
+                force:
+                  type: boolean
+                  title: force
+                  description: Run even if the plugin reports nothing changed.
+              title: RunSyncRequest
+              additionalProperties: false
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.RunSyncResponse'
+  /v1/admin/sync-runs:
+    get:
+      tags:
+        - MetaAdminService
+      summary: ListSyncRuns
+      description: ListSyncRuns lists sync runs, newest first.
+      operationId: MetaAdminService_ListSyncRuns
+      parameters:
+        - name: provider
+          in: query
+          description: Only runs of this provider.
+          schema:
+            type: string
+            title: provider
+        - name: pageSize
+          in: query
+          description: 1..100, default 20.
+          schema:
+            type: integer
+            title: page_size
+            format: int32
+        - name: pageToken
+          in: query
+          description: The pageToken query parameter.
+          schema:
+            type: string
+            title: page_token
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.ListSyncRunsResponse'
+  /v1/admin/sync-runs/{id}:
+    get:
+      tags:
+        - MetaAdminService
+      summary: GetSyncRun
+      description: GetSyncRun returns one sync run.
+      operationId: MetaAdminService_GetSyncRun
+      parameters:
+        - name: id
+          in: path
+          description: The id path parameter.
+          required: true
+          schema:
+            type: string
+            title: id
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.GetSyncRunResponse'
+  /v1/entries:
+    get:
+      tags:
+        - MetaService
+      summary: Browse
+      description: |-
+        Browse lists entries with filters and a sort order, for discovery pages
+         such as "popular manhwa" or "completed romance from 2015 on".
+      operationId: MetaService_Browse
+      parameters:
+        - name: filter.genres
+          in: query
+          description: Genre names.
+          schema:
+            type: array
+            items:
+              type: string
+            title: genres
+        - name: filter.tags
+          in: query
+          description: Tag names. An entry must have all of them.
+          schema:
+            type: array
+            items:
+              type: string
+            title: tags
+        - name: filter.excludeTags
+          in: query
+          description: Tag or genre names to leave out.
+          schema:
+            type: array
+            items:
+              type: string
+            title: exclude_tags
+        - name: filter.types
+          in: query
+          description: The filter.types query parameter.
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/panelarr.metadata.v1.EntryType'
+            title: types
+        - name: filter.statuses
+          in: query
+          description: The filter.statuses query parameter.
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/panelarr.metadata.v1.EntryStatus'
+            title: statuses
+        - name: filter.contentRatings
+          in: query
+          description: The filter.contentRatings query parameter.
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/panelarr.metadata.v1.ContentRating'
+            title: content_ratings
+        - name: filter.languages
+          in: query
+          description: Original languages (BCP 47), e.g. "ja", "ko".
+          schema:
+            type: array
+            items:
+              type: string
+            title: languages
+        - name: filter.yearFrom
+          in: query
+          description: Start year range, inclusive. 0 means open.
+          schema:
+            type: integer
+            title: year_from
+            format: int32
+        - name: filter.yearTo
+          in: query
+          description: The filter.yearTo query parameter.
+          schema:
+            type: integer
+            title: year_to
+            format: int32
+        - name: filter.titleLanguages
+          in: query
+          description: Only entries with titles in one of these languages.
+          schema:
+            type: array
+            items:
+              type: string
+            title: title_languages
+        - name: filter.includeInactive
+          in: query
+          description: Include merged and removed entries. Off by default.
+          schema:
+            type: boolean
+            title: include_inactive
+        - name: sort
+          in: query
+          description: The sort query parameter.
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/panelarr.meta.v1.SortField'
+            title: sort
+        - name: reverse
+          in: query
+          description: Reverse the sort's natural direction.
+          schema:
+            type: boolean
+            title: reverse
+        - name: pageSize
+          in: query
+          description: 1..100, default 24.
+          schema:
+            type: integer
+            title: page_size
+            format: int32
+        - name: pageToken
+          in: query
+          description: The pageToken query parameter.
+          schema:
+            type: string
+            title: page_token
+        - name: language
+          in: query
+          description: Preferred language for display titles (BCP 47).
+          schema:
+            type: string
+            title: language
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.BrowseResponse'
+  /v1/entries/{id}:
+    get:
+      tags:
+        - MetaService
+      summary: GetEntry
+      description: |-
+        GetEntry returns one entry with full details and attribution. IDs of
+         entries that were merged into another resolve to the surviving entry.
+      operationId: MetaService_GetEntry
+      parameters:
+        - name: id
+          in: path
+          description: The id path parameter.
+          required: true
+          schema:
+            type: string
+            title: id
+        - name: language
+          in: query
+          description: The language query parameter.
+          schema:
+            type: string
+            title: language
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.GetEntryResponse'
+  /v1/lookup/{provider}/{externalId}:
+    get:
+      tags:
+        - MetaService
+      summary: LookupExternal
+      description: |-
+        LookupExternal finds the entry for an ID at another provider, e.g.
+         anilist 30013. When meta doesn't know the ID yet, it may ask a plugin that
+         can look it up.
+      operationId: MetaService_LookupExternal
+      parameters:
+        - name: provider
+          in: path
+          description: Provider key, e.g. "anilist", "mal", "mangabaka".
+          required: true
+          schema:
+            type: string
+            title: provider
+        - name: externalId
+          in: path
+          description: The externalId path parameter.
+          required: true
+          schema:
+            type: string
+            title: external_id
+        - name: refresh
+          in: query
+          description: Ask a plugin even if meta already knows the ID, to get fresh data.
+          schema:
+            type: boolean
+            title: refresh
+        - name: language
+          in: query
+          description: The language query parameter.
+          schema:
+            type: string
+            title: language
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.LookupExternalResponse'
+  /v1/search:
+    get:
+      tags:
+        - MetaService
+      summary: Search
+      description: |-
+        Search finds entries by title in every language (main, native,
+         romanized and alternative titles) and by the people credited on them.
+      operationId: MetaService_Search
+      parameters:
+        - name: query
+          in: query
+          description: The query query parameter.
+          schema:
+            type: string
+            title: query
+        - name: filter.genres
+          in: query
+          description: Genre names.
+          schema:
+            type: array
+            items:
+              type: string
+            title: genres
+        - name: filter.tags
+          in: query
+          description: Tag names. An entry must have all of them.
+          schema:
+            type: array
+            items:
+              type: string
+            title: tags
+        - name: filter.excludeTags
+          in: query
+          description: Tag or genre names to leave out.
+          schema:
+            type: array
+            items:
+              type: string
+            title: exclude_tags
+        - name: filter.types
+          in: query
+          description: The filter.types query parameter.
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/panelarr.metadata.v1.EntryType'
+            title: types
+        - name: filter.statuses
+          in: query
+          description: The filter.statuses query parameter.
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/panelarr.metadata.v1.EntryStatus'
+            title: statuses
+        - name: filter.contentRatings
+          in: query
+          description: The filter.contentRatings query parameter.
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/panelarr.metadata.v1.ContentRating'
+            title: content_ratings
+        - name: filter.languages
+          in: query
+          description: Original languages (BCP 47), e.g. "ja", "ko".
+          schema:
+            type: array
+            items:
+              type: string
+            title: languages
+        - name: filter.yearFrom
+          in: query
+          description: Start year range, inclusive. 0 means open.
+          schema:
+            type: integer
+            title: year_from
+            format: int32
+        - name: filter.yearTo
+          in: query
+          description: The filter.yearTo query parameter.
+          schema:
+            type: integer
+            title: year_to
+            format: int32
+        - name: filter.titleLanguages
+          in: query
+          description: Only entries with titles in one of these languages.
+          schema:
+            type: array
+            items:
+              type: string
+            title: title_languages
+        - name: filter.includeInactive
+          in: query
+          description: Include merged and removed entries. Off by default.
+          schema:
+            type: boolean
+            title: include_inactive
+        - name: sort
+          in: query
+          description: Defaults to relevance.
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/panelarr.meta.v1.SortField'
+            title: sort
+        - name: reverse
+          in: query
+          description: The reverse query parameter.
+          schema:
+            type: boolean
+            title: reverse
+        - name: pageSize
+          in: query
+          description: The pageSize query parameter.
+          schema:
+            type: integer
+            title: page_size
+            format: int32
+        - name: pageToken
+          in: query
+          description: The pageToken query parameter.
+          schema:
+            type: string
+            title: page_token
+        - name: language
+          in: query
+          description: The language query parameter.
+          schema:
+            type: string
+            title: language
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.SearchResponse'
+  /v1/tags:
+    get:
+      tags:
+        - MetaService
+      summary: ListTags
+      description: |-
+        ListTags lists the tags and genres meta knows, with entry counts, for
+         building browse filters.
+      operationId: MetaService_ListTags
+      parameters:
+        - name: genresOnly
+          in: query
+          description: Only genres.
+          schema:
+            type: boolean
+            title: genres_only
+        - name: prefix
+          in: query
+          description: Prefix filter on the name, case-insensitive.
+          schema:
+            type: string
+            title: prefix
+        - name: pageSize
+          in: query
+          description: 1..1000, default 200.
+          schema:
+            type: integer
+            title: page_size
+            format: int32
+        - name: pageToken
+          in: query
+          description: The pageToken query parameter.
+          schema:
+            type: string
+            title: page_token
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.ListTagsResponse'
+tags:
+  - name: MetaAdminService
+    description: MetaAdminService manages providers and their syncs.
+  - name: MetaService
+    description: |-
+      MetaService serves meta's catalogue: discovery (browse), search and
+       details over every entry meta knows, not only those in a library.
+
+       Every RPC is available over gRPC, Connect and plain HTTP/JSON (the paths
+       in the annotations below).

@@ -1,0 +1,295 @@
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package panelarr.metadata.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "panelarr/metadata/v1/entry.proto";
+
+option go_package = "github.com/panelarr/meta/gen/panelarr/metadata/v1;metadatav1";
+
+// MetadataPluginService is what a metadata plugin implements. meta (the
+// host) calls it to learn what the plugin can do, to look single records up,
+// and to stream whole catalogues into its database.
+//
+// A plugin runs either as a child process that meta starts (managed, over
+// gRPC on a local socket) or as a network service that meta connects to by
+// URL (standalone/remote, gRPC or Connect HTTP/JSON). The service is the same
+// in both modes.
+service MetadataPluginService {
+  // GetInfo describes the plugin: identity, the ingestion types it supports
+  // and their limits, its capabilities and the common services it can use.
+  rpc GetInfo(GetInfoRequest) returns (GetInfoResponse);
+
+  // Search finds records at the provider (ingestion types "lookup" and
+  // "scrape").
+  rpc Search(SearchRequest) returns (SearchResponse);
+
+  // Get fetches one record (ingestion types "lookup" and "scrape"). The ref
+  // may name another provider when the plugin declares the
+  // "lookup_by_external_id" capability, e.g. an AniList ID for a plugin whose
+  // provider cross-references AniList.
+  rpc Get(GetRequest) returns (GetResponse);
+
+  // Sync streams records in bulk (ingestion types "dump" and "delta"). The
+  // stream starts with SyncStarted, ends with SyncFinished, and carries
+  // upserts, removals, merges and checkpoints in between. The host commits
+  // everything up to a checkpoint and may resume a delta from its cursor.
+  rpc Sync(SyncRequest) returns (stream SyncResponse);
+
+  // GetSettingsSchema returns a JSON Schema describing the settings the
+  // plugin expects. The host renders a form from it and stores the values.
+  rpc GetSettingsSchema(GetSettingsSchemaRequest) returns (GetSettingsSchemaResponse);
+
+  // GetSettings returns the settings in effect.
+  rpc GetSettings(GetSettingsRequest) returns (GetSettingsResponse);
+
+  // SetSettings validates and applies settings. The host calls it after it
+  // starts or connects to the plugin, and whenever an admin changes them.
+  rpc SetSettings(SetSettingsRequest) returns (SetSettingsResponse);
+
+  // Health reports whether the plugin can do its work right now.
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+message GetInfoRequest {}
+
+message GetInfoResponse {
+  PluginInfo info = 1;
+}
+
+message PluginInfo {
+  // Stable plugin ID, lower case, e.g. "mangabaka".
+  string id = 1;
+  string name = 2;
+  string version = 3;
+  string description = 4;
+  string homepage = 5;
+  // The provider key the plugin uses in ExternalId.provider for its own
+  // records. Usually the same as id.
+  string provider = 6;
+  // Protocol packages the plugin speaks, e.g. "panelarr.metadata.v1".
+  repeated string protocols = 7;
+  // The ingestion types the plugin supports, with their limits.
+  repeated Ingestion ingestions = 8;
+  // What kind of data the plugin can provide. Well-known values: "titles",
+  // "descriptions", "people", "companies", "tags", "covers", "relations",
+  // "adaptations", "items", "links", "external_ids", "stats", "characters",
+  // "lookup_by_external_id". The list is open.
+  repeated string capabilities = 9;
+  // Services the host can offer that the plugin can use.
+  repeated CommonService common_services = 10;
+  // Default attribution for the plugin's records.
+  Attribution attribution = 11;
+}
+
+// Ingestion is one way a plugin gets data to meta.
+message Ingestion {
+  // Well-known kinds:
+  //   "lookup": on-demand Search/Get through a provider API;
+  //   "scrape": on-demand Search/Get by fetching and parsing pages;
+  //   "dump":   download a full snapshot and stream every record (Sync);
+  //   "delta":  stream only the changes since a cursor (Sync).
+  // The list is open: hosts ignore kinds they don't know.
+  string kind = 1;
+  string description = 2;
+  Limits limits = 3;
+  // A suggested schedule for Sync-based kinds, as a cron expression
+  // ("0 3 * * *"). The hoster decides the real schedule.
+  string schedule_hint = 4;
+  // A Sync of this kind lists every record the provider has, so the host
+  // may mark records that did not appear as removed.
+  bool full_snapshot = 5;
+}
+
+// Limits tell the host how hard it may use an ingestion type. The host
+// enforces them, and plugins should enforce them too.
+message Limits {
+  repeated RateLimit rate_limits = 1;
+  // Concurrent calls the host may make. 0 means no limit.
+  int32 max_concurrency = 2;
+}
+
+message RateLimit {
+  // The operation the limit applies to: "search", "get", "sync", or "*" for
+  // every call of the ingestion type.
+  string operation = 1;
+  // At most `requests` calls per `per`.
+  int32 requests = 2;
+  google.protobuf.Duration per = 3;
+  // Calls that may go out at once before the rate applies. 0 means 1.
+  int32 burst = 4;
+}
+
+// CommonService is something the host offers that a plugin can use.
+message CommonService {
+  // Well-known names: "network_profile" (per-plugin proxy and network
+  // settings), "solver" (challenge solving for scrapers). The list is open.
+  string name = 1;
+  // The plugin can't work without it.
+  bool required = 2;
+  // Why the plugin wants it, for the admin.
+  string purpose = 3;
+}
+
+message SearchRequest {
+  string query = 1;
+  // Maximum results. The plugin may return fewer.
+  int32 limit = 2;
+  // Opaque token from a previous response.
+  string page_token = 3;
+  // Optional filters. Plugins apply what they support and ignore the rest.
+  repeated EntryType types = 4;
+  repeated ContentRating content_ratings = 5;
+}
+
+message SearchResponse {
+  repeated ProviderEntry entries = 1;
+  string next_page_token = 2;
+}
+
+message GetRequest {
+  ExternalId ref = 1;
+}
+
+message GetResponse {
+  ProviderEntry entry = 1;
+}
+
+message SyncRequest {
+  // The ingestion kind to run: "dump" or "delta".
+  string kind = 1;
+  // Where to resume from: the cursor of the last checkpoint or of the last
+  // finished run. Empty means from the start.
+  string cursor = 2;
+  // Run even if the plugin thinks nothing changed since the cursor (for
+  // example, the same dump file).
+  bool force = 3;
+}
+
+// SyncResponse is one event in a sync stream.
+message SyncResponse {
+  oneof event {
+    SyncStarted started = 1;
+    // One record in the entry schema.
+    ProviderEntry upsert = 2;
+    SyncRemoved removed = 3;
+    SyncMerge merge = 4;
+    SyncCheckpoint checkpoint = 5;
+    SyncFinished finished = 6;
+    SyncNotice notice = 7;
+    SyncProgress progress = 8;
+  }
+}
+
+message SyncStarted {
+  string kind = 1;
+  // Identifies the snapshot, e.g. a dump's checksum or date.
+  string snapshot_id = 2;
+  google.protobuf.Timestamp snapshot_time = 3;
+  // Expected number of upserts, if known; 0 if not.
+  int64 expected_count = 4;
+  // This run lists every record (see Ingestion.full_snapshot).
+  bool full_snapshot = 5;
+  // Nothing changed since the requested cursor; the stream finishes without
+  // records. The host keeps what it has.
+  bool unchanged = 6;
+}
+
+// SyncRemoved says the provider no longer has a record.
+message SyncRemoved {
+  ExternalId ref = 1;
+  string reason = 2;
+}
+
+// SyncMerge says the provider merged one record into another. The host keeps
+// a redirect so the old ID still resolves.
+message SyncMerge {
+  ExternalId merged = 1;
+  ExternalId into = 2;
+}
+
+// SyncCheckpoint marks a point the host can commit and resume from.
+message SyncCheckpoint {
+  string cursor = 1;
+  // Records sent so far in this run.
+  int64 count = 2;
+}
+
+message SyncFinished {
+  // The cursor for the next delta run.
+  string cursor = 1;
+  int64 upserts = 2;
+  int64 removals = 3;
+  int64 merges = 4;
+  // Records the plugin skipped because they could not be read or mapped.
+  int64 skipped = 5;
+}
+
+// SyncNotice is a message for the admin, recorded with the sync run.
+message SyncNotice {
+  NoticeLevel level = 1;
+  string message = 2;
+  // The record it is about, if any.
+  ExternalId ref = 3;
+}
+
+enum NoticeLevel {
+  NOTICE_LEVEL_UNSPECIFIED = 0;
+  NOTICE_LEVEL_INFO = 1;
+  NOTICE_LEVEL_WARNING = 2;
+  NOTICE_LEVEL_ERROR = 3;
+}
+
+// SyncProgress reports work before or between records, such as a download.
+message SyncProgress {
+  // What is happening: "download", "verify", "decompress", "read", ...
+  string phase = 1;
+  int64 done = 2;
+  // 0 if unknown.
+  int64 total = 3;
+  // "bytes" or "records".
+  string unit = 4;
+}
+
+message GetSettingsSchemaRequest {}
+
+message GetSettingsSchemaResponse {
+  // A JSON Schema (draft 2020-12) document.
+  google.protobuf.Struct schema = 1;
+}
+
+message GetSettingsRequest {}
+
+message GetSettingsResponse {
+  google.protobuf.Struct settings = 1;
+}
+
+message SetSettingsRequest {
+  google.protobuf.Struct settings = 1;
+}
+
+message SetSettingsResponse {
+  // The settings in effect after defaults were applied.
+  google.protobuf.Struct settings = 1;
+}
+
+message HealthRequest {}
+
+message HealthResponse {
+  HealthStatus status = 1;
+  string message = 2;
+}
+
+enum HealthStatus {
+  HEALTH_STATUS_UNSPECIFIED = 0;
+  // Everything works.
+  HEALTH_STATUS_OK = 1;
+  // Works with limits, e.g. lookups fail but syncs work.
+  HEALTH_STATUS_DEGRADED = 2;
+  // Can't do its work, e.g. required settings are missing.
+  HEALTH_STATUS_DOWN = 3;
+}

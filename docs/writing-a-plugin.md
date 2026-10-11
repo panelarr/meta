@@ -1,0 +1,116 @@
+# Writing a metadata plugin
+
+This guide builds a plugin with the Go SDK. Plugins in other languages implement the `panelarr.metadata.v1` protos as a gRPC or Connect service and run in [standalone mode](protocol.md#run-modes).
+
+The SDK and the protos are Apache-2.0: your plugin can use any licence.
+
+## 1. Implement `plugin.Plugin`
+
+Embed `plugin.Unimplemented` and override what your provider supports. A dump-only plugin needs `GetInfo`, `Sync` and usually the settings calls:
+
+```go
+package main
+
+import (
+	"context"
+
+	metadatav1 "github.com/panelarr/meta/gen/panelarr/metadata/v1"
+	"github.com/panelarr/meta/sdk/plugin"
+)
+
+type myPlugin struct {
+	plugin.Unimplemented
+}
+
+func (myPlugin) GetInfo(context.Context, *metadatav1.GetInfoRequest) (*metadatav1.GetInfoResponse, error) {
+	return &metadatav1.GetInfoResponse{Info: &metadatav1.PluginInfo{
+		Id:        "example",
+		Name:      "Example provider",
+		Version:   "0.1.0",
+		Provider:  "example",
+		Protocols: []string{plugin.Protocol},
+		Ingestions: []*metadatav1.Ingestion{
+			{Kind: plugin.KindDump, FullSnapshot: true, ScheduleHint: "0 4 * * *"},
+		},
+		Capabilities: []string{"titles", "tags"},
+		Attribution:  &metadatav1.Attribution{ProviderName: "Example", License: "CC BY 4.0"},
+	}}, nil
+}
+
+func (myPlugin) Sync(ctx context.Context, req *metadatav1.SyncRequest, send plugin.SendFunc) error {
+	w := plugin.NewSyncWriter(send)
+	w.CheckpointEvery = 1000
+	if err := w.Started(&metadatav1.SyncStarted{Kind: req.GetKind(), FullSnapshot: true}); err != nil {
+		return err
+	}
+	for _, rec := range readEverything(ctx) {
+		if err := w.Upsert(toProviderEntry(rec)); err != nil {
+			return err // the host went away
+		}
+	}
+	return w.Finished("")
+}
+
+func main() {
+	plugin.Main(myPlugin{}, plugin.WithDefaultListen(":8903"))
+}
+```
+
+`plugin.Main` handles both run modes and the `--listen` / `--api-key` flags (or `PLUGIN_LISTEN` / `PLUGIN_API_KEY`).
+
+## 2. Map records to the entry schema
+
+Fill what your provider knows; leave the rest empty. See [schema.md](schema.md). Some rules that make merging work:
+
+- `ref` is your provider key plus your ID for the record, always as a string.
+- Put every title in `titles` with its language and kind. Mark the main one `is_primary`.
+- For every enum, set the closest value **and** the provider's original string in the `raw_*` field. Unknown values map to `OTHER` or `UNKNOWN`; the raw value keeps the meaning.
+- Put IDs of the same work at other sites in `external_ids` (`anilist`, `mal`, `mangaupdates`, ...). meta links records that share an ID.
+- People known only by name become a `Person` with just a name.
+- Keep the original record in `raw` so nothing is lost.
+- Set `attribution` (or a default in `GetInfo`) so meta can credit the provider.
+
+## 3. Settings
+
+Describe settings with a JSON Schema and validate with `sdk/settings`:
+
+```go
+var schema, _ = settings.Parse(`{"type":"object","properties":{"dir":{"type":"string","default":"/data"}}}`)
+
+func (p *myPlugin) SetSettings(_ context.Context, r *metadatav1.SetSettingsRequest) (*metadatav1.SetSettingsResponse, error) {
+	values := r.GetSettings().AsMap()
+	if err := schema.Validate(values); err != nil {
+		return nil, plugin.ErrInvalidArgument("%v", err)
+	}
+	values = schema.WithDefaults(values)
+	// apply values ...
+	st, _ := structpb.NewStruct(values)
+	return &metadatav1.SetSettingsResponse{Settings: st}, nil
+}
+```
+
+## 4. Respect the provider
+
+- Declare your limits in `GetInfo` and enforce them in the plugin as well.
+- Send a clear `User-Agent` that names your plugin.
+- Return `plugin.ErrRateLimited(retryAfter, ...)` when the provider says to slow down.
+- Never ship the provider's data with your plugin. Download it when the person running it asks.
+
+## 5. Test it
+
+```go
+func TestConformance(t *testing.T) {
+	conformance.Run(t, client.InProcess(&myPlugin{}), conformance.Options{})
+}
+```
+
+`sdk/plugintest.Fake` is a configurable in-memory plugin for testing hosts. [`sdk/examples/static-plugin`](../sdk/examples/static-plugin) is a complete, tiny plugin.
+
+## 6. Run it
+
+```sh
+go build -o my-plugin .
+./my-plugin --listen :8903 --api-key "$KEY"   # standalone
+```
+
+Point meta at it as a remote provider, or let meta start the binary as a managed provider (see [configuration.md](configuration.md)).

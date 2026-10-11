@@ -1,0 +1,21 @@
+openapi: 3.1.0
+info:
+  title: meta API
+  description: |
+    meta serves a metadata catalogue for manga, manhwa, manhua and comics: browse with
+    filters, search across titles in every language, entry details with attribution,
+    lookups by external ID, and provider administration.
+
+    Every call needs an API key, sent as `Authorization: Bearer <key>`. The same API is
+    also served over gRPC and Connect.
+  version: v1
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+security:
+  - apiKey: []
+components:
+  securitySchemes:
+    apiKey:
+      type: http
+      scheme: bearer

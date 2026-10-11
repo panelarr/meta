@@ -12,10 +12,17 @@ meta is optional and works on its own. Any project that wants a searchable manga
 |---|---|
 | `proto/panelarr/metadata/v1` | The **metadata plugin protocol**: what a plugin implements so meta can ingest from it |
 | `proto/panelarr/meta/v1` | The **meta API**: browse, search, get, lookup by external ID, admin |
-| `sdk/` | The Go SDK for writing metadata plugins (`plugin.Serve`) and a conformance harness |
+| `gen/` | Go, gRPC and Connect code generated from the protos, and the OpenAPI document |
+| `sdk/` | The Go SDK for writing metadata plugins (`plugin.Main`), a host client, settings helpers and a conformance harness |
 | `cmd/meta` | The meta service |
 
 Plugins live in their own repositories. A fresh meta has no plugins and an empty catalogue; you add the providers you want.
+
+## Documentation
+
+- [The plugin protocol](docs/protocol.md)
+- [Writing a plugin](docs/writing-a-plugin.md)
+- [The entry schema](docs/schema.md)
 
 ## Licence
 
@@ -27,7 +34,7 @@ The parts other programs build on are under the **Apache License 2.0**, so plugi
 - `gen/`: the code generated from them;
 - `sdk/`: the plugin SDK and the conformance harness.
 
-Each of these directories has its own `LICENSE`, and every file carries an SPDX header saying which licence applies.
+Each of these directories has its own `LICENSE`, and hand-written source files carry an SPDX header saying which licence applies.
 
 Metadata that meta ingests keeps the licence of the provider it came from. meta stores and shows attribution for every record, and it never ships provider data.
 

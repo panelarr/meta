@@ -1,0 +1,161 @@
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package panelarr.meta.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "panelarr/metadata/v1/plugin.proto";
+
+option go_package = "github.com/panelarr/meta/gen/panelarr/meta/v1;metav1";
+
+// MetaAdminService manages providers and their syncs.
+service MetaAdminService {
+  // ListProviders lists the configured metadata plugins with what they
+  // support, their health and their last sync.
+  rpc ListProviders(ListProvidersRequest) returns (ListProvidersResponse) {
+    option (google.api.http) = {get: "/v1/admin/providers"};
+  }
+
+  // RunSync starts a dump or delta sync now. It returns at once with the new
+  // run; follow it with GetSyncRun.
+  rpc RunSync(RunSyncRequest) returns (RunSyncResponse) {
+    option (google.api.http) = {
+      post: "/v1/admin/providers/{provider}/sync"
+      body: "*"
+    };
+  }
+
+  // ListSyncRuns lists sync runs, newest first.
+  rpc ListSyncRuns(ListSyncRunsRequest) returns (ListSyncRunsResponse) {
+    option (google.api.http) = {get: "/v1/admin/sync-runs"};
+  }
+
+  // GetSyncRun returns one sync run.
+  rpc GetSyncRun(GetSyncRunRequest) returns (GetSyncRunResponse) {
+    option (google.api.http) = {get: "/v1/admin/sync-runs/{id}"};
+  }
+
+  // RefreshEntry asks the providers behind an entry for fresh data through
+  // their lookup ingestion, and returns once it is stored.
+  rpc RefreshEntry(RefreshEntryRequest) returns (RefreshEntryResponse) {
+    option (google.api.http) = {
+      post: "/v1/admin/entries/{id}/refresh"
+      body: "*"
+    };
+  }
+}
+
+message Provider {
+  // The provider key, e.g. "mangabaka".
+  string id = 1;
+  // How meta reaches the plugin: "managed" or "remote".
+  string mode = 2;
+  // What the plugin reported in GetInfo. Empty if it couldn't be reached.
+  panelarr.metadata.v1.PluginInfo info = 3;
+  panelarr.metadata.v1.HealthStatus health = 4;
+  string health_message = 5;
+  // Schedules per ingestion kind (cron expressions), e.g. {"dump": "0 3 * * *"}.
+  map<string, string> schedules = 6;
+  // The latest run per ingestion kind.
+  repeated SyncRun last_runs = 7;
+  // Number of provider records stored.
+  int64 record_count = 8;
+}
+
+message ListProvidersRequest {}
+
+message ListProvidersResponse {
+  repeated Provider providers = 1;
+}
+
+message RunSyncRequest {
+  string provider = 1;
+  // "dump" or "delta".
+  string kind = 2;
+  // Run even if the plugin reports nothing changed.
+  bool force = 3;
+}
+
+message RunSyncResponse {
+  SyncRun run = 1;
+}
+
+enum SyncRunStatus {
+  SYNC_RUN_STATUS_UNSPECIFIED = 0;
+  SYNC_RUN_STATUS_RUNNING = 1;
+  SYNC_RUN_STATUS_SUCCEEDED = 2;
+  SYNC_RUN_STATUS_FAILED = 3;
+  SYNC_RUN_STATUS_CANCELLED = 4;
+}
+
+message SyncRun {
+  string id = 1;
+  string provider = 2;
+  string kind = 3;
+  SyncRunStatus status = 4;
+  // "manual" or "schedule".
+  string trigger = 5;
+  google.protobuf.Timestamp started_at = 6;
+  google.protobuf.Timestamp finished_at = 7;
+  string snapshot_id = 8;
+  // The cursor the run started from and the last one it committed.
+  string cursor_start = 9;
+  string cursor_end = 10;
+  // Records received.
+  int64 upserts = 11;
+  // Records that changed what meta had stored.
+  int64 changed = 12;
+  int64 removals = 13;
+  int64 merges = 14;
+  int64 skipped = 15;
+  // Records marked removed because a full snapshot no longer had them.
+  int64 marked_removed = 16;
+  // Error message when the run failed.
+  string error = 17;
+  // Warnings and errors the plugin reported, newest last (capped).
+  repeated SyncRunNotice notices = 18;
+  // Last progress report, e.g. download bytes.
+  google.protobuf.Struct progress = 19;
+}
+
+message SyncRunNotice {
+  panelarr.metadata.v1.NoticeLevel level = 1;
+  string message = 2;
+  string ref = 3;
+  google.protobuf.Timestamp at = 4;
+}
+
+message ListSyncRunsRequest {
+  // Only runs of this provider.
+  string provider = 1;
+  // 1..100, default 20.
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListSyncRunsResponse {
+  repeated SyncRun runs = 1;
+  string next_page_token = 2;
+}
+
+message GetSyncRunRequest {
+  string id = 1;
+}
+
+message GetSyncRunResponse {
+  SyncRun run = 1;
+}
+
+message RefreshEntryRequest {
+  string id = 1;
+}
+
+message RefreshEntryResponse {
+  // Providers that returned fresh data.
+  repeated string refreshed = 1;
+  // Providers that failed, with the reason.
+  map<string, string> failed = 2;
+}
