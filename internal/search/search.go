@@ -10,6 +10,8 @@ package search
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -123,6 +125,25 @@ var FacetFields = []string{FacetGenres, FacetTags, FacetType, FacetStatus, Facet
 type Facet struct {
 	Field  string
 	Values []FacetValue
+}
+
+// sortFacets puts facets in FacetFields order.
+func sortFacets(fs []Facet) {
+	order := map[string]int{}
+	for i, f := range FacetFields {
+		order[f] = i
+	}
+	slices.SortStableFunc(fs, func(a, b Facet) int { return order[a.Field] - order[b.Field] })
+}
+
+// sortFacetValues orders values by count, then value.
+func sortFacetValues(vs []FacetValue) {
+	slices.SortFunc(vs, func(a, b FacetValue) int {
+		if a.Count != b.Count {
+			return int(b.Count - a.Count)
+		}
+		return strings.Compare(a.Value, b.Value)
+	})
 }
 
 // FacetValue is one value and how many matches have it.

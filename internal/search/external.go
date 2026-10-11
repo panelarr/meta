@@ -51,14 +51,22 @@ type Engine interface {
 type ExternalOptions struct {
 	// Prefix of the engine's index names. Default "meta".
 	Prefix string
-	// BrowseFacets serves browsing (no search text) from the engine when
-	// facets are asked for. Otherwise browsing stays on PostgreSQL.
-	BrowseFacets bool
+	// Browse says who serves browsing (no search text): BrowseFacets (the
+	// default) the engine only when facets are asked for, BrowseEngine
+	// always the engine, BrowsePostgres always PostgreSQL.
+	Browse string
 	// Timeout of one engine query before falling back. Default 2s.
 	Timeout time.Duration
 	Log     *slog.Logger
 	Metrics *metrics.Metrics
 }
+
+// Browse modes.
+const (
+	BrowseFacets   = "facets"
+	BrowseEngine   = "engine"
+	BrowsePostgres = "postgres"
+)
 
 // External serves searches from an engine and falls back to PostgreSQL
 // when the engine fails or its index isn't built yet. PostgreSQL stays the
@@ -87,6 +95,9 @@ func NewExternal(eng Engine, pg *Postgres, pool *pgxpool.Pool, opts ExternalOpti
 	}
 	if opts.Timeout <= 0 {
 		opts.Timeout = 2 * time.Second
+	}
+	if opts.Browse == "" {
+		opts.Browse = BrowseFacets
 	}
 	if opts.Log == nil {
 		opts.Log = slog.New(slog.DiscardHandler)
@@ -136,6 +147,13 @@ func (x *External) set(current string, builtAt time.Time, docs int64) {
 	x.mu.Unlock()
 }
 
+// Current is the physical index writes go to; empty before a build.
+func (x *External) Current() string {
+	x.mu.RLock()
+	defer x.mu.RUnlock()
+	return x.current
+}
+
 // Ready reports whether an index is built and searches use it.
 func (x *External) Ready() bool {
 	x.mu.RLock()
@@ -146,7 +164,7 @@ func (x *External) Ready() bool {
 // Query serves a search from the engine, or from PostgreSQL when the
 // index isn't ready, the engine fails, or it is a browse without facets.
 func (x *External) Query(ctx context.Context, q Query) (Result, error) {
-	if !x.Ready() || (q.Text == "" && !(q.Facets && x.opts.BrowseFacets)) {
+	if !x.Ready() || (q.Text == "" && !x.browses(q)) {
 		return x.pg.Query(ctx, q)
 	}
 	qctx, cancel := context.WithTimeout(ctx, x.opts.Timeout)
@@ -162,6 +180,17 @@ func (x *External) Query(ctx context.Context, q Query) (Result, error) {
 	}
 	x.fail(err)
 	return x.pg.Query(ctx, q)
+}
+
+// browses reports whether the engine serves a browse.
+func (x *External) browses(q Query) bool {
+	switch x.opts.Browse {
+	case BrowseEngine:
+		return true
+	case BrowseFacets:
+		return q.Facets
+	}
+	return false
 }
 
 // fail notes an engine error and logs it at most once a minute.
