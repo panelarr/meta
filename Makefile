@@ -72,7 +72,7 @@ gen: ## Generate code from protos (Go, Connect, gRPC, OpenAPI) and SQL (sqlc)
 	@if [ -f sqlc.yaml ]; then $(BIN)/sqlc generate; fi
 
 gen-check: gen ## Fail if generated code is out of date
-	@git diff --exit-code -- gen store/db openapi || (echo "generated code is stale: run make gen" && exit 1)
+	@if [ -n "$$(git status --porcelain -- gen internal/store/db)" ]; then git status --short -- gen internal/store/db; echo "generated code is stale: run make gen and commit"; exit 1; fi
 
 run: build ## Run meta locally (needs META_DATABASE_URL) and print its URL
 	@echo "meta listening on http://localhost:8901"

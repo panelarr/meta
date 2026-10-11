@@ -25,7 +25,7 @@ make test
 
 ### Generated code
 
-Protobuf and SQL code is generated and committed. After changing `proto/` or `store/queries/`, run `make gen` and commit the result. CI fails when the generated code is stale.
+Protobuf and SQL code is generated and committed. After changing `proto/`, `internal/store/migrations/` or `internal/store/queries/`, run `make gen` and commit the result. CI fails when the generated code is stale.
 
 ### No provider data
 

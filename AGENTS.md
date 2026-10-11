@@ -30,7 +30,7 @@ Your operator gives you a list of aliases for confidential names (a local file, 
 ## This repo
 
 - **Progress:** [PROGRESS.md](PROGRESS.md) lists the planned slices for this repo and its first plugin, what's done and what's next. Re-read it whenever you lose context.
-- **Data layer:** PostgreSQL only, with sqlc + pgx v5 + goose. Migrations are plain SQL in `store/migrations`, embedded and applied at startup and by `meta migrate`. meta keeps everything inside its own database: no superuser, no server-wide settings.
+- **Data layer:** PostgreSQL only, with sqlc + pgx v5 + goose. Migrations are plain SQL in `internal/store/migrations`, embedded and applied at startup and by `meta migrate`. meta keeps everything inside its own database: no superuser, no server-wide settings.
 - **Protos are the contract.** `proto/` is the source of truth; generated code is committed. `buf lint` must pass and breaking changes need a new package version.
 - **Licences:** `proto/`, `gen/` and `sdk/` are Apache-2.0 (`// SPDX-License-Identifier: Apache-2.0`); everything else is GPL-3.0-or-later. Code under `sdk/` must not import GPL packages of this repo.
 - **No provider data.** Never commit dumps, extracts or real provider records. Tests use made-up data.
