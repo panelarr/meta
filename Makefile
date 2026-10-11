@@ -20,8 +20,10 @@ TOOLCHAIN := $(shell $(GO) env GOVERSION)
 VERSION  ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS  := -s -w -X github.com/panelarr/meta/internal/buildinfo.Version=$(VERSION)
 IMAGE    ?= panelarr/meta:dev
+NPM      ?= npm
 
-.PHONY: help setup build test test-short lint fmt fmt-check vet vuln buf-lint gen gen-check run docker clean check
+.PHONY: help setup build test test-short lint fmt fmt-check vet vuln buf-lint gen gen-check run docker clean check \
+	admin-setup admin admin-check admin-dev
 
 help: ## List targets
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_.-]+:.*## / {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -37,8 +39,21 @@ setup: ## Install pinned developer tools into ./bin and download modules
 	GOTOOLCHAIN=$(TOOLCHAIN) GOBIN=$(BIN) $(GO) install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 	GOTOOLCHAIN=$(TOOLCHAIN) GOBIN=$(BIN) $(GO) install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
 	$(GO) mod download
+	$(MAKE) admin-setup
 
-build: ## Build the meta binary into ./bin
+admin-setup: ## Install the admin UI's dependencies (needs Node 22+)
+	cd admin && $(NPM) ci
+
+admin: ## Build the admin UI into admin/dist (embedded into the binary)
+	cd admin && $(NPM) run build
+
+admin-check: ## Lint, type-check and test the admin UI; check its API types are current
+	cd admin && $(NPM) run lint && $(NPM) run typecheck && $(NPM) run gen:api:check && $(NPM) test
+
+admin-dev: ## Run the admin UI's dev server against a meta on META_BACKEND (default http://localhost:8901)
+	cd admin && $(NPM) run dev
+
+build: admin ## Build the admin UI and the meta binary into ./bin
 	CGO_ENABLED=0 $(GO) build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/meta ./cmd/meta
 
 test: ## Run all tests with the race detector (Postgres via testcontainers or META_TEST_DATABASE_URL)
@@ -67,12 +82,13 @@ buf-lint: ## Lint protos only
 vuln: ## Check dependencies and the toolchain for known vulnerabilities
 	$(BIN)/govulncheck ./...
 
-gen: ## Generate code from protos (Go, Connect, gRPC, OpenAPI) and SQL (sqlc)
+gen: ## Generate code from protos (Go, Connect, gRPC, OpenAPI), SQL (sqlc) and the admin UI's API types
 	@if [ -d proto ]; then $(BIN)/buf generate; fi
 	@if [ -f sqlc.yaml ]; then $(BIN)/sqlc generate; fi
+	@if [ -d admin/node_modules ]; then cd admin && $(NPM) run --silent gen:api; fi
 
 gen-check: gen ## Fail if generated code is out of date
-	@if [ -n "$$(git status --porcelain -- gen internal/store/db)" ]; then git status --short -- gen internal/store/db; echo "generated code is stale: run make gen and commit"; exit 1; fi
+	@if [ -n "$$(git status --porcelain -- gen internal/store/db admin/src/api/schema.d.ts)" ]; then git status --short -- gen internal/store/db admin/src/api/schema.d.ts; echo "generated code is stale: run make gen and commit"; exit 1; fi
 
 run: build ## Run meta locally (needs META_DATABASE_URL) and print its URL
 	@echo "meta listening on http://localhost:8901"
@@ -84,5 +100,6 @@ docker: ## Build the container image ($(IMAGE))
 clean: ## Remove build artifacts (keeps installed tools)
 	rm -f $(BIN)/meta
 	rm -rf dist coverage.out
+	find admin/dist -mindepth 1 ! -name .keep -delete 2>/dev/null || true
 
-check: fmt-check vet lint vuln test ## Format check, lint, static analysis, vulnerabilities and tests (run before every report/PR)
+check: fmt-check vet lint vuln test admin-check ## Format check, lint, static analysis, vulnerabilities and tests, Go and UI (run before every report/PR)

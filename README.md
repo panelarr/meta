@@ -15,6 +15,7 @@ meta is optional and works on its own. Any project that wants a searchable manga
 | `gen/` | Go, gRPC and Connect code generated from the protos, and the OpenAPI document |
 | `sdk/` | The Go SDK for writing metadata plugins (`plugin.Main`), a host client, settings helpers and a conformance harness |
 | `cmd/meta` | The meta service |
+| `admin/` | The admin web UI (React), embedded into the binary |
 
 Plugins live in their own repositories. A fresh meta has no plugins and an empty catalogue; you add the providers you want.
 
@@ -39,6 +40,8 @@ curl -H "Authorization: Bearer $META_ADMIN_TOKEN" 'http://localhost:8901/v1/entr
 curl -H "Authorization: Bearer $META_ADMIN_TOKEN" 'http://localhost:8901/v1/search?query=one%20piece'
 ```
 
+Or open `http://localhost:8901/` and sign in with the admin token: the [admin UI](docs/admin.md) browses the catalogue, runs syncs and manages clients and integrations.
+
 Give other callers their own key with only the scopes they need (`POST /v1/admin/clients`, see [docs/api.md](docs/api.md#clients-and-scopes-metaclientsservice)). After that, the dump is synced every night at 03:00 UTC. A sync can also be started over the API (`POST /v1/admin/providers/mangabaka/sync`). MangaBaka's data is CC BY-NC-SA 4.0: every entry carries its attribution, and the data must not be redistributed.
 
 ### Without Docker
@@ -53,6 +56,7 @@ meta listens on `:8901`. With no providers configured it runs with an empty cata
 
 ## Documentation
 
+- [The admin UI](docs/admin.md)
 - [Running meta](docs/running.md)
 
 - [The API](docs/api.md)

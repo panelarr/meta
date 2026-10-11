@@ -19,6 +19,7 @@ import (
 	"connectrpc.com/grpcreflect"
 	"connectrpc.com/vanguard"
 
+	adminui "github.com/panelarr/meta/admin"
 	"github.com/panelarr/meta/gen/openapi"
 	"github.com/panelarr/meta/gen/panelarr/meta/v1/metav1connect"
 	"github.com/panelarr/meta/internal/auth"
@@ -76,7 +77,8 @@ func New(svc Services, opts Options) (*Server, error) {
 		svc.Integrations = metav1connect.UnimplementedMetaIntegrationsServiceHandler{}
 	}
 	add(metav1connect.NewMetaIntegrationsServiceHandler(svc.Integrations, hopts...))
-	transcoder, err := vanguard.NewTranscoder(services)
+	// Unknown API paths answer like other API errors, not with the UI.
+	transcoder, err := vanguard.NewTranscoder(services, vanguard.WithUnknownHandler(http.HandlerFunc(apiNotFound)))
 	if err != nil {
 		return nil, err
 	}
@@ -100,9 +102,39 @@ func New(svc Services, opts Options) (*Server, error) {
 	if opts.MetricsHandler != nil {
 		mux.Handle("GET /metrics", s.authn(requireScope(auth.ScopeMetricsRead, opts.MetricsHandler)))
 	}
-	mux.Handle("/", s.authn(transcoder))
+	mux.Handle("/", s.route(s.authn(transcoder), adminui.Handler()))
 	s.handler = mux
 	return s, nil
+}
+
+// isAPI reports whether a request is for the API (REST under /v1, gRPC,
+// gRPC-Web and Connect under the service paths) rather than for the UI.
+func isAPI(r *http.Request) bool {
+	p := r.URL.Path
+	if p == "/v1" || strings.HasPrefix(p, "/v1/") || strings.HasPrefix(p, "/panelarr.") || strings.HasPrefix(p, "/grpc.") {
+		return true
+	}
+	return strings.HasPrefix(r.Header.Get("Content-Type"), "application/grpc") ||
+		strings.HasPrefix(r.Header.Get("Content-Type"), "application/connect")
+}
+
+// route sends API requests to the API (with authentication) and page loads
+// to the admin UI. The UI needs no credentials to load: it asks for the
+// admin token and sends it with its API calls.
+func (s *Server) route(api, ui http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !isAPI(r) && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
+			ui.ServeHTTP(w, r)
+			return
+		}
+		api.ServeHTTP(w, r)
+	})
+}
+
+func apiNotFound(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusNotFound)
+	_, _ = io.WriteString(w, `{"code":5,"message":"no such API path","details":[]}`)
 }
 
 // Handler is the root HTTP handler.

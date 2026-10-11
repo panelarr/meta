@@ -4,6 +4,12 @@
 coverage.out
 *.test
 
+# The admin UI: dependencies and the build (embedded by Go; only the
+# placeholder is committed so the embed always has a directory).
+/admin/node_modules/
+/admin/dist/*
+!/admin/dist/.keep
+
 # Local config and data. Never commit metadata dumps or extracts.
 .env
 *.local.yaml

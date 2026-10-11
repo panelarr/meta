@@ -4,6 +4,15 @@
 #   docker build -t panelarr/meta .
 
 ARG GO_VERSION=1.27.2
+ARG NODE_VERSION=24
+
+# The admin UI: a static single-page app, embedded into the binary below.
+FROM --platform=$BUILDPLATFORM node:${NODE_VERSION}-alpine AS admin
+WORKDIR /src/admin
+COPY admin/package.json admin/package-lock.json admin/.npmrc ./
+RUN --mount=type=cache,target=/root/.npm npm ci
+COPY admin/ ./
+RUN npm run build
 
 FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-alpine AS build
 ARG TARGETOS TARGETARCH
@@ -11,6 +20,8 @@ ARG VERSION=dev
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
+COPY admin/*.go ./admin/
+COPY --from=admin /src/admin/dist ./admin/dist
 COPY cmd ./cmd
 COPY gen ./gen
 COPY internal ./internal

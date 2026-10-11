@@ -2,6 +2,7 @@
 
 | Doc | What it covers |
 |---|---|
+| [admin.md](admin.md) | The admin web UI: signing in, pages, security, developing it |
 | [running.md](running.md) | The image, the compose example, production notes |
 | [integrations.md](integrations.md) | Solvers and network profiles: proxies, VPN containers, rate limits, per provider |
 | [observability.md](observability.md) | Logs, health endpoints and Prometheus metrics |

@@ -1,5 +1,7 @@
 bin
 dist
+admin/node_modules
+admin/dist
 .git
 data
 *.sqlite
