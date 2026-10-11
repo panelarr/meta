@@ -185,13 +185,25 @@ func requireKey(key string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		got := []byte(strings.TrimSpace(r.Header.Get("Authorization")))
 		if subtle.ConstantTimeCompare(got, want) != 1 {
-			// Answer in the Connect error format; gRPC clients see an
-			// unauthenticated status from the HTTP 401.
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = io.WriteString(w, `{"code":"unauthenticated","message":"missing or wrong API key"}`)
+			unauthenticated(w, r)
 			return
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// unauthenticated answers in the caller's protocol: a gRPC status for gRPC
+// clients, a Connect error otherwise.
+func unauthenticated(w http.ResponseWriter, r *http.Request) {
+	const msg = "missing or wrong API key"
+	if ct := r.Header.Get("Content-Type"); strings.HasPrefix(ct, "application/grpc") {
+		w.Header().Set("Content-Type", ct)
+		w.Header().Set("Grpc-Status", "16")
+		w.Header().Set("Grpc-Message", msg)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusUnauthorized)
+	_, _ = io.WriteString(w, `{"code":"unauthenticated","message":"`+msg+`"}`)
 }

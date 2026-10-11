@@ -11,7 +11,9 @@ The same service, `MetadataPluginService`, is spoken in both modes:
 | Mode | Who starts the plugin | Transport | When to use |
 |---|---|---|---|
 | **Managed** | meta starts the binary as a child process | gRPC on a local socket, after the [go-plugin](https://github.com/hashicorp/go-plugin) handshake | The plugin runs next to meta |
-| **Standalone** | You do (`--listen :8903`), e.g. as its own container | gRPC, gRPC-Web or Connect (HTTP/JSON) over HTTP/1.1 or cleartext HTTP/2 | The plugin runs elsewhere, or is written in another language |
+| **Standalone** | You do (`--listen :8903`), e.g. as its own container | **gRPC** over HTTP/2 (cleartext or TLS). Go SDK plugins also answer gRPC-Web and Connect (HTTP/JSON) | The plugin runs elsewhere, or is written in another language |
+
+**Standard gRPC is the canonical protocol.** meta calls remote plugins over gRPC, and a plugin only has to speak gRPC. The Connect protocol (which also works over HTTP/1.1 and makes `curl` easy) is an extra that plugins built with the Go SDK get for free; no host may require it.
 
 In standalone mode, protect the plugin with an API key: callers send `Authorization: Bearer <key>`. `GET /healthz` answers without a key, for container health checks.
 

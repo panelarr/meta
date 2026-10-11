@@ -51,21 +51,29 @@ type SyncStream interface {
 type RemoteOptions struct {
 	// APIKey is sent as "Authorization: Bearer <key>".
 	APIKey string
-	// HTTPClient defaults to a client that supports cleartext HTTP/2.
+	// HTTPClient overrides the HTTP client. The default speaks HTTP/2,
+	// cleartext for http:// URLs and TLS for https://, as gRPC needs.
 	HTTPClient *http.Client
-	// GRPC uses the gRPC protocol instead of Connect. Needs HTTP/2.
-	GRPC bool
+	// Connect uses the Connect protocol instead of gRPC. gRPC is the
+	// protocol every plugin must speak; Connect is an optional extra that
+	// also works over HTTP/1.1.
+	Connect bool
 }
 
 // Remote returns a client for a plugin running as a service at baseURL,
-// e.g. "http://meta-mangabaka:8903".
+// e.g. "http://meta-mangabaka:8903". It speaks gRPC unless opts.Connect is
+// set.
 func Remote(baseURL string, opts RemoteOptions) Client {
 	hc := opts.HTTPClient
 	if hc == nil {
 		tr := http.DefaultTransport.(*http.Transport).Clone()
 		tr.Protocols = new(http.Protocols)
-		tr.Protocols.SetHTTP1(true)
-		tr.Protocols.SetUnencryptedHTTP2(true)
+		if opts.Connect {
+			tr.Protocols.SetHTTP1(true)
+		} else {
+			tr.Protocols.SetHTTP2(true)
+			tr.Protocols.SetUnencryptedHTTP2(true)
+		}
 		hc = &http.Client{Transport: tr}
 	}
 	copts := []connect.ClientOption{
@@ -75,7 +83,7 @@ func Remote(baseURL string, opts RemoteOptions) Client {
 	if opts.APIKey != "" {
 		copts = append(copts, connect.WithInterceptors(bearer(opts.APIKey)))
 	}
-	if opts.GRPC {
+	if !opts.Connect {
 		copts = append(copts, connect.WithGRPC())
 	}
 	return &remoteClient{c: metadatav1connect.NewMetadataPluginServiceClient(hc, baseURL, copts...)}

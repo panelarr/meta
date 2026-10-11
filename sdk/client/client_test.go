@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"os/exec"
 	"path/filepath"
@@ -30,13 +31,22 @@ func fake() *plugintest.Fake {
 	return f
 }
 
-func remote(t *testing.T, p plugin.Plugin, key string) client.Client {
+// serve runs p like a standalone plugin: HTTP/1.1 and cleartext HTTP/2.
+func serve(t *testing.T, p plugin.Plugin, key string) string {
 	t.Helper()
 	srv := httptest.NewUnstartedServer(plugin.NewHandler(p, key))
-	srv.EnableHTTP2 = true
+	srv.Config.Protocols = new(http.Protocols)
+	srv.Config.Protocols.SetHTTP1(true)
+	srv.Config.Protocols.SetUnencryptedHTTP2(true)
 	srv.Start()
 	t.Cleanup(srv.Close)
-	c := client.Remote(srv.URL, client.RemoteOptions{APIKey: key, HTTPClient: srv.Client()})
+	return srv.URL
+}
+
+// remote connects over gRPC, the canonical protocol.
+func remote(t *testing.T, p plugin.Plugin, key string) client.Client {
+	t.Helper()
+	c := client.Remote(serve(t, p, key), client.RemoteOptions{APIKey: key})
 	t.Cleanup(func() { _ = c.Close() })
 	return c
 }
@@ -71,12 +81,17 @@ func TestConformanceRemote(t *testing.T) {
 	}
 }
 
-func TestConformanceRemoteGRPCProtocol(t *testing.T) {
+func TestConformanceRemoteConnectProtocol(t *testing.T) {
+	c := client.Remote(serve(t, fake(), ""), client.RemoteOptions{Connect: true})
+	conformance.Run(t, c, conformance.Options{})
+}
+
+func TestConformanceRemoteGRPCOverTLS(t *testing.T) {
 	srv := httptest.NewUnstartedServer(plugin.NewHandler(fake(), ""))
 	srv.EnableHTTP2 = true
 	srv.StartTLS()
 	t.Cleanup(srv.Close)
-	c := client.Remote(srv.URL, client.RemoteOptions{GRPC: true, HTTPClient: srv.Client()})
+	c := client.Remote(srv.URL, client.RemoteOptions{HTTPClient: srv.Client()})
 	conformance.Run(t, c, conformance.Options{})
 }
 
@@ -125,13 +140,13 @@ func TestStandaloneBinary(t *testing.T) {
 }
 
 func TestAPIKeyRequired(t *testing.T) {
-	srv := httptest.NewServer(plugin.NewHandler(fake(), "secret"))
-	defer srv.Close()
-	c := client.Remote(srv.URL, client.RemoteOptions{})
-	_, err := c.GetInfo(context.Background())
-	var pe *plugin.Error
-	if !errors.As(err, &pe) || pe.Code != plugin.Code(16) {
-		t.Fatalf("want unauthenticated, got %v", err)
+	url := serve(t, fake(), "secret")
+	for name, opts := range map[string]client.RemoteOptions{"grpc": {}, "connect": {Connect: true}} {
+		_, err := client.Remote(url, opts).GetInfo(context.Background())
+		var pe *plugin.Error
+		if !errors.As(err, &pe) || pe.Code != plugin.Code(16) {
+			t.Fatalf("%s: want unauthenticated, got %v", name, err)
+		}
 	}
 }
 

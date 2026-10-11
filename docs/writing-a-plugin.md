@@ -1,6 +1,6 @@
 # Writing a metadata plugin
 
-This guide builds a plugin with the Go SDK. Plugins in other languages implement the `panelarr.metadata.v1` protos as a gRPC or Connect service and run in [standalone mode](protocol.md#run-modes).
+This guide builds a plugin with the Go SDK. A plugin in any other language only needs to implement the `panelarr.metadata.v1` protos as a standard **gRPC** service and run in [standalone mode](protocol.md#run-modes); meta talks to remote plugins over gRPC.
 
 The SDK and the protos are Apache-2.0: your plugin can use any licence.
 
