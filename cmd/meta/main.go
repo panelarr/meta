@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/panelarr/meta/internal/api"
+	"github.com/panelarr/meta/internal/auth"
 	"github.com/panelarr/meta/internal/buildinfo"
 	"github.com/panelarr/meta/internal/catalog"
 	"github.com/panelarr/meta/internal/config"
@@ -35,6 +36,7 @@ Usage:
   meta sync PROVIDER [KIND] [--force] run one sync in the foreground and print the result
   meta migrate [up|down|status]       apply, roll back or list database migrations
   meta healthcheck [--url URL]        probe a running meta (for container health checks)
+  meta admin-token reset              generate a new admin token (when META_ADMIN_TOKEN isn't set)
   meta version                        print the version
 
 Flags (all commands):
@@ -74,6 +76,8 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		return serve(ctx, args[1:], out)
 	case "sync":
 		return syncOnce(ctx, args[1:], out)
+	case "admin-token":
+		return adminToken(ctx, args[1:], out)
 	case "healthcheck":
 		if code := runHealthcheck(args[1:], os.Stderr); code != 0 {
 			return fmt.Errorf("unhealthy (exit %d)", code)
@@ -246,7 +250,7 @@ func (a *app) close() {
 	a.st.Close()
 }
 
-func serve(ctx context.Context, args []string, _ io.Writer) error {
+func serve(ctx context.Context, args []string, out io.Writer) error {
 	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	var c common
@@ -264,8 +268,9 @@ func serve(ctx context.Context, args []string, _ io.Writer) error {
 	if a.host.Empty() {
 		log.Warn("no providers configured: the catalogue stays empty until you add a metadata plugin")
 	}
-	if len(a.cfg.APIKeys) == 0 {
-		log.Warn("no API keys configured: the API is open to anyone who can reach it")
+	authn, err := auth.New(ctx, a.st, auth.Options{AdminToken: a.cfg.AdminToken, ConfigKeys: a.cfg.APIKeys, Out: out, Log: log})
+	if err != nil {
+		return err
 	}
 	// Syncs started by the scheduler or the API stop when meta stops.
 	syncCtx, stopSyncs := context.WithCancel(context.WithoutCancel(ctx))
@@ -281,14 +286,14 @@ func serve(ctx context.Context, args []string, _ io.Writer) error {
 	if err != nil {
 		return err
 	}
-	srv, err := api.New(
-		api.NewMeta(a.st, a.host, a.writer, api.MetaOptions{
+	srv, err := api.New(api.Services{
+		Meta: api.NewMeta(a.st, a.host, a.writer, api.MetaOptions{
 			DisplayLanguage: a.cfg.Merge.DisplayLanguage, StaleAfter: a.cfg.Ingest.StaleAfter,
 			Index: idx, Log: log, Base: syncCtx,
 		}),
-		api.NewAdmin(syncCtx, a.st, a.host, a.runner, a.writer),
-		api.Options{APIKeys: a.cfg.APIKeys, Ready: func(ctx context.Context) error { return a.st.Pool.Ping(ctx) }, Log: log},
-	)
+		Admin:   api.NewAdmin(syncCtx, a.st, a.host, a.runner, a.writer),
+		Clients: api.NewClients(a.st),
+	}, api.Options{Auth: authn, Ready: func(ctx context.Context) error { return a.st.Pool.Ping(ctx) }, Log: log})
 	if err != nil {
 		return err
 	}
@@ -354,5 +359,38 @@ func syncOnce(ctx context.Context, args []string, out io.Writer) error {
 			fmt.Fprintf(out, "  error: %s\n", run.Error)
 		}
 	}
+	return err
+}
+
+func adminToken(ctx context.Context, args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("admin-token", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	var c common
+	c.flags(fs)
+	pos, err := parse(fs, args)
+	if err != nil || len(pos) != 1 || pos[0] != "reset" {
+		return errUsage
+	}
+	cfg, err := c.load()
+	if err != nil && cfg.DatabaseURL == "" {
+		return err
+	}
+	if cfg.AdminToken != "" {
+		return errors.New("META_ADMIN_TOKEN (or admin_token) is set and wins over a stored token: change it there instead")
+	}
+	s, err := store.Open(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+	if _, err := s.Migrate(ctx); err != nil {
+		return err
+	}
+	token, err := auth.ResetAdminToken(ctx, s)
+	if err != nil {
+		return err
+	}
+	auth.PrintAdminToken(out, token)
+	_, err = fmt.Fprintln(out, "Restart meta for the new token to take effect.")
 	return err
 }

@@ -12,7 +12,38 @@ The protos are the contract: [`proto/panelarr/meta/v1`](../proto/panelarr/meta/v
 
 ## Authentication
 
-Send an API key from the configuration: `Authorization: Bearer <key>`. Without configured keys the API is open. `/healthz`, `/readyz` and `/openapi.yaml` need no key.
+Every call sends a bearer token: `Authorization: Bearer <token>` (gRPC: `authorization` metadata). `/healthz`, `/readyz` and `/openapi.yaml` need none.
+
+| Credential | Looks like | Access |
+|---|---|---|
+| **Admin token** | `mta_…` or your own | Everything. From `META_ADMIN_TOKEN`, or generated on first start and printed once (see [configuration](configuration.md#admin-token)) |
+| **Client API key** | `mtk_…` | The client's scopes |
+| Key from the `api_keys` setting | anything | Everything. **Deprecated**: create clients instead |
+
+### Clients and scopes (`MetaClientsService`)
+
+Each caller (a Panelarr server, a script) gets its own **client** with an API key and scopes. Keys are shown once, when created or rotated, and stored only as hashes.
+
+| Scope | Allows |
+|---|---|
+| `catalog:read` | `MetaService`: browse, search, entry details, lookups, tags |
+| `admin` | Everything, including `MetaAdminService`, `MetaClientsService` and gRPC reflection |
+
+Anything not listed needs `admin`. A missing or wrong token gets `unauthenticated` (HTTP 401), a missing scope `permission_denied` (403).
+
+| Call | REST | What |
+|---|---|---|
+| `WhoAmI` | `GET /v1/whoami` | Who the token belongs to (any valid token) |
+| `ListClients` | `GET /v1/admin/clients` | Clients with key prefix, created, rotated and last-used times; never keys |
+| `CreateClient` | `POST /v1/admin/clients` `{"name", "scopes"}` | Returns the key, once |
+| `UpdateClient` | `PATCH /v1/admin/clients/{client_id}` | Rename or change scopes; the key stays |
+| `RotateClientKey` | `POST /v1/admin/clients/{client_id}/rotate` | New key, once; the old one stops working at once |
+| `DeleteClient` | `DELETE /v1/admin/clients/{client_id}` | The key stops working at once |
+
+```sh
+curl -X POST -H "Authorization: Bearer $META_ADMIN_TOKEN" \
+  -d '{"name": "library", "scopes": ["catalog:read"]}' http://localhost:8901/v1/admin/clients
+```
 
 ## Catalogue (`MetaService`)
 

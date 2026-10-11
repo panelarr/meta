@@ -23,8 +23,11 @@ import (
 type Config struct {
 	// Listen is the address of the API server. Default ":8901".
 	Listen string `yaml:"listen"`
-	// APIKeys callers must send as "Authorization: Bearer <key>". With no
-	// keys the API is open, which is only safe on a private network.
+	// AdminToken is the admin's bearer token. Empty: meta generates one on
+	// first start, prints it once and stores only its hash.
+	AdminToken string `yaml:"admin_token"`
+	// APIKeys is deprecated: create clients with scoped keys instead. Keys
+	// listed here keep full access.
 	APIKeys []string `yaml:"api_keys"`
 	// DatabaseURL is the PostgreSQL URL.
 	DatabaseURL string `yaml:"database_url"`
@@ -138,7 +141,7 @@ func expand(b []byte) []byte {
 // variables and checks the result.
 //
 // Environment variables: META_CONFIG (file path, when path is empty),
-// META_LISTEN, META_DATABASE_URL, META_API_KEYS (comma-separated),
+// META_LISTEN, META_ADMIN_TOKEN, META_DATABASE_URL, META_API_KEYS (comma-separated),
 // META_LOG_LEVEL, META_LOG_FORMAT, META_SEARCH_BACKEND.
 func Load(path string) (Config, error) {
 	return LoadWith(path, nil)
@@ -176,6 +179,7 @@ func applyEnv(cfg *Config) {
 		}
 	}
 	set(&cfg.Listen, "META_LISTEN")
+	set(&cfg.AdminToken, "META_ADMIN_TOKEN")
 	set(&cfg.DatabaseURL, "META_DATABASE_URL")
 	set(&cfg.Log.Level, "META_LOG_LEVEL")
 	set(&cfg.Log.Format, "META_LOG_FORMAT")

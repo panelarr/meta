@@ -7,8 +7,8 @@ package api
 
 import (
 	"context"
-	"crypto/subtle"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -21,54 +21,60 @@ import (
 
 	"github.com/panelarr/meta/gen/openapi"
 	"github.com/panelarr/meta/gen/panelarr/meta/v1/metav1connect"
+	"github.com/panelarr/meta/internal/auth"
 	"github.com/panelarr/meta/sdk/plugin"
 )
 
 // Server bundles the handlers and their dependencies.
 type Server struct {
-	meta    metav1connect.MetaServiceHandler
-	admin   metav1connect.MetaAdminServiceHandler
-	keys    [][]byte
+	auth    *auth.Authenticator
 	log     *slog.Logger
 	ready   func(context.Context) error
 	handler http.Handler
 }
 
+// Services are the service implementations to serve.
+type Services struct {
+	Meta    metav1connect.MetaServiceHandler
+	Admin   metav1connect.MetaAdminServiceHandler
+	Clients metav1connect.MetaClientsServiceHandler
+}
+
 // Options configure the server.
 type Options struct {
-	// APIKeys accepted as "Authorization: Bearer <key>". Empty: no auth.
-	APIKeys []string
+	// Auth checks credentials. Nil serves everything without credentials,
+	// which is only meant for tests.
+	Auth *auth.Authenticator
 	// Ready reports whether meta can serve (e.g. the database answers).
 	Ready func(context.Context) error
 	Log   *slog.Logger
 }
 
 // New builds the HTTP handler for the given service implementations.
-func New(meta metav1connect.MetaServiceHandler, admin metav1connect.MetaAdminServiceHandler, opts Options) (*Server, error) {
-	s := &Server{meta: meta, admin: admin, log: opts.Log, ready: opts.Ready}
-	for _, k := range opts.APIKeys {
-		s.keys = append(s.keys, []byte("Bearer "+k))
-	}
+func New(svc Services, opts Options) (*Server, error) {
+	s := &Server{auth: opts.Auth, log: opts.Log, ready: opts.Ready}
 	hopts := []connect.HandlerOption{
-		connect.WithInterceptors(errorInterceptor{log: opts.Log}),
+		// Scope checks run first, so a caller without the scope learns
+		// nothing from the handler.
+		connect.WithInterceptors(scopeInterceptor{}, errorInterceptor{log: opts.Log}),
 		connect.WithReadMaxBytes(4 << 20),
 	}
-	metaPath, metaHandler := metav1connect.NewMetaServiceHandler(meta, hopts...)
-	adminPath, adminHandler := metav1connect.NewMetaAdminServiceHandler(admin, hopts...)
-	transcoder, err := vanguard.NewTranscoder([]*vanguard.Service{
-		vanguard.NewService(metaPath, metaHandler),
-		vanguard.NewService(adminPath, adminHandler),
-	})
+	var services []*vanguard.Service
+	add := func(path string, h http.Handler) { services = append(services, vanguard.NewService(path, h)) }
+	add(metav1connect.NewMetaServiceHandler(svc.Meta, hopts...))
+	add(metav1connect.NewMetaAdminServiceHandler(svc.Admin, hopts...))
+	add(metav1connect.NewMetaClientsServiceHandler(svc.Clients, hopts...))
+	transcoder, err := vanguard.NewTranscoder(services)
 	if err != nil {
 		return nil, err
 	}
 
 	mux := http.NewServeMux()
-	reflector := grpcreflect.NewStaticReflector(metav1connect.MetaServiceName, metav1connect.MetaAdminServiceName)
+	reflector := grpcreflect.NewStaticReflector(metav1connect.MetaServiceName, metav1connect.MetaAdminServiceName, metav1connect.MetaClientsServiceName)
 	rpath, rhandler := grpcreflect.NewHandlerV1(reflector)
-	mux.Handle(rpath, s.auth(rhandler))
+	mux.Handle(rpath, s.authn(requireScope(auth.ScopeAdmin, rhandler)))
 	rpathA, rhandlerA := grpcreflect.NewHandlerV1Alpha(reflector)
-	mux.Handle(rpathA, s.auth(rhandlerA))
+	mux.Handle(rpathA, s.authn(requireScope(auth.ScopeAdmin, rhandlerA)))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		_, _ = io.WriteString(w, "ok\n")
@@ -78,7 +84,7 @@ func New(meta metav1connect.MetaServiceHandler, admin metav1connect.MetaAdminSer
 		w.Header().Set("Content-Type", "application/yaml")
 		_, _ = w.Write(openapi.Meta)
 	})
-	mux.Handle("/", s.auth(transcoder))
+	mux.Handle("/", s.authn(transcoder))
 	s.handler = mux
 	return s, nil
 }
@@ -114,24 +120,78 @@ func (s *Server) readyz(w http.ResponseWriter, r *http.Request) {
 	_, _ = io.WriteString(w, "ok\n")
 }
 
-func (s *Server) auth(next http.Handler) http.Handler {
-	if len(s.keys) == 0 {
-		return next
-	}
+// authn resolves the caller's credentials and puts the principal in the
+// request context. Requests without valid credentials are refused.
+func (s *Server) authn(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		got := []byte(strings.TrimSpace(r.Header.Get("Authorization")))
-		ok := false
-		for _, k := range s.keys {
-			if subtle.ConstantTimeCompare(got, k) == 1 {
-				ok = true
-			}
+		if s.auth == nil {
+			p := auth.Principal{Kind: auth.KindAdmin, Name: "admin", Scopes: []string{auth.ScopeAdmin}}
+			next.ServeHTTP(w, r.WithContext(auth.WithPrincipal(r.Context(), p)))
+			return
 		}
-		if !ok {
+		p, err := s.auth.Authenticate(r.Context(), auth.BearerToken(r.Header.Get("Authorization")))
+		if errors.Is(err, auth.ErrUnauthenticated) {
 			unauthenticated(w, r)
+			return
+		}
+		if err != nil {
+			if s.log != nil {
+				s.log.Error("authenticate", "err", err)
+			}
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		next.ServeHTTP(w, r.WithContext(auth.WithPrincipal(r.Context(), p)))
+	})
+}
+
+// requireScope guards plain HTTP handlers (not RPCs) with a scope.
+func requireScope(scope string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if p, _ := auth.FromContext(r.Context()); !p.Allows(scope) {
+			http.Error(w, "this call needs the '"+scope+"' scope", http.StatusForbidden)
 			return
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// scopeInterceptor checks that the caller holds the scope each RPC needs
+// (auth.RequiredScope; deny by default).
+type scopeInterceptor struct{}
+
+func (scopeInterceptor) check(ctx context.Context, procedure string) error {
+	need := auth.RequiredScope(procedure)
+	p, ok := auth.FromContext(ctx)
+	if !ok {
+		return connect.NewError(connect.CodeUnauthenticated, auth.ErrUnauthenticated)
+	}
+	if need != "" && !p.Allows(need) {
+		return connect.NewError(connect.CodePermissionDenied, fmt.Errorf("this call needs the '%s' scope", need))
+	}
+	return nil
+}
+
+func (i scopeInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
+	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+		if err := i.check(ctx, req.Spec().Procedure); err != nil {
+			return nil, err
+		}
+		return next(ctx, req)
+	}
+}
+
+func (scopeInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
+	return next
+}
+
+func (i scopeInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
+		if err := i.check(ctx, conn.Spec().Procedure); err != nil {
+			return err
+		}
+		return next(ctx, conn)
+	}
 }
 
 // unauthenticated answers in the caller's protocol.

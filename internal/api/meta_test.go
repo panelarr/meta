@@ -19,6 +19,7 @@ import (
 	"github.com/panelarr/meta/gen/panelarr/meta/v1/metav1connect"
 	metadatav1 "github.com/panelarr/meta/gen/panelarr/metadata/v1"
 	"github.com/panelarr/meta/internal/api"
+	"github.com/panelarr/meta/internal/auth"
 	"github.com/panelarr/meta/internal/catalog"
 	"github.com/panelarr/meta/internal/config"
 	"github.com/panelarr/meta/internal/host"
@@ -39,6 +40,8 @@ type fixture struct {
 }
 
 func p[T any](v T) *T { return &v }
+
+const testAdminToken = "mta_test-admin-token"
 
 func entry(f *plugintest.Fake, id string, mod func(*metadatav1.ProviderEntry)) *metadatav1.ProviderEntry {
 	e := f.Entry(id, "")
@@ -126,11 +129,19 @@ func setup(t *testing.T, apiKeys ...string) *fixture {
 		t.Fatal(err)
 	}
 
-	srv, err := api.New(
-		api.NewMeta(st, h, w, api.MetaOptions{DisplayLanguage: "en", Log: log}),
-		api.NewAdmin(ctx, st, h, r, w),
-		api.Options{APIKeys: apiKeys, Log: log},
-	)
+	var authn *auth.Authenticator
+	if len(apiKeys) > 0 {
+		var err error
+		authn, err = auth.New(ctx, st, auth.Options{AdminToken: testAdminToken, ConfigKeys: apiKeys})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	srv, err := api.New(api.Services{
+		Meta:    api.NewMeta(st, h, w, api.MetaOptions{DisplayLanguage: "en", Log: log}),
+		Admin:   api.NewAdmin(ctx, st, h, r, w),
+		Clients: api.NewClients(st),
+	}, api.Options{Auth: authn, Log: log})
 	if err != nil {
 		t.Fatal(err)
 	}

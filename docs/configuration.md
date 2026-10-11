@@ -8,6 +8,8 @@ meta reads an optional YAML file (`--config FILE` or `META_CONFIG`) and then a f
 meta serve   [--config FILE] [--database-url URL]          # run the service
 meta sync    PROVIDER [KIND] [--force] [--config FILE]     # one sync in the foreground, then exit
 meta migrate [up|down|status] [--config FILE] [--database-url URL]
+meta admin-token reset [--config FILE]                    # new admin token, printed once
+meta healthcheck [--url URL]                              # probe a running meta
 meta version
 ```
 
@@ -18,7 +20,8 @@ meta version
 | Key | Env | Default | What |
 |---|---|---|---|
 | `listen` | `META_LISTEN` | `:8901` | API address. gRPC, gRPC-Web, Connect and REST/JSON share it |
-| `api_keys` | `META_API_KEYS` (comma-separated) | none | Keys callers send as `Authorization: Bearer <key>`. With none, the API is open: only do that on a private network |
+| `admin_token` | `META_ADMIN_TOKEN` | generated | The admin's bearer token (see [Admin token](#admin-token)) |
+| `api_keys` | `META_API_KEYS` (comma-separated) | none | **Deprecated.** Keys with full access, kept so older setups keep working. Create [clients](api.md#clients-and-scopes-metaclientsservice) with scoped keys instead |
 | `database_url` | `META_DATABASE_URL` | required | PostgreSQL URL |
 | `search.backend` | `META_SEARCH_BACKEND` | `postgres` | Search backend. Only `postgres` exists today; others plug in behind the same interface later |
 | `merge.priority` | | config order | Preferred provider per field (see [Merging](#merging)) |
@@ -28,6 +31,20 @@ meta version
 | `log.level` | `META_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `log.format` | `META_LOG_FORMAT` | `json` | `json` or `text` |
 | `providers` | | none | Metadata plugins (below) |
+
+## Admin token
+
+The admin token has full access and is how you sign in to the admin. Set your own with `META_ADMIN_TOKEN`. Otherwise meta generates one on first start, prints it **once** to standard output (not the log) and stores only its hash in the database:
+
+```
+========================================================================
+ Generated admin token (shown only now, stored only as a hash):
+   mta_…
+ Set META_ADMIN_TOKEN to use your own token instead.
+========================================================================
+```
+
+Lost it? Run `meta admin-token reset` (it prints a new one) and restart meta, or set `META_ADMIN_TOKEN`. Callers other than the admin should use [clients](api.md#clients-and-scopes-metaclientsservice) with their own keys and only the scopes they need.
 
 ## Providers
 

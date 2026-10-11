@@ -1,8 +1,6 @@
-# meta configuration for compose.yaml. The database URL and the keys come
-# from the environment (see compose.yaml).
+# meta configuration for compose.yaml. The database URL and the admin
+# token come from the environment (see compose.yaml).
 listen: ":8901"
-api_keys:
-  - ${META_API_KEY}
 log:
   level: info
   format: text

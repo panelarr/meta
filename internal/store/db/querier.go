@@ -15,6 +15,7 @@ type Querier interface {
 	CountProviderEntries(ctx context.Context) ([]CountProviderEntriesRow, error)
 	// SPDX-License-Identifier: GPL-3.0-or-later
 	CreateSyncRun(ctx context.Context, arg CreateSyncRunParams) (SyncRun, error)
+	DeleteClient(ctx context.Context, id string) (int64, error)
 	DeleteCompaniesOf(ctx context.Context, ids []uuid.UUID) error
 	DeleteCreditsOf(ctx context.Context, ids []uuid.UUID) error
 	DeleteDescriptionsOf(ctx context.Context, ids []uuid.UUID) error
@@ -52,6 +53,9 @@ type Querier interface {
 	FindPersonByExternalIDs(ctx context.Context, arg FindPersonByExternalIDsParams) (uuid.UUID, error)
 	FindTagByExternalID(ctx context.Context, arg FindTagByExternalIDParams) (uuid.UUID, error)
 	FinishSyncRun(ctx context.Context, arg FinishSyncRunParams) error
+	GetAdminToken(ctx context.Context) (AdminToken, error)
+	GetClient(ctx context.Context, id string) (Client, error)
+	GetClientByKeyHash(ctx context.Context, keyHash []byte) (Client, error)
 	// SPDX-License-Identifier: GPL-3.0-or-later
 	//
 	// Set-based variants used by the catalog writer, so a batch of records
@@ -68,6 +72,7 @@ type Querier interface {
 	GetSyncCursor(ctx context.Context, arg GetSyncCursorParams) (SyncCursor, error)
 	GetSyncRun(ctx context.Context, id uuid.UUID) (SyncRun, error)
 	GetTagIDByKey(ctx context.Context, nameKey string) (uuid.UUID, error)
+	InsertClient(ctx context.Context, arg InsertClientParams) (Client, error)
 	InsertCompany(ctx context.Context, arg InsertCompanyParams) error
 	InsertCompanyExternalID(ctx context.Context, arg InsertCompanyExternalIDParams) error
 	// SPDX-License-Identifier: GPL-3.0-or-later
@@ -92,6 +97,8 @@ type Querier interface {
 	// repeat to follow chains.
 	LinkMergedRecords(ctx context.Context, provider string) (int64, error)
 	ListAttributionsForEntries(ctx context.Context, ids []uuid.UUID) ([]ListAttributionsForEntriesRow, error)
+	// SPDX-License-Identifier: GPL-3.0-or-later
+	ListClients(ctx context.Context) ([]Client, error)
 	ListEntryCompanies(ctx context.Context, entryID uuid.UUID) ([]ListEntryCompaniesRow, error)
 	ListEntryCredits(ctx context.Context, entryID uuid.UUID) ([]ListEntryCreditsRow, error)
 	ListEntryDescriptions(ctx context.Context, entryID uuid.UUID) ([]EntryDescription, error)
@@ -134,7 +141,9 @@ type Querier interface {
 	RecountTags(ctx context.Context) error
 	// Keep redirect chains one hop long.
 	RepointRedirects(ctx context.Context, arg RepointRedirectsParams) error
+	RotateClientKey(ctx context.Context, arg RotateClientKeyParams) (Client, error)
 	RunningSyncRun(ctx context.Context, provider string) (SyncRun, error)
+	SetAdminToken(ctx context.Context, tokenHash []byte) error
 	SetEntryState(ctx context.Context, arg SetEntryStateParams) error
 	SetFieldLock(ctx context.Context, arg SetFieldLockParams) error
 	SetProviderEntryEntry(ctx context.Context, arg SetProviderEntryEntryParams) error
@@ -143,8 +152,10 @@ type Querier interface {
 	SetProviderEntryMerged(ctx context.Context, arg SetProviderEntryMergedParams) (uuid.NullUUID, error)
 	SetProviderEntryRemoved(ctx context.Context, arg SetProviderEntryRemovedParams) (uuid.NullUUID, error)
 	StartSyncRun(ctx context.Context, arg StartSyncRunParams) error
+	TouchClient(ctx context.Context, arg TouchClientParams) error
 	// Records seen unchanged in a run.
 	TouchProviderEntries(ctx context.Context, arg TouchProviderEntriesParams) error
+	UpdateClient(ctx context.Context, arg UpdateClientParams) (Client, error)
 	UpdateCompany(ctx context.Context, arg UpdateCompanyParams) error
 	UpdateEntry(ctx context.Context, arg UpdateEntryParams) error
 	UpdateEntryBatch(ctx context.Context, arg []UpdateEntryBatchParams) *UpdateEntryBatchBatchResults

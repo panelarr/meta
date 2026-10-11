@@ -1,0 +1,137 @@
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package panelarr.meta.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/panelarr/meta/gen/panelarr/meta/v1;metav1";
+
+// MetaClientsService manages API clients: callers such as a Panelarr server or
+// a script, each with its own API key and scopes.
+//
+// Scopes:
+// - `catalog:read`: browse, search and read the catalogue (MetaService).
+// - `admin`: everything, including this service and MetaAdminService.
+//
+// Keys are shown once, when created or rotated, and stored only as hashes.
+// Every method needs the `admin` scope except WhoAmI, which any valid key may
+// call.
+service MetaClientsService {
+  // WhoAmI describes the caller's credentials. Useful to check a key or token.
+  rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResponse) {
+    option (google.api.http) = {get: "/v1/whoami"};
+  }
+
+  rpc ListClients(ListClientsRequest) returns (ListClientsResponse) {
+    option (google.api.http) = {get: "/v1/admin/clients"};
+  }
+
+  // CreateClient creates a client and returns its API key. The key is never
+  // shown again.
+  rpc CreateClient(CreateClientRequest) returns (CreateClientResponse) {
+    option (google.api.http) = {
+      post: "/v1/admin/clients"
+      body: "*"
+    };
+  }
+
+  // UpdateClient changes a client's name or scopes. The key stays the same.
+  rpc UpdateClient(UpdateClientRequest) returns (UpdateClientResponse) {
+    option (google.api.http) = {
+      patch: "/v1/admin/clients/{client_id}"
+      body: "*"
+    };
+  }
+
+  // RotateClientKey replaces a client's API key. The old key stops working at
+  // once.
+  rpc RotateClientKey(RotateClientKeyRequest) returns (RotateClientKeyResponse) {
+    option (google.api.http) = {
+      post: "/v1/admin/clients/{client_id}/rotate"
+      body: "*"
+    };
+  }
+
+  rpc DeleteClient(DeleteClientRequest) returns (DeleteClientResponse) {
+    option (google.api.http) = {delete: "/v1/admin/clients/{client_id}"};
+  }
+}
+
+message Client {
+  string id = 1;
+  string name = 2;
+  repeated string scopes = 3;
+  // First characters of the key, to tell keys apart. Not enough to use it.
+  string key_prefix = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp rotated_at = 6;
+  google.protobuf.Timestamp last_used_at = 7;
+}
+
+message WhoAmIRequest {}
+
+message WhoAmIResponse {
+  PrincipalKind kind = 1;
+  // Set for clients.
+  string client_id = 2;
+  string name = 3;
+  repeated string scopes = 4;
+}
+
+enum PrincipalKind {
+  PRINCIPAL_KIND_UNSPECIFIED = 0;
+  // The admin token.
+  PRINCIPAL_KIND_ADMIN = 1;
+  // A client API key.
+  PRINCIPAL_KIND_CLIENT = 2;
+  // A key from the deprecated `api_keys` setting. It has full access.
+  PRINCIPAL_KIND_CONFIG_KEY = 3;
+}
+
+message ListClientsRequest {}
+
+message ListClientsResponse {
+  repeated Client clients = 1;
+}
+
+message CreateClientRequest {
+  string name = 1;
+  repeated string scopes = 2;
+}
+
+message CreateClientResponse {
+  Client client = 1;
+  // The API key. Shown only in this response.
+  string api_key = 2;
+}
+
+message UpdateClientRequest {
+  string client_id = 1;
+  // New name. Empty keeps the current one.
+  string name = 2;
+  // New scopes. Empty keeps the current ones.
+  repeated string scopes = 3;
+}
+
+message UpdateClientResponse {
+  Client client = 1;
+}
+
+message RotateClientKeyRequest {
+  string client_id = 1;
+}
+
+message RotateClientKeyResponse {
+  Client client = 1;
+  // The new API key. Shown only in this response.
+  string api_key = 2;
+}
+
+message DeleteClientRequest {
+  string client_id = 1;
+}
+
+message DeleteClientResponse {}

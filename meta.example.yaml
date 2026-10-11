@@ -5,10 +5,10 @@
 # Address of the API (gRPC, Connect and REST/JSON on one port).
 listen: ":8901"
 
-# Callers send one of these as "Authorization: Bearer <key>".
-# Leave empty only on a private network.
-api_keys:
-  - ${META_API_KEY}
+# The admin token (full access). Leave it out and meta generates one on
+# first start and prints it once. Other callers get clients with scoped
+# keys, created in the admin.
+admin_token: ${META_ADMIN_TOKEN:-}
 
 # meta's own PostgreSQL database. No superuser needed.
 database_url: ${META_DATABASE_URL:-postgres://meta:meta@localhost:5432/meta?sslmode=disable}

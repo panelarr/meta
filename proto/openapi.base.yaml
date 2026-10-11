@@ -6,8 +6,9 @@ info:
     filters, search across titles in every language, entry details with attribution,
     lookups by external ID, and provider administration.
 
-    Every call needs an API key, sent as `Authorization: Bearer <key>`. The same API is
-    also served over gRPC and Connect.
+    Every call needs a bearer token, `Authorization: Bearer <token>`: the admin token, or a
+    client API key with the scopes the call needs (`catalog:read` for the catalogue, `admin`
+    for everything else). The same API is also served over gRPC and Connect.
   version: v1
   license:
     name: Apache-2.0

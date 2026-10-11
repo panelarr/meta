@@ -7,7 +7,7 @@
 ```sh
 docker run -d --name meta -p 8901:8901 \
   -e META_DATABASE_URL='postgres://meta:secret@db:5432/meta?sslmode=disable' \
-  -e META_API_KEYS=change-me \
+  -e META_ADMIN_TOKEN=mta_change-me \
   -e META_CONFIG=/etc/meta/meta.yaml -v ./meta.yaml:/etc/meta/meta.yaml:ro \
   panelarr/meta
 ```
@@ -22,7 +22,7 @@ Other commands run in the same image: `docker exec meta /meta sync mangabaka`, `
 
 | Variable | Default | What |
 |---|---|---|
-| `META_API_KEY` | required | Key for meta's API |
+| `META_ADMIN_TOKEN` | required | meta's admin token |
 | `MANGABAKA_PLUGIN_KEY` | required | Key meta uses to call the plugin |
 | `POSTGRES_PASSWORD` | `meta` | Database password |
 | `META_PORT` | `8901` | Published port of meta |
@@ -31,7 +31,7 @@ Other commands run in the same image: `docker exec meta /meta sync mangabaka`, `
 ## In production
 
 - **Database:** give meta its own database on your PostgreSQL server. Its role needs to own that database and nothing more: no superuser, no server-wide settings. Point `META_DATABASE_URL` at it. See [configuration](configuration.md#database).
-- **Keys:** set `api_keys` (or `META_API_KEYS`). Without keys the API is open to anyone who can reach it.
+- **Keys:** keep the admin token for yourself and give every caller a client with only the scopes it needs. The deprecated `api_keys` setting still works but grants full access.
 - **Plugins:** run them as their own containers (standalone, ports 8903 and up) or let meta start them (managed). Give standalone plugins an API key.
 - **Several replicas** can share one database: migrations take a lock, and so does each provider's sync, so a provider never syncs twice at the same time.
 - **Health:** `/healthz` (process up) and `/readyz` (database reachable) need no key.

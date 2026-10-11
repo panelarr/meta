@@ -11,6 +11,23 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AdminToken struct {
+	ID        int32
+	TokenHash []byte
+	CreatedAt time.Time
+}
+
+type Client struct {
+	ID         string
+	Name       string
+	Scopes     []string
+	KeyHash    []byte
+	KeyPrefix  string
+	CreatedAt  time.Time
+	RotatedAt  *time.Time
+	LastUsedAt *time.Time
+}
+
 type Company struct {
 	ID        uuid.UUID
 	Name      string

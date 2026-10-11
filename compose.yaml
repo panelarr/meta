@@ -38,7 +38,7 @@ services:
     environment:
       META_CONFIG: /etc/meta/meta.yaml
       META_DATABASE_URL: postgres://meta:${POSTGRES_PASSWORD:-meta}@postgres:5432/meta?sslmode=disable
-      META_API_KEY: ${META_API_KEY:?set META_API_KEY}
+      META_ADMIN_TOKEN: ${META_ADMIN_TOKEN:?set META_ADMIN_TOKEN}
       MANGABAKA_PLUGIN_KEY: ${MANGABAKA_PLUGIN_KEY:?set MANGABAKA_PLUGIN_KEY}
     volumes:
       - ./compose/meta.yaml:/etc/meta/meta.yaml:ro

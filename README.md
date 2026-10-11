@@ -27,7 +27,7 @@ git clone https://github.com/panelarr/meta
 git clone https://github.com/panelarr/meta-mangabaka
 cd meta
 
-export META_API_KEY=$(openssl rand -hex 16) MANGABAKA_PLUGIN_KEY=$(openssl rand -hex 16)
+export META_ADMIN_TOKEN=mta_$(openssl rand -hex 24) MANGABAKA_PLUGIN_KEY=$(openssl rand -hex 16)
 docker compose up -d --build
 
 # Fill the catalogue from MangaBaka's nightly dump: downloads about 400 MB,
@@ -35,11 +35,11 @@ docker compose up -d --build
 docker compose exec meta /meta sync mangabaka
 
 # Browse and search.
-curl -H "Authorization: Bearer $META_API_KEY" 'http://localhost:8901/v1/entries?sort=SORT_FIELD_POPULARITY&pageSize=5'
-curl -H "Authorization: Bearer $META_API_KEY" 'http://localhost:8901/v1/search?query=one%20piece'
+curl -H "Authorization: Bearer $META_ADMIN_TOKEN" 'http://localhost:8901/v1/entries?sort=SORT_FIELD_POPULARITY&pageSize=5'
+curl -H "Authorization: Bearer $META_ADMIN_TOKEN" 'http://localhost:8901/v1/search?query=one%20piece'
 ```
 
-After that, the dump is synced every night at 03:00 UTC. A sync can also be started over the API (`POST /v1/admin/providers/mangabaka/sync`). MangaBaka's data is CC BY-NC-SA 4.0: every entry carries its attribution, and the data must not be redistributed.
+Give other callers their own key with only the scopes they need (`POST /v1/admin/clients`, see [docs/api.md](docs/api.md#clients-and-scopes-metaclientsservice)). After that, the dump is synced every night at 03:00 UTC. A sync can also be started over the API (`POST /v1/admin/providers/mangabaka/sync`). MangaBaka's data is CC BY-NC-SA 4.0: every entry carries its attribution, and the data must not be redistributed.
 
 ### Without Docker
 

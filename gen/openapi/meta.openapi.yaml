@@ -6,8 +6,9 @@ info:
     filters, search across titles in every language, entry details with attribution,
     lookups by external ID, and provider administration.
 
-    Every call needs an API key, sent as `Authorization: Bearer <key>`. The same API is
-    also served over gRPC and Connect.
+    Every call needs a bearer token, `Authorization: Bearer <token>`: the admin token, or a
+    client API key with the scopes the call needs (`catalog:read` for the catalogue, `admin`
+    for everything else). The same API is also served over gRPC and Connect.
   version: v1
   license:
     name: Apache-2.0
@@ -118,6 +119,76 @@ components:
             True when meta has no providers configured, so an empty result means
              "nothing set up" rather than "nothing matched".
       title: BrowseResponse
+      additionalProperties: false
+    panelarr.meta.v1.Client:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+        name:
+          type: string
+          title: name
+        scopes:
+          type: array
+          items:
+            type: string
+          title: scopes
+        keyPrefix:
+          type: string
+          title: key_prefix
+          description: First characters of the key, to tell keys apart. Not enough to use it.
+        createdAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: created_at
+        rotatedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: rotated_at
+        lastUsedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: last_used_at
+      title: Client
+      additionalProperties: false
+    panelarr.meta.v1.CreateClientRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+        scopes:
+          type: array
+          items:
+            type: string
+          title: scopes
+      title: CreateClientRequest
+      additionalProperties: false
+    panelarr.meta.v1.CreateClientResponse:
+      type: object
+      properties:
+        client:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.Client'
+          title: client
+        apiKey:
+          type: string
+          title: api_key
+          description: The API key. Shown only in this response.
+      title: CreateClientResponse
+      additionalProperties: false
+    panelarr.meta.v1.DeleteClientRequest:
+      type: object
+      properties:
+        clientId:
+          type: string
+          title: client_id
+      title: DeleteClientRequest
+      additionalProperties: false
+    panelarr.meta.v1.DeleteClientResponse:
+      type: object
+      title: DeleteClientResponse
       additionalProperties: false
     panelarr.meta.v1.Entry:
       type: object
@@ -458,6 +529,20 @@ components:
           title: run
       title: GetSyncRunResponse
       additionalProperties: false
+    panelarr.meta.v1.ListClientsRequest:
+      type: object
+      title: ListClientsRequest
+      additionalProperties: false
+    panelarr.meta.v1.ListClientsResponse:
+      type: object
+      properties:
+        clients:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.meta.v1.Client'
+          title: clients
+      title: ListClientsResponse
+      additionalProperties: false
     panelarr.meta.v1.ListProvidersRequest:
       type: object
       title: ListProvidersRequest
@@ -564,6 +649,14 @@ components:
           title: entry
       title: LookupExternalResponse
       additionalProperties: false
+    panelarr.meta.v1.PrincipalKind:
+      type: string
+      title: PrincipalKind
+      enum:
+        - PRINCIPAL_KIND_UNSPECIFIED
+        - PRINCIPAL_KIND_ADMIN
+        - PRINCIPAL_KIND_CLIENT
+        - PRINCIPAL_KIND_CONFIG_KEY
     panelarr.meta.v1.Provider:
       type: object
       properties:
@@ -644,6 +737,27 @@ components:
             title: value
           description: Providers that failed, with the reason.
       title: RefreshEntryResponse
+      additionalProperties: false
+    panelarr.meta.v1.RotateClientKeyRequest:
+      type: object
+      properties:
+        clientId:
+          type: string
+          title: client_id
+      title: RotateClientKeyRequest
+      additionalProperties: false
+    panelarr.meta.v1.RotateClientKeyResponse:
+      type: object
+      properties:
+        client:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.Client'
+          title: client
+        apiKey:
+          type: string
+          title: api_key
+          description: The new API key. Shown only in this response.
+      title: RotateClientKeyResponse
       additionalProperties: false
     panelarr.meta.v1.RunSyncRequest:
       type: object
@@ -863,6 +977,58 @@ components:
         - SYNC_RUN_STATUS_SUCCEEDED
         - SYNC_RUN_STATUS_FAILED
         - SYNC_RUN_STATUS_CANCELLED
+    panelarr.meta.v1.UpdateClientRequest:
+      type: object
+      properties:
+        clientId:
+          type: string
+          title: client_id
+        name:
+          type: string
+          title: name
+          description: New name. Empty keeps the current one.
+        scopes:
+          type: array
+          items:
+            type: string
+          title: scopes
+          description: New scopes. Empty keeps the current ones.
+      title: UpdateClientRequest
+      additionalProperties: false
+    panelarr.meta.v1.UpdateClientResponse:
+      type: object
+      properties:
+        client:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.Client'
+          title: client
+      title: UpdateClientResponse
+      additionalProperties: false
+    panelarr.meta.v1.WhoAmIRequest:
+      type: object
+      title: WhoAmIRequest
+      additionalProperties: false
+    panelarr.meta.v1.WhoAmIResponse:
+      type: object
+      properties:
+        kind:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.PrincipalKind'
+          title: kind
+        clientId:
+          type: string
+          title: client_id
+          description: Set for clients.
+        name:
+          type: string
+          title: name
+        scopes:
+          type: array
+          items:
+            type: string
+          title: scopes
+      title: WhoAmIResponse
+      additionalProperties: false
     panelarr.metadata.v1.Adaptation:
       type: object
       properties:
@@ -2121,6 +2287,125 @@ components:
         - TITLE_KIND_UNOFFICIAL
         - TITLE_KIND_UNKNOWN
 paths:
+  /v1/admin/clients:
+    get:
+      tags:
+        - MetaClientsService
+      summary: ListClients
+      operationId: MetaClientsService_ListClients
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.ListClientsResponse'
+    post:
+      tags:
+        - MetaClientsService
+      summary: CreateClient
+      description: |-
+        CreateClient creates a client and returns its API key. The key is never
+         shown again.
+      operationId: MetaClientsService_CreateClient
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/panelarr.meta.v1.CreateClientRequest'
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.CreateClientResponse'
+  /v1/admin/clients/{clientId}:
+    delete:
+      tags:
+        - MetaClientsService
+      summary: DeleteClient
+      operationId: MetaClientsService_DeleteClient
+      parameters:
+        - name: clientId
+          in: path
+          description: The clientId path parameter.
+          required: true
+          schema:
+            type: string
+            title: client_id
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.DeleteClientResponse'
+    patch:
+      tags:
+        - MetaClientsService
+      summary: UpdateClient
+      description: UpdateClient changes a client's name or scopes. The key stays the same.
+      operationId: MetaClientsService_UpdateClient
+      parameters:
+        - name: clientId
+          in: path
+          description: The clientId path parameter.
+          required: true
+          schema:
+            type: string
+            title: client_id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  title: name
+                  description: New name. Empty keeps the current one.
+                scopes:
+                  type: array
+                  items:
+                    type: string
+                  title: scopes
+                  description: New scopes. Empty keeps the current ones.
+              title: UpdateClientRequest
+              additionalProperties: false
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.UpdateClientResponse'
+  /v1/admin/clients/{clientId}/rotate:
+    post:
+      tags:
+        - MetaClientsService
+      summary: RotateClientKey
+      description: |-
+        RotateClientKey replaces a client's API key. The old key stops working at
+         once.
+      operationId: MetaClientsService_RotateClientKey
+      parameters:
+        - name: clientId
+          in: path
+          description: The clientId path parameter.
+          required: true
+          schema:
+            type: string
+            title: client_id
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.RotateClientKeyResponse'
   /v1/admin/entries/{id}/refresh:
     post:
       tags:
@@ -2646,9 +2931,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/panelarr.meta.v1.ListTagsResponse'
+  /v1/whoami:
+    get:
+      tags:
+        - MetaClientsService
+      summary: WhoAmI
+      description: WhoAmI describes the caller's credentials. Useful to check a key or token.
+      operationId: MetaClientsService_WhoAmI
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.WhoAmIResponse'
 tags:
   - name: MetaAdminService
     description: MetaAdminService manages providers and their syncs.
+  - name: MetaClientsService
+    description: |-
+      MetaClientsService manages API clients: callers such as a Panelarr server or
+       a script, each with its own API key and scopes.
+
+       Scopes:
+       - `catalog:read`: browse, search and read the catalogue (MetaService).
+       - `admin`: everything, including this service and MetaAdminService.
+
+       Keys are shown once, when created or rotated, and stored only as hashes.
+       Every method needs the `admin` scope except WhoAmI, which any valid key may
+       call.
   - name: MetaService
     description: |-
       MetaService serves meta's catalogue: discovery (browse), search and

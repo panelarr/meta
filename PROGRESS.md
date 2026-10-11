@@ -13,9 +13,19 @@ The plan for the first version of meta and its first plugin, [meta-mangabaka](ht
 | 7 | MangaBaka `lookup`: search/get through the API within its rate limits | meta-mangabaka | `feat/api-lookup` | done |
 | 8 | Images, compose example, quick starts, docs | meta, meta-mangabaka | `feat/image-and-docs` (meta-mangabaka), `feat/image-and-compose` (meta) | done |
 
+## Admin: clients, integrations and admin UI
+
+| # | Slice | Repo | Branch | State |
+|---|---|---|---|---|
+| 1 | Clients and auth: admin token, scoped client keys (`catalog:read`, `admin`), `MetaClientsService` | meta | `feat/admin-clients` | done |
+| 2 | Integrations: solvers, network profiles, default, per-provider assignments, secrets encrypted at rest | meta | | |
+| 3 | `SetNetworkProfile` in the plugin protocol, SDK HTTP client from a profile, meta-mangabaka uses it | meta, meta-mangabaka | | |
+| 4 | Admin UI (React SPA) served at `/` | meta | | |
+| 5 | Image and docs | meta | | |
+
 ## Next
 
-All slices are done. Next steps after review: publish tagged versions of meta so meta-mangabaka can drop its replace directive, and run a real dump end to end.
+Admin slice 2: integrations (solvers, network profiles, assignments, secrets at rest).
 
 ## Notes
 
