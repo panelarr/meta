@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -167,6 +168,38 @@ func TestFailedSyncKeepsCommittedBatches(t *testing.T) {
 	cur, err := e.st.GetSyncCursor(ctx, db.GetSyncCursorParams{Provider: "fake", Kind: "dump"})
 	if err != nil || cur.Cursor != "2" {
 		t.Fatalf("cursor after failure should be the last checkpoint: %+v %v", cur, err)
+	}
+}
+
+func TestDiskFullSyncFails(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	e := setup(t)
+	// The database fills up when the third record is written.
+	for _, q := range []string{
+		`CREATE FUNCTION fill_disk() RETURNS trigger LANGUAGE plpgsql AS $$
+		BEGIN
+			IF NEW.external_id = '3' THEN
+				RAISE EXCEPTION 'could not extend file "base/1/2": No space left on device' USING ERRCODE = '53100';
+			END IF;
+			RETURN NEW;
+		END $$`,
+		`CREATE TRIGGER fill_disk BEFORE INSERT ON provider_entries FOR EACH ROW EXECUTE FUNCTION fill_disk()`,
+	} {
+		if _, err := e.st.Pool.Exec(ctx, q); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	run, err := e.runner.Run(ctx, "fake", "dump", ingest.TriggerManual, false)
+	if !errors.Is(err, store.ErrOutOfSpace) {
+		t.Fatalf("err = %v, want out of space", err)
+	}
+	if run.Status != "failed" || !strings.HasPrefix(run.Error, "database out of space: ") {
+		t.Fatalf("run: status %q error %q", run.Status, run.Error)
+	}
+	if n := e.count(t, `SELECT count(*) FROM provider_entries`); n != 2 {
+		t.Fatalf("kept records: %d", n)
 	}
 }
 

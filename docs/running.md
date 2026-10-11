@@ -31,6 +31,7 @@ Other commands run in the same image: `docker exec meta /meta sync mangabaka`, `
 ## In production
 
 - **Database:** give meta its own database on your PostgreSQL server. Its role needs to own that database and nothing more: no superuser, no server-wide settings. Point `META_DATABASE_URL` at it. See [configuration](configuration.md#database).
+- **Disk:** a catalogue of about 300,000 entries from 560,000 provider records takes about 7 GB in PostgreSQL, over half of it the stored provider records. A plugin that syncs from a full dump also needs room for the dump where it runs (about 4 GB for the largest today). A forced sync rewrites every record, and PostgreSQL frees the old versions only as autovacuum catches up, so keep a few GB free on the database disk. If the disk fills, the sync stops and is recorded as failed with `database out of space`; what it wrote before stays. Free space and sync again.
 - **Data directory:** mount `/data` (it holds the generated `secret.key`), or set `META_SECRET_KEY`. Back the key up with the database: stored proxy passwords can't be read without it.
 - **Keys:** keep the admin token for yourself and give every caller a client with only the scopes it needs. The deprecated `api_keys` setting still works but grants full access.
 - **Plugins:** run them as their own containers (standalone, ports 8903 and up) or let meta start them (managed). Give standalone plugins an API key.

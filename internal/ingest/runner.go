@@ -232,6 +232,7 @@ func (r *Runner) execute(ctx context.Context, run db.SyncRun, force bool) (err e
 	defer func() {
 		status, msg := "succeeded", ""
 		if err != nil {
+			err = store.Explain(err)
 			status, msg = "failed", err.Error()
 			if errors.Is(err, context.Canceled) {
 				status = "cancelled"
