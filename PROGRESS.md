@@ -19,14 +19,14 @@ The plan for the first version of meta and its first plugin, [meta-mangabaka](ht
 |---|---|---|---|---|
 | 1 | Clients and auth: admin token, scoped client keys (`catalog:read`, `admin`), `MetaClientsService` | meta | `feat/admin-clients` | done |
 | 2 | Integrations: solvers, network profiles, default, per-provider assignments, secrets encrypted at rest | meta | `feat/admin-integrations` | done |
-| 3 | `SetNetworkProfile` in the plugin protocol, SDK HTTP client from a profile, meta-mangabaka uses it | meta, meta-mangabaka | | |
+| 3 | `SetNetworkProfile` in the plugin protocol, SDK HTTP client from a profile, meta-mangabaka uses it | meta, meta-mangabaka | `feat/network-profiles` | done |
 | 4 | Admin UI (React SPA) served at `/` | meta | | |
 | 5 | Observability: Prometheus metrics (syncs, plugin calls, search latency, API requests), off the public port by default; detailed health for the admin | meta | | |
 | 6 | Image and docs | meta | | |
 
 ## Next
 
-Admin slice 3: `SetNetworkProfile` in the plugin protocol, the SDK's HTTP client from a profile, meta pushing profiles, meta-mangabaka using it.
+Admin slice 4: the admin UI (React SPA) served at `/`.
 
 ## Notes
 

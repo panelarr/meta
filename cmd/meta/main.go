@@ -19,6 +19,7 @@ import (
 	"syscall"
 	"time"
 
+	metadatav1 "github.com/panelarr/meta/gen/panelarr/metadata/v1"
 	"github.com/panelarr/meta/internal/api"
 	"github.com/panelarr/meta/internal/auth"
 	"github.com/panelarr/meta/internal/buildinfo"
@@ -213,6 +214,7 @@ type app struct {
 	host   *host.Host
 	writer *catalog.Writer
 	runner *ingest.Runner
+	integ  *integrations.Service
 }
 
 func open(ctx context.Context, c common, logOut io.Writer) (*app, error) {
@@ -245,7 +247,20 @@ func open(ctx context.Context, c common, logOut io.Writer) (*app, error) {
 		DisplayLanguage: cfg.Merge.DisplayLanguage,
 	})
 	r := ingest.NewRunner(st, h, w, log, cfg.Ingest.BatchSize)
-	return &app{cfg: cfg, log: log, st: st, host: h, writer: w, runner: r}, nil
+	// Plugins get their network profiles from the integrations, in serve
+	// and in one-off syncs alike.
+	integ := integrations.New(st, secret.NewBox(cfg.SecretKey, filepath.Join(cfg.DataDir, "secret.key")), func() []integrations.ProviderInfo {
+		var out []integrations.ProviderInfo
+		for _, p := range h.List() {
+			out = append(out, integrations.ProviderInfo{ID: p.ID(), Supported: p.UsesNetworkProfiles()})
+		}
+		return out
+	})
+	h.SetProfileSource(func(ctx context.Context, provider string) (*metadatav1.NetworkProfile, error) {
+		np, _, err := integ.Effective(ctx, provider)
+		return np, err
+	})
+	return &app{cfg: cfg, log: log, st: st, host: h, writer: w, runner: r, integ: integ}, nil
 }
 
 func (a *app) close() {
@@ -271,23 +286,17 @@ func serve(ctx context.Context, args []string, out io.Writer) error {
 	if a.host.Empty() {
 		log.Warn("no providers configured: the catalogue stays empty until you add a metadata plugin")
 	}
-	integ := integrations.New(a.st, secret.NewBox(a.cfg.SecretKey, filepath.Join(a.cfg.DataDir, "secret.key")), func() []integrations.ProviderInfo {
-		var out []integrations.ProviderInfo
-		for _, p := range a.host.List() {
-			out = append(out, integrations.ProviderInfo{ID: p.ID(), Supported: p.UsesNetworkProfiles()})
-		}
-		return out
-	})
-	if unused, err := integ.UnusedSolvers(ctx); err == nil && len(unused) > 0 {
+	// Syncs started by the scheduler or the API stop when meta stops.
+	syncCtx, stopSyncs := context.WithCancel(context.WithoutCancel(ctx))
+	defer stopSyncs()
+	a.integ.OnChange = func() { go a.host.PushProfiles(syncCtx) }
+	if unused, err := a.integ.UnusedSolvers(ctx); err == nil && len(unused) > 0 {
 		log.Warn("solvers not used by any network profile, so no provider uses them; add them to a profile", "solvers", unused)
 	}
 	authn, err := auth.New(ctx, a.st, auth.Options{AdminToken: a.cfg.AdminToken, ConfigKeys: a.cfg.APIKeys, Out: out, Log: log})
 	if err != nil {
 		return err
 	}
-	// Syncs started by the scheduler or the API stop when meta stops.
-	syncCtx, stopSyncs := context.WithCancel(context.WithoutCancel(ctx))
-	defer stopSyncs()
 	a.host.Start(syncCtx, time.Minute)
 	sched, err := ingest.NewScheduler(syncCtx, a.cfg, a.runner, log)
 	if err != nil {
@@ -306,7 +315,7 @@ func serve(ctx context.Context, args []string, out io.Writer) error {
 		}),
 		Admin:        api.NewAdmin(syncCtx, a.st, a.host, a.runner, a.writer),
 		Clients:      api.NewClients(a.st),
-		Integrations: api.NewIntegrations(integ),
+		Integrations: api.NewIntegrations(a.integ),
 	}, api.Options{Auth: authn, Ready: func(ctx context.Context) error { return a.st.Pool.Ping(ctx) }, Log: log})
 	if err != nil {
 		return err

@@ -48,6 +48,10 @@ type Plugin interface {
 	GetSettings(ctx context.Context, req *metadatav1.GetSettingsRequest) (*metadatav1.GetSettingsResponse, error)
 	SetSettings(ctx context.Context, req *metadatav1.SetSettingsRequest) (*metadatav1.SetSettingsResponse, error)
 	Health(ctx context.Context, req *metadatav1.HealthRequest) (*metadatav1.HealthResponse, error)
+	// SetNetworkProfile receives the network profile from the host. Plugins
+	// that declare the network_profile common service apply it to every
+	// request; httpx.Client does that for them.
+	SetNetworkProfile(ctx context.Context, req *metadatav1.SetNetworkProfileRequest) (*metadatav1.SetNetworkProfileResponse, error)
 }
 
 // SendFunc sends one sync event to the host. It returns an error when the
@@ -87,6 +91,10 @@ func (Unimplemented) GetSettings(context.Context, *metadatav1.GetSettingsRequest
 
 func (Unimplemented) SetSettings(context.Context, *metadatav1.SetSettingsRequest) (*metadatav1.SetSettingsResponse, error) {
 	return &metadatav1.SetSettingsResponse{}, nil
+}
+
+func (Unimplemented) SetNetworkProfile(context.Context, *metadatav1.SetNetworkProfileRequest) (*metadatav1.SetNetworkProfileResponse, error) {
+	return nil, ErrUnimplemented("SetNetworkProfile")
 }
 
 func (Unimplemented) Health(context.Context, *metadatav1.HealthRequest) (*metadatav1.HealthResponse, error) {

@@ -89,14 +89,40 @@ func (p *myPlugin) SetSettings(_ context.Context, r *metadatav1.SetSettingsReque
 }
 ```
 
-## 4. Respect the provider
+## 4. Network profiles
+
+Declare the `network_profile` common service and make every request with an `httpx.Client`: it follows the profile the host sends (proxy, SOCKS5 with credentials, challenge solver, rate limit, concurrency, user agent, headers, timeouts) and keeps one cookie jar.
+
+```go
+type myPlugin struct {
+	plugin.Unimplemented
+	net *httpx.Client
+}
+
+func newPlugin() *myPlugin {
+	return &myPlugin{net: httpx.New(httpx.Options{UserAgent: "my-plugin/1.0 (+https://example.org)"})}
+}
+
+// In GetInfo:
+//   CommonServices: []*metadatav1.CommonService{{Name: "network_profile", Purpose: "downloads and API calls"}},
+
+func (p *myPlugin) SetNetworkProfile(ctx context.Context, r *metadatav1.SetNetworkProfileRequest) (*metadatav1.SetNetworkProfileResponse, error) {
+	return p.net.SetNetworkProfile(ctx, r)
+}
+
+// Everywhere else: p.net.HTTP().Do(req)
+```
+
+Your own user agent is used unless the profile sets one. When a site answers with an anti-bot challenge and the profile has no solver, requests fail with an `httpx.ChallengeError` that tells the admin what to set up; return it as `unavailable`.
+
+## 5. Respect the provider
 
 - Declare your limits in `GetInfo` and enforce them in the plugin as well.
 - Send a clear `User-Agent` that names your plugin.
 - Return `plugin.ErrRateLimited(retryAfter, ...)` when the provider says to slow down.
 - Never ship the provider's data with your plugin. Download it when the person running it asks.
 
-## 5. Test it
+## 6. Test it
 
 ```go
 func TestConformance(t *testing.T) {
@@ -106,7 +132,7 @@ func TestConformance(t *testing.T) {
 
 `sdk/plugintest.Fake` is a configurable in-memory plugin for testing hosts. [`sdk/examples/static-plugin`](../sdk/examples/static-plugin) is a complete, tiny plugin.
 
-## 6. Run it
+## 7. Run it
 
 ```sh
 go build -o my-plugin .

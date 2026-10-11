@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	metadatav1 "github.com/panelarr/meta/gen/panelarr/metadata/v1"
@@ -106,6 +107,8 @@ func Check(ctx context.Context, c client.Client, opts Options) (*Report, error) 
 	checkInfo(rep, info)
 
 	checkSettings(ctx, rep, c, opts.Settings)
+
+	checkNetworkProfile(ctx, rep, c, info)
 
 	if h, err := c.Health(ctx); err != nil {
 		rep.problem("Health: %v", err)
@@ -456,4 +459,26 @@ func checkSearch(ctx context.Context, rep *Report, c client.Client, info *metada
 
 func toStruct(m map[string]any) (*structpb.Struct, error) {
 	return structpb.NewStruct(m)
+}
+
+func checkNetworkProfile(ctx context.Context, rep *Report, c client.Client, info *metadatav1.PluginInfo) {
+	declared := false
+	for _, cs := range info.GetCommonServices() {
+		declared = declared || cs.GetName() == "network_profile"
+	}
+	if !declared {
+		return
+	}
+	sample := &metadatav1.NetworkProfile{
+		Name:      "conformance",
+		Headers:   map[string]string{"X-Conformance": "1"},
+		UserAgent: &metadatav1.UserAgent{Mode: &metadatav1.UserAgent_RandomDesktop{RandomDesktop: true}},
+		RateLimit: &metadatav1.NetworkRateLimit{Requests: 1000, Period: durationpb.New(time.Second)},
+	}
+	if err := c.SetNetworkProfile(ctx, sample); err != nil {
+		rep.problem("SetNetworkProfile: declares network_profile but rejects a profile: %v", err)
+	}
+	if err := c.SetNetworkProfile(ctx, nil); err != nil {
+		rep.problem("SetNetworkProfile: can't go back to a direct connection: %v", err)
+	}
 }

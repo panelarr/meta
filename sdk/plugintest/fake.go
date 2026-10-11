@@ -49,8 +49,35 @@ type Fake struct {
 	// SyncDelay is slept between events, to test cancellation.
 	SyncDelay time.Duration
 
+	// UsesNetworkProfiles makes the fake declare the network_profile common
+	// service and record the profiles it receives.
+	UsesNetworkProfiles bool
+	profiles            []*metadatav1.NetworkProfile
+
 	settings map[string]any
 	syncs    int
+}
+
+// Profiles returns the network profiles received so far (nil entries mean
+// "direct connection").
+func (f *Fake) Profiles() []*metadatav1.NetworkProfile {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]*metadatav1.NetworkProfile(nil), f.profiles...)
+}
+
+func (f *Fake) SetNetworkProfile(_ context.Context, req *metadatav1.SetNetworkProfileRequest) (*metadatav1.SetNetworkProfileResponse, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if !f.UsesNetworkProfiles {
+		return nil, plugin.ErrUnimplemented("SetNetworkProfile")
+	}
+	var p *metadatav1.NetworkProfile
+	if req.GetProfile() != nil {
+		p = proto.Clone(req.GetProfile()).(*metadatav1.NetworkProfile)
+	}
+	f.profiles = append(f.profiles, p)
+	return &metadatav1.SetNetworkProfileResponse{}, nil
 }
 
 // Lock locks the fake for changing its fields while a host may be using it.
@@ -97,13 +124,18 @@ var schema = func() *settings.Schema {
 func (f *Fake) GetInfo(context.Context, *metadatav1.GetInfoRequest) (*metadatav1.GetInfoResponse, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	var services []*metadatav1.CommonService
+	if f.UsesNetworkProfiles {
+		services = []*metadatav1.CommonService{{Name: "network_profile", Purpose: "requests go through the host's profile"}}
+	}
 	return &metadatav1.GetInfoResponse{Info: &metadatav1.PluginInfo{
-		Id:          f.provider(),
-		Name:        "Fake provider",
-		Version:     "0.0.0-test",
-		Description: "Serves made-up records from memory.",
-		Provider:    f.provider(),
-		Protocols:   []string{plugin.Protocol},
+		CommonServices: services,
+		Id:             f.provider(),
+		Name:           "Fake provider",
+		Version:        "0.0.0-test",
+		Description:    "Serves made-up records from memory.",
+		Provider:       f.provider(),
+		Protocols:      []string{plugin.Protocol},
 		Ingestions: []*metadatav1.Ingestion{
 			{Kind: plugin.KindDump, FullSnapshot: true, ScheduleHint: "0 3 * * *"},
 			{Kind: plugin.KindLookup, Limits: &metadatav1.Limits{

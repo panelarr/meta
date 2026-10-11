@@ -49,8 +49,13 @@ func hclogAdapter(l *slog.Logger) hclog.Logger {
 	return hclog.FromStandardLogger(slog.NewLogLogger(l.Handler(), slog.LevelInfo), &hclog.LoggerOptions{Level: hclog.Info})
 }
 
+// ProfileSource returns the network profile a provider should use (nil:
+// direct connection).
+type ProfileSource func(ctx context.Context, provider string) (*metadatav1.NetworkProfile, error)
+
 // Host owns the configured providers.
 type Host struct {
+	profiles  ProfileSource
 	st        *store.Store
 	log       *slog.Logger
 	dial      DialFunc
@@ -81,6 +86,26 @@ func (h *Host) Start(ctx context.Context, interval time.Duration) {
 	for _, id := range h.order {
 		p := h.providers[id]
 		go p.watch(ctx, interval)
+	}
+}
+
+// SetProfileSource sets where network profiles come from. Call it before
+// Start.
+func (h *Host) SetProfileSource(src ProfileSource) { h.profiles = src }
+
+// PushProfiles hands every connected plugin that uses network profiles its
+// current profile, e.g. after the integrations changed.
+func (h *Host) PushProfiles(ctx context.Context) {
+	for _, p := range h.List() {
+		p.mu.Lock()
+		c, info := p.client, p.info
+		p.mu.Unlock()
+		if c == nil {
+			continue // it gets its profile when it connects
+		}
+		if err := p.pushProfile(ctx, c, info); err != nil {
+			p.log.Warn("hand network profile to plugin", "err", err)
+		}
 	}
 }
 
@@ -151,12 +176,7 @@ const CommonServiceNetworkProfile = "network_profile"
 // UsesNetworkProfiles reports whether the plugin declares the
 // network_profile common service.
 func (p *Provider) UsesNetworkProfiles() bool {
-	for _, cs := range p.Info().GetCommonServices() {
-		if cs.GetName() == CommonServiceNetworkProfile {
-			return true
-		}
-	}
-	return false
+	return declaresNetworkProfile(p.Info())
 }
 
 // Supports reports whether the plugin declares an ingestion kind.
@@ -225,6 +245,9 @@ func (p *Provider) connect(ctx context.Context) (client.Client, error) {
 	p.client = c
 	p.info = info
 	p.buildLimits(info)
+	if err := p.pushProfile(ctx, c, info); err != nil {
+		p.log.Warn("hand network profile to plugin", "err", err)
+	}
 	status := metadatav1.HealthStatus_HEALTH_STATUS_OK
 	msg := ""
 	if h, herr := c.Health(ctx); herr == nil {
@@ -258,6 +281,28 @@ func (p *Provider) setHealthLocked(ctx context.Context, s metadatav1.HealthStatu
 	}); err != nil {
 		p.log.Warn("store provider state", "err", err)
 	}
+}
+
+// pushProfile sends the provider's profile to its plugin, if the plugin
+// uses network profiles.
+func (p *Provider) pushProfile(ctx context.Context, c client.Client, info *metadatav1.PluginInfo) error {
+	if p.host.profiles == nil || !declaresNetworkProfile(info) {
+		return nil
+	}
+	np, err := p.host.profiles(ctx, p.cfg.ID)
+	if err != nil {
+		return err
+	}
+	return c.SetNetworkProfile(ctx, np)
+}
+
+func declaresNetworkProfile(info *metadatav1.PluginInfo) bool {
+	for _, cs := range info.GetCommonServices() {
+		if cs.GetName() == CommonServiceNetworkProfile {
+			return true
+		}
+	}
+	return false
 }
 
 // CheckHealth asks the plugin for its health, reconnecting if the

@@ -53,6 +53,14 @@ service MetadataPluginService {
 
   // Health reports whether the plugin can do its work right now.
   rpc Health(HealthRequest) returns (HealthResponse);
+
+  // SetNetworkProfile is how a host hands the plugin the network profile to
+  // use for every request it makes: proxy, challenge solver, rate limit, user
+  // agent, headers and timeouts. It overrides anything the plugin configured
+  // itself. Leaving `profile` unset goes back to a direct connection with the
+  // plugin's defaults. Only called on plugins that declare the
+  // `network_profile` common service.
+  rpc SetNetworkProfile(SetNetworkProfileRequest) returns (SetNetworkProfileResponse);
 }
 
 message GetInfoRequest {}
@@ -295,6 +303,13 @@ enum HealthStatus {
   // Can't do its work, e.g. required settings are missing.
   HEALTH_STATUS_DOWN = 3;
 }
+
+message SetNetworkProfileRequest {
+  // Unset means a direct connection with the plugin's defaults.
+  NetworkProfile profile = 1;
+}
+
+message SetNetworkProfileResponse {}
 
 // NetworkProfile is everything a plugin needs to make requests for a
 // provider: which proxy to go through, which challenge solver to ask, how

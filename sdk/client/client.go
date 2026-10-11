@@ -35,6 +35,9 @@ type Client interface {
 	GetSettings(ctx context.Context) (*metadatav1.GetSettingsResponse, error)
 	SetSettings(ctx context.Context, req *metadatav1.SetSettingsRequest) (*metadatav1.SetSettingsResponse, error)
 	Health(ctx context.Context) (*metadatav1.HealthResponse, error)
+	// SetNetworkProfile hands the plugin its network profile; nil means a
+	// direct connection with the plugin's defaults.
+	SetNetworkProfile(ctx context.Context, profile *metadatav1.NetworkProfile) error
 	// Close ends the connection and, for managed plugins, the process.
 	Close() error
 }
@@ -158,6 +161,11 @@ func (r *remoteClient) SetSettings(ctx context.Context, req *metadatav1.SetSetti
 
 func (r *remoteClient) Health(ctx context.Context) (*metadatav1.HealthResponse, error) {
 	return callConnect(ctx, &metadatav1.HealthRequest{}, r.c.Health)
+}
+
+func (r *remoteClient) SetNetworkProfile(ctx context.Context, p *metadatav1.NetworkProfile) error {
+	_, err := callConnect(ctx, &metadatav1.SetNetworkProfileRequest{Profile: p}, r.c.SetNetworkProfile)
+	return err
 }
 
 func (r *remoteClient) Close() error { return nil }
@@ -284,6 +292,11 @@ func (g *grpcClient) Health(ctx context.Context) (*metadatav1.HealthResponse, er
 		return &metadatav1.HealthResponse{Status: metadatav1.HealthStatus_HEALTH_STATUS_DOWN, Message: "plugin process exited"}, nil
 	}
 	return callGRPC(ctx, &metadatav1.HealthRequest{}, g.c.Health)
+}
+
+func (g *grpcClient) SetNetworkProfile(ctx context.Context, p *metadatav1.NetworkProfile) error {
+	_, err := callGRPC(ctx, &metadatav1.SetNetworkProfileRequest{Profile: p}, g.c.SetNetworkProfile)
+	return err
 }
 
 func (g *grpcClient) Close() error {

@@ -52,7 +52,22 @@ Each ingestion type carries its limits: rate limits per operation (`search`, `ge
 
 ### Common services
 
-A plugin can list services the host offers that it can use, e.g. `network_profile` (proxy and network settings per plugin) or `solver`. The list is open. A plugin must still work without optional services.
+A plugin can list services the host offers that it can use, e.g. `network_profile` or `solver`. The list is open. A plugin must still work without optional services.
+
+### Network profiles (`network_profile`)
+
+A plugin that declares `network_profile` receives a **network profile** with `SetNetworkProfile`: when the host connects to it, and again whenever the admin changes the profile in effect for that provider (see meta's [integrations](integrations.md)). An unset profile means a direct connection with the plugin's own defaults.
+
+| Field | What the plugin must do |
+|---|---|
+| `proxy` | Send every request through it: `http://`, `https://` or `socks5://`, with `username`/`password` |
+| `solver` | When a site answers with an anti-bot challenge, get clearance from this FlareSolverr/Byparr endpoint (through the same proxy), then retry |
+| `rate_limit`, `concurrency` | Go no faster, for the whole provider or per target host |
+| `user_agent` | A fixed value, a random desktop browser, or the solver's user agent |
+| `headers` | Add them to every request |
+| `timeouts` | Connect, read and whole-call timeouts |
+
+The profile can carry a proxy password, so remote plugins should be reached over a private network or TLS. In Go, `sdk/httpx` implements all of it (see [writing a plugin](writing-a-plugin.md#network-profiles)).
 
 ## Settings
 

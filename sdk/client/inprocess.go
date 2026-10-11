@@ -89,6 +89,15 @@ func (c *inProcess) Health(ctx context.Context) (*metadatav1.HealthResponse, err
 	return c.p.Health(ctx, &metadatav1.HealthRequest{})
 }
 
+func (c *inProcess) SetNetworkProfile(ctx context.Context, p *metadatav1.NetworkProfile) error {
+	var cp *metadatav1.NetworkProfile
+	if p != nil {
+		cp = clone(p)
+	}
+	_, err := c.p.SetNetworkProfile(ctx, &metadatav1.SetNetworkProfileRequest{Profile: cp})
+	return err
+}
+
 func (c *inProcess) Close() error { return nil }
 
 type inProcessStream struct {

@@ -59,6 +59,9 @@ const (
 	// MetadataPluginServiceHealthProcedure is the fully-qualified name of the MetadataPluginService's
 	// Health RPC.
 	MetadataPluginServiceHealthProcedure = "/panelarr.metadata.v1.MetadataPluginService/Health"
+	// MetadataPluginServiceSetNetworkProfileProcedure is the fully-qualified name of the
+	// MetadataPluginService's SetNetworkProfile RPC.
+	MetadataPluginServiceSetNetworkProfileProcedure = "/panelarr.metadata.v1.MetadataPluginService/SetNetworkProfile"
 )
 
 // MetadataPluginServiceClient is a client for the panelarr.metadata.v1.MetadataPluginService
@@ -90,6 +93,13 @@ type MetadataPluginServiceClient interface {
 	SetSettings(context.Context, *connect.Request[v1.SetSettingsRequest]) (*connect.Response[v1.SetSettingsResponse], error)
 	// Health reports whether the plugin can do its work right now.
 	Health(context.Context, *connect.Request[v1.HealthRequest]) (*connect.Response[v1.HealthResponse], error)
+	// SetNetworkProfile is how a host hands the plugin the network profile to
+	// use for every request it makes: proxy, challenge solver, rate limit, user
+	// agent, headers and timeouts. It overrides anything the plugin configured
+	// itself. Leaving `profile` unset goes back to a direct connection with the
+	// plugin's defaults. Only called on plugins that declare the
+	// `network_profile` common service.
+	SetNetworkProfile(context.Context, *connect.Request[v1.SetNetworkProfileRequest]) (*connect.Response[v1.SetNetworkProfileResponse], error)
 }
 
 // NewMetadataPluginServiceClient constructs a client for the
@@ -151,6 +161,12 @@ func NewMetadataPluginServiceClient(httpClient connect.HTTPClient, baseURL strin
 			connect.WithSchema(metadataPluginServiceMethods.ByName("Health")),
 			connect.WithClientOptions(opts...),
 		),
+		setNetworkProfile: connect.NewClient[v1.SetNetworkProfileRequest, v1.SetNetworkProfileResponse](
+			httpClient,
+			baseURL+MetadataPluginServiceSetNetworkProfileProcedure,
+			connect.WithSchema(metadataPluginServiceMethods.ByName("SetNetworkProfile")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -164,6 +180,7 @@ type metadataPluginServiceClient struct {
 	getSettings       *connect.Client[v1.GetSettingsRequest, v1.GetSettingsResponse]
 	setSettings       *connect.Client[v1.SetSettingsRequest, v1.SetSettingsResponse]
 	health            *connect.Client[v1.HealthRequest, v1.HealthResponse]
+	setNetworkProfile *connect.Client[v1.SetNetworkProfileRequest, v1.SetNetworkProfileResponse]
 }
 
 // GetInfo calls panelarr.metadata.v1.MetadataPluginService.GetInfo.
@@ -206,6 +223,11 @@ func (c *metadataPluginServiceClient) Health(ctx context.Context, req *connect.R
 	return c.health.CallUnary(ctx, req)
 }
 
+// SetNetworkProfile calls panelarr.metadata.v1.MetadataPluginService.SetNetworkProfile.
+func (c *metadataPluginServiceClient) SetNetworkProfile(ctx context.Context, req *connect.Request[v1.SetNetworkProfileRequest]) (*connect.Response[v1.SetNetworkProfileResponse], error) {
+	return c.setNetworkProfile.CallUnary(ctx, req)
+}
+
 // MetadataPluginServiceHandler is an implementation of the
 // panelarr.metadata.v1.MetadataPluginService service.
 type MetadataPluginServiceHandler interface {
@@ -235,6 +257,13 @@ type MetadataPluginServiceHandler interface {
 	SetSettings(context.Context, *connect.Request[v1.SetSettingsRequest]) (*connect.Response[v1.SetSettingsResponse], error)
 	// Health reports whether the plugin can do its work right now.
 	Health(context.Context, *connect.Request[v1.HealthRequest]) (*connect.Response[v1.HealthResponse], error)
+	// SetNetworkProfile is how a host hands the plugin the network profile to
+	// use for every request it makes: proxy, challenge solver, rate limit, user
+	// agent, headers and timeouts. It overrides anything the plugin configured
+	// itself. Leaving `profile` unset goes back to a direct connection with the
+	// plugin's defaults. Only called on plugins that declare the
+	// `network_profile` common service.
+	SetNetworkProfile(context.Context, *connect.Request[v1.SetNetworkProfileRequest]) (*connect.Response[v1.SetNetworkProfileResponse], error)
 }
 
 // NewMetadataPluginServiceHandler builds an HTTP handler from the service implementation. It
@@ -292,6 +321,12 @@ func NewMetadataPluginServiceHandler(svc MetadataPluginServiceHandler, opts ...c
 		connect.WithSchema(metadataPluginServiceMethods.ByName("Health")),
 		connect.WithHandlerOptions(opts...),
 	)
+	metadataPluginServiceSetNetworkProfileHandler := connect.NewUnaryHandler(
+		MetadataPluginServiceSetNetworkProfileProcedure,
+		svc.SetNetworkProfile,
+		connect.WithSchema(metadataPluginServiceMethods.ByName("SetNetworkProfile")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/panelarr.metadata.v1.MetadataPluginService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case MetadataPluginServiceGetInfoProcedure:
@@ -310,6 +345,8 @@ func NewMetadataPluginServiceHandler(svc MetadataPluginServiceHandler, opts ...c
 			metadataPluginServiceSetSettingsHandler.ServeHTTP(w, r)
 		case MetadataPluginServiceHealthProcedure:
 			metadataPluginServiceHealthHandler.ServeHTTP(w, r)
+		case MetadataPluginServiceSetNetworkProfileProcedure:
+			metadataPluginServiceSetNetworkProfileHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -349,4 +386,8 @@ func (UnimplementedMetadataPluginServiceHandler) SetSettings(context.Context, *c
 
 func (UnimplementedMetadataPluginServiceHandler) Health(context.Context, *connect.Request[v1.HealthRequest]) (*connect.Response[v1.HealthResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("panelarr.metadata.v1.MetadataPluginService.Health is not implemented"))
+}
+
+func (UnimplementedMetadataPluginServiceHandler) SetNetworkProfile(context.Context, *connect.Request[v1.SetNetworkProfileRequest]) (*connect.Response[v1.SetNetworkProfileResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("panelarr.metadata.v1.MetadataPluginService.SetNetworkProfile is not implemented"))
 }

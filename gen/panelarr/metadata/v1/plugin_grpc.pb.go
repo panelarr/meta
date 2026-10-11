@@ -29,6 +29,7 @@ const (
 	MetadataPluginService_GetSettings_FullMethodName       = "/panelarr.metadata.v1.MetadataPluginService/GetSettings"
 	MetadataPluginService_SetSettings_FullMethodName       = "/panelarr.metadata.v1.MetadataPluginService/SetSettings"
 	MetadataPluginService_Health_FullMethodName            = "/panelarr.metadata.v1.MetadataPluginService/Health"
+	MetadataPluginService_SetNetworkProfile_FullMethodName = "/panelarr.metadata.v1.MetadataPluginService/SetNetworkProfile"
 )
 
 // MetadataPluginServiceClient is the client API for MetadataPluginService service.
@@ -70,6 +71,13 @@ type MetadataPluginServiceClient interface {
 	SetSettings(ctx context.Context, in *SetSettingsRequest, opts ...grpc.CallOption) (*SetSettingsResponse, error)
 	// Health reports whether the plugin can do its work right now.
 	Health(ctx context.Context, in *HealthRequest, opts ...grpc.CallOption) (*HealthResponse, error)
+	// SetNetworkProfile is how a host hands the plugin the network profile to
+	// use for every request it makes: proxy, challenge solver, rate limit, user
+	// agent, headers and timeouts. It overrides anything the plugin configured
+	// itself. Leaving `profile` unset goes back to a direct connection with the
+	// plugin's defaults. Only called on plugins that declare the
+	// `network_profile` common service.
+	SetNetworkProfile(ctx context.Context, in *SetNetworkProfileRequest, opts ...grpc.CallOption) (*SetNetworkProfileResponse, error)
 }
 
 type metadataPluginServiceClient struct {
@@ -169,6 +177,16 @@ func (c *metadataPluginServiceClient) Health(ctx context.Context, in *HealthRequ
 	return out, nil
 }
 
+func (c *metadataPluginServiceClient) SetNetworkProfile(ctx context.Context, in *SetNetworkProfileRequest, opts ...grpc.CallOption) (*SetNetworkProfileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetNetworkProfileResponse)
+	err := c.cc.Invoke(ctx, MetadataPluginService_SetNetworkProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MetadataPluginServiceServer is the server API for MetadataPluginService service.
 // All implementations must embed UnimplementedMetadataPluginServiceServer
 // for forward compatibility.
@@ -208,6 +226,13 @@ type MetadataPluginServiceServer interface {
 	SetSettings(context.Context, *SetSettingsRequest) (*SetSettingsResponse, error)
 	// Health reports whether the plugin can do its work right now.
 	Health(context.Context, *HealthRequest) (*HealthResponse, error)
+	// SetNetworkProfile is how a host hands the plugin the network profile to
+	// use for every request it makes: proxy, challenge solver, rate limit, user
+	// agent, headers and timeouts. It overrides anything the plugin configured
+	// itself. Leaving `profile` unset goes back to a direct connection with the
+	// plugin's defaults. Only called on plugins that declare the
+	// `network_profile` common service.
+	SetNetworkProfile(context.Context, *SetNetworkProfileRequest) (*SetNetworkProfileResponse, error)
 	mustEmbedUnimplementedMetadataPluginServiceServer()
 }
 
@@ -241,6 +266,9 @@ func (UnimplementedMetadataPluginServiceServer) SetSettings(context.Context, *Se
 }
 func (UnimplementedMetadataPluginServiceServer) Health(context.Context, *HealthRequest) (*HealthResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Health not implemented")
+}
+func (UnimplementedMetadataPluginServiceServer) SetNetworkProfile(context.Context, *SetNetworkProfileRequest) (*SetNetworkProfileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetNetworkProfile not implemented")
 }
 func (UnimplementedMetadataPluginServiceServer) mustEmbedUnimplementedMetadataPluginServiceServer() {}
 func (UnimplementedMetadataPluginServiceServer) testEmbeddedByValue()                               {}
@@ -400,6 +428,24 @@ func _MetadataPluginService_Health_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MetadataPluginService_SetNetworkProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetNetworkProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MetadataPluginServiceServer).SetNetworkProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MetadataPluginService_SetNetworkProfile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MetadataPluginServiceServer).SetNetworkProfile(ctx, req.(*SetNetworkProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MetadataPluginService_ServiceDesc is the grpc.ServiceDesc for MetadataPluginService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -434,6 +480,10 @@ var MetadataPluginService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Health",
 			Handler:    _MetadataPluginService_Health_Handler,
+		},
+		{
+			MethodName: "SetNetworkProfile",
+			Handler:    _MetadataPluginService_SetNetworkProfile_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

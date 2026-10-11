@@ -57,6 +57,10 @@ func (s *connectServer) SetSettings(ctx context.Context, r *connect.Request[meta
 	return unaryConnect(ctx, r, s.p.SetSettings)
 }
 
+func (s *connectServer) SetNetworkProfile(ctx context.Context, r *connect.Request[metadatav1.SetNetworkProfileRequest]) (*connect.Response[metadatav1.SetNetworkProfileResponse], error) {
+	return unaryConnect(ctx, r, s.p.SetNetworkProfile)
+}
+
 func (s *connectServer) Health(ctx context.Context, r *connect.Request[metadatav1.HealthRequest]) (*connect.Response[metadatav1.HealthResponse], error) {
 	return unaryConnect(ctx, r, s.p.Health)
 }
@@ -101,6 +105,10 @@ func (s *grpcServer) GetSettings(ctx context.Context, r *metadatav1.GetSettingsR
 
 func (s *grpcServer) SetSettings(ctx context.Context, r *metadatav1.SetSettingsRequest) (*metadatav1.SetSettingsResponse, error) {
 	return unaryGRPC(ctx, r, s.p.SetSettings)
+}
+
+func (s *grpcServer) SetNetworkProfile(ctx context.Context, r *metadatav1.SetNetworkProfileRequest) (*metadatav1.SetNetworkProfileResponse, error) {
+	return unaryGRPC(ctx, r, s.p.SetNetworkProfile)
 }
 
 func (s *grpcServer) Health(ctx context.Context, r *metadatav1.HealthRequest) (*metadatav1.HealthResponse, error) {
