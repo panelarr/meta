@@ -140,3 +140,6 @@ SELECT * FROM maintenance_jobs ORDER BY created_at;
 
 -- name: FinishMaintenance :exec
 DELETE FROM maintenance_jobs WHERE name = @name;
+
+-- name: CountActiveEntries :one
+SELECT count(*) FROM entries WHERE state = 'active';

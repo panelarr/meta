@@ -16,6 +16,7 @@ import { ClientsPage } from "./pages/ClientsPage";
 import { EntryPage } from "./pages/EntryPage";
 import { HealthPage } from "./pages/HealthPage";
 import { IntegrationsPage } from "./pages/IntegrationsPage";
+import { JobsPage } from "./pages/JobsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ProvidersPage } from "./pages/ProvidersPage";
 
@@ -88,6 +89,16 @@ const providersRoute = createRoute({
   component: ProvidersPage,
 });
 
+const jobsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/jobs",
+  validateSearch: (search: Search): { job?: string; run?: string } => ({
+    job: text(search.job),
+    run: text(search.run),
+  }),
+  component: JobsPage,
+});
+
 const clientsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/clients",
@@ -113,6 +124,7 @@ const routeTree = rootRoute.addChildren([
     catalogueRoute,
     entryRoute,
     providersRoute,
+    jobsRoute,
     clientsRoute,
     integrationsRoute,
     healthRoute,

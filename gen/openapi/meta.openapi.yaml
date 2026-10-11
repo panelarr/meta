@@ -173,6 +173,23 @@ components:
              "nothing set up" rather than "nothing matched".
       title: BrowseResponse
       additionalProperties: false
+    panelarr.meta.v1.CancelJobRunRequest:
+      type: object
+      properties:
+        runId:
+          type: string
+          title: run_id
+      title: CancelJobRunRequest
+      additionalProperties: false
+    panelarr.meta.v1.CancelJobRunResponse:
+      type: object
+      properties:
+        run:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.JobRunSummary'
+          title: run
+      title: CancelJobRunResponse
+      additionalProperties: false
     panelarr.meta.v1.Client:
       type: object
       properties:
@@ -652,6 +669,40 @@ components:
           description: meta's version.
       title: GetHealthResponse
       additionalProperties: false
+    panelarr.meta.v1.GetJobRequest:
+      type: object
+      properties:
+        jobId:
+          type: string
+          title: job_id
+      title: GetJobRequest
+      additionalProperties: false
+    panelarr.meta.v1.GetJobResponse:
+      type: object
+      properties:
+        job:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.Job'
+          title: job
+      title: GetJobResponse
+      additionalProperties: false
+    panelarr.meta.v1.GetJobRunRequest:
+      type: object
+      properties:
+        runId:
+          type: string
+          title: run_id
+      title: GetJobRunRequest
+      additionalProperties: false
+    panelarr.meta.v1.GetJobRunResponse:
+      type: object
+      properties:
+        run:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.JobRun'
+          title: run
+      title: GetJobRunResponse
+      additionalProperties: false
     panelarr.meta.v1.GetSyncRunRequest:
       type: object
       properties:
@@ -669,6 +720,207 @@ components:
           title: run
       title: GetSyncRunResponse
       additionalProperties: false
+    panelarr.meta.v1.Job:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          description: Stable ID, e.g. "sync:mangabaka:dump", "rebuild-entries".
+        name:
+          type: string
+          title: name
+          description: Human label.
+        description:
+          type: string
+          title: description
+        schedule:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.Schedule'
+          title: schedule
+        running:
+          type: boolean
+          title: running
+        currentRunId:
+          type: string
+          title: current_run_id
+          description: The run in progress, while running.
+        lastRun:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.JobRunSummary'
+          title: last_run
+        nextRunAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: next_run_at
+          description: Unset when the job is manual only or its schedule is disabled.
+        cancellable:
+          type: boolean
+          title: cancellable
+        params:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.meta.v1.JobParam'
+          title: params
+          description: What RunJob accepts.
+        group:
+          type: string
+          title: group
+          description: UI grouping, e.g. "Providers", "Maintenance".
+      title: Job
+      additionalProperties: false
+    panelarr.meta.v1.JobParam:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+        type:
+          type: string
+          title: type
+          description: '"bool", "int", "string" or "string_list".'
+        description:
+          type: string
+          title: description
+        required:
+          type: boolean
+          title: required
+        default:
+          type: string
+          title: default
+          description: Used when the parameter is left out.
+      title: JobParam
+      additionalProperties: false
+    panelarr.meta.v1.JobProgress:
+      type: object
+      properties:
+        phase:
+          type: string
+          title: phase
+          description: What the run is doing, e.g. "download", "rebuild".
+        done:
+          type: string
+          title: done
+          format: int64
+        total:
+          type: string
+          title: total
+          format: int64
+          description: 0 when unknown.
+        unit:
+          type: string
+          title: unit
+          description: What done and total count, e.g. "entries", "bytes".
+      title: JobProgress
+      additionalProperties: false
+    panelarr.meta.v1.JobRun:
+      type: object
+      properties:
+        summary:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.JobRunSummary'
+          title: summary
+        params:
+          type: object
+          title: params
+          additionalProperties:
+            type: string
+            title: value
+          description: What it ran with.
+        notes:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.meta.v1.JobRunNote'
+          title: notes
+          description: Warnings, errors and notable events, oldest first (at most 200).
+        progress:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.JobProgress'
+          title: progress
+          description: The latest progress, while running.
+      title: JobRun
+      additionalProperties: false
+    panelarr.meta.v1.JobRunNote:
+      type: object
+      properties:
+        at:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: at
+        level:
+          type: string
+          title: level
+          description: '"info", "warning" or "error".'
+        message:
+          type: string
+          title: message
+        ref:
+          type: string
+          title: ref
+          description: What it is about, e.g. a provider record ID.
+      title: JobRunNote
+      additionalProperties: false
+    panelarr.meta.v1.JobRunStatus:
+      type: string
+      title: JobRunStatus
+      enum:
+        - JOB_RUN_STATUS_UNSPECIFIED
+        - JOB_RUN_STATUS_RUNNING
+        - JOB_RUN_STATUS_SUCCEEDED
+        - JOB_RUN_STATUS_FAILED
+        - JOB_RUN_STATUS_CANCELLED
+        - JOB_RUN_STATUS_SKIPPED
+    panelarr.meta.v1.JobRunSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+        jobId:
+          type: string
+          title: job_id
+        status:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.JobRunStatus'
+          title: status
+        trigger:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.JobTrigger'
+          title: trigger
+        startedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: started_at
+        finishedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: finished_at
+        message:
+          type: string
+          title: message
+          description: One-line outcome, or the error when it failed.
+        counts:
+          type: object
+          title: counts
+          additionalProperties:
+            type: string
+            title: value
+            format: int64
+          description: 'What the run did, e.g. {"upserts": 564155, "merges": 258068}.'
+        triggeredBy:
+          type: string
+          title: triggered_by
+          description: 'Who started a manual run: "admin" or a client''s name.'
+      title: JobRunSummary
+      additionalProperties: false
+    panelarr.meta.v1.JobTrigger:
+      type: string
+      title: JobTrigger
+      enum:
+        - JOB_TRIGGER_UNSPECIFIED
+        - JOB_TRIGGER_SCHEDULE
+        - JOB_TRIGGER_MANUAL
+        - JOB_TRIGGER_STARTUP
     panelarr.meta.v1.LanguageCount:
       type: object
       properties:
@@ -714,6 +966,54 @@ components:
             $ref: '#/components/schemas/panelarr.meta.v1.Client'
           title: clients
       title: ListClientsResponse
+      additionalProperties: false
+    panelarr.meta.v1.ListJobRunsRequest:
+      type: object
+      properties:
+        jobId:
+          type: string
+          title: job_id
+        pageSize:
+          type: integer
+          title: page_size
+          format: int32
+          description: 1..100, default 20.
+        pageToken:
+          type: string
+          title: page_token
+        status:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.JobRunStatus'
+          title: status
+          description: Only runs with this status.
+      title: ListJobRunsRequest
+      additionalProperties: false
+    panelarr.meta.v1.ListJobRunsResponse:
+      type: object
+      properties:
+        runs:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.meta.v1.JobRunSummary'
+          title: runs
+        nextPageToken:
+          type: string
+          title: next_page_token
+      title: ListJobRunsResponse
+      additionalProperties: false
+    panelarr.meta.v1.ListJobsRequest:
+      type: object
+      title: ListJobsRequest
+      additionalProperties: false
+    panelarr.meta.v1.ListJobsResponse:
+      type: object
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.meta.v1.Job'
+          title: jobs
+      title: ListJobsResponse
       additionalProperties: false
     panelarr.meta.v1.ListLanguagesRequest:
       type: object
@@ -1136,6 +1436,30 @@ components:
           description: The new API key. Shown only in this response.
       title: RotateClientKeyResponse
       additionalProperties: false
+    panelarr.meta.v1.RunJobRequest:
+      type: object
+      properties:
+        jobId:
+          type: string
+          title: job_id
+        params:
+          type: object
+          title: params
+          additionalProperties:
+            type: string
+            title: value
+          description: Values for the job's params, as strings ("true", "100", "a,b").
+      title: RunJobRequest
+      additionalProperties: false
+    panelarr.meta.v1.RunJobResponse:
+      type: object
+      properties:
+        run:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.JobRunSummary'
+          title: run
+      title: RunJobResponse
+      additionalProperties: false
     panelarr.meta.v1.RunSyncRequest:
       type: object
       properties:
@@ -1161,6 +1485,49 @@ components:
           title: run
       title: RunSyncResponse
       additionalProperties: false
+    panelarr.meta.v1.Schedule:
+      type: object
+      anyOf:
+        - type: object
+          properties:
+            cron:
+              type: string
+              title: cron
+              description: Five-field cron expression, UTC.
+          title: cron
+        - type: object
+          properties:
+            interval:
+              allOf:
+                - $ref: '#/components/schemas/google.protobuf.Duration'
+              title: interval
+          title: interval
+      unevaluatedProperties: false
+      not:
+        allOf:
+          - anyOf:
+              - required:
+                  - cron
+              - required:
+                  - interval
+          - not:
+              oneOf:
+                - required:
+                    - cron
+                - required:
+                    - interval
+      properties:
+        enabled:
+          type: boolean
+          title: enabled
+        source:
+          type: string
+          title: source
+          description: |-
+            Where it is configured, e.g. "providers[mangabaka].schedules.dump".
+             Schedules are edited in the configuration, not here.
+      title: Schedule
+      description: 'When a job runs on its own. Neither cron nor interval: manual only.'
     panelarr.meta.v1.SearchHit:
       type: object
       properties:
@@ -3182,6 +3549,171 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/panelarr.meta.v1.GetHealthResponse'
+  /v1/admin/job-runs/{runId}:
+    get:
+      tags:
+        - MetaJobsService
+      summary: GetJobRun
+      description: GetJobRun returns one run with its notes and progress.
+      operationId: MetaJobsService_GetJobRun
+      parameters:
+        - name: runId
+          in: path
+          description: The runId path parameter.
+          required: true
+          schema:
+            type: string
+            title: run_id
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.GetJobRunResponse'
+  /v1/admin/job-runs/{runId}:cancel:
+    post:
+      tags:
+        - MetaJobsService
+      summary: CancelJobRun
+      description: |-
+        CancelJobRun stops a running run. Jobs that can't stop midway answer
+         FAILED_PRECONDITION.
+      operationId: MetaJobsService_CancelJobRun
+      parameters:
+        - name: runId
+          in: path
+          description: The runId path parameter.
+          required: true
+          schema:
+            type: string
+            title: run_id
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.CancelJobRunResponse'
+  /v1/admin/jobs:
+    get:
+      tags:
+        - MetaJobsService
+      summary: ListJobs
+      description: ListJobs lists every background job with its schedule and last run.
+      operationId: MetaJobsService_ListJobs
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.ListJobsResponse'
+  /v1/admin/jobs/{jobId}:
+    get:
+      tags:
+        - MetaJobsService
+      summary: GetJob
+      description: GetJob returns one job.
+      operationId: MetaJobsService_GetJob
+      parameters:
+        - name: jobId
+          in: path
+          description: The jobId path parameter.
+          required: true
+          schema:
+            type: string
+            title: job_id
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.GetJobResponse'
+  /v1/admin/jobs/{jobId}/runs:
+    get:
+      tags:
+        - MetaJobsService
+      summary: ListJobRuns
+      description: ListJobRuns lists a job's runs, newest first.
+      operationId: MetaJobsService_ListJobRuns
+      parameters:
+        - name: jobId
+          in: path
+          description: The jobId path parameter.
+          required: true
+          schema:
+            type: string
+            title: job_id
+        - name: pageSize
+          in: query
+          description: 1..100, default 20.
+          schema:
+            type: integer
+            title: page_size
+            format: int32
+        - name: pageToken
+          in: query
+          description: The pageToken query parameter.
+          schema:
+            type: string
+            title: page_token
+        - name: status
+          in: query
+          description: Only runs with this status.
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/panelarr.meta.v1.JobRunStatus'
+            title: status
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.ListJobRunsResponse'
+  /v1/admin/jobs/{jobId}:run:
+    post:
+      tags:
+        - MetaJobsService
+      summary: RunJob
+      description: |-
+        RunJob starts a run now and returns at once. A job runs once at a time:
+         when it is already running the answer is ALREADY_EXISTS (HTTP 409) with
+         a JobAlreadyRunning detail naming the current run.
+      operationId: MetaJobsService_RunJob
+      parameters:
+        - name: jobId
+          in: path
+          description: The jobId path parameter.
+          required: true
+          schema:
+            type: string
+            title: job_id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                params:
+                  type: object
+                  title: params
+                  additionalProperties:
+                    type: string
+                    title: value
+                  description: Values for the job's params, as strings ("true", "100", "a,b").
+              title: RunJobRequest
+              additionalProperties: false
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.RunJobResponse'
   /v1/admin/profiles:
     get:
       tags:
@@ -3938,6 +4470,12 @@ tags:
        A provider uses, in order: a profile pushed by a host (SetPushedProfile), the
        profile assigned to it here, the default profile, or a direct connection
        when there is none.
+  - name: MetaJobsService
+    description: |-
+      MetaJobsService lists meta's background jobs and their runs, and starts
+       and cancels them. Every Panelarr admin has the same messages and REST
+       paths (the shared jobs contract), so a common package can be extracted
+       later. Admin scope only.
   - name: MetaService
     description: |-
       MetaService serves meta's catalogue: discovery (browse), search and

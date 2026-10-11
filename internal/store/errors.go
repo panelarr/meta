@@ -21,7 +21,7 @@ func Explain(err error) error {
 	if err == nil || errors.Is(err, ErrOutOfSpace) || !outOfSpace(err) {
 		return err
 	}
-	return fmt.Errorf("%w: free disk space on the database server, then sync again; what was written before stays (%w)", ErrOutOfSpace, err)
+	return fmt.Errorf("%w: free disk space on the database server, then run it again; what was written before stays (%w)", ErrOutOfSpace, err)
 }
 
 func outOfSpace(err error) bool {

@@ -3,7 +3,18 @@
 // MSW handlers that answer every API endpoint from in-memory fake data, with the same
 // JSON shapes and error bodies as meta. Used by mock mode and the tests.
 import { delay, HttpResponse, http, type JsonBodyType } from "msw";
-import type { Assignment, Client, Entry, EntrySummary, NetworkProfile, Provider, Solver, SyncRun } from "../api/types";
+import type {
+  Assignment,
+  Client,
+  Entry,
+  EntrySummary,
+  Job,
+  JobRun,
+  NetworkProfile,
+  Provider,
+  Solver,
+  SyncRun,
+} from "../api/types";
 import {
   CLIENT_KEY_PREFIX,
   MERGED_ENTRY_ID,
@@ -12,6 +23,8 @@ import {
   mockClients,
   mockEntries,
   mockGenres,
+  mockJobRuns,
+  mockJobs,
   mockProfiles,
   mockProviders,
   mockRuns,
@@ -23,6 +36,9 @@ type Db = {
   entries: Entry[];
   providers: Provider[];
   runs: SyncRun[];
+  jobs: Job[];
+  /** Job runs, newest first. */
+  jobRuns: JobRun[];
   clients: Client[];
   solvers: Solver[];
   profiles: NetworkProfile[];
@@ -39,6 +55,8 @@ export function createDb(): Db {
     entries: mockEntries(),
     providers: mockProviders(),
     runs: mockRuns(),
+    jobs: mockJobs(),
+    jobRuns: mockJobRuns(),
     clients: mockClients(),
     solvers: mockSolvers(),
     profiles: mockProfiles(),
@@ -214,6 +232,39 @@ function withUsage(db: Db, solver: Solver): Solver {
 }
 
 /** Handlers over `db`. `latency` adds a delay in milliseconds to feel like a network. */
+/** A URL pattern from the handlers' base (a glob such as `*` + "/v1", or a full URL) and a regular expression tail. */
+function pattern(base: string, tail: string): RegExp {
+  const escaped = base.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
+  return new RegExp(`^${escaped}${tail}`);
+}
+
+function lastSegment(url: string): string {
+  return decodeURIComponent(new URL(url).pathname.split("/").pop() ?? "");
+}
+
+/** How long a mock run runs before it succeeds on its own. */
+const MOCK_RUN_MS = 8000;
+
+/** Finishes a mock run once it has run long enough. */
+function settle(run: JobRun): JobRun {
+  const s = run.summary;
+  if (s?.status === "JOB_RUN_STATUS_RUNNING" && Date.now() - new Date(s.startedAt ?? 0).getTime() > MOCK_RUN_MS) {
+    s.status = "JOB_RUN_STATUS_SUCCEEDED";
+    s.finishedAt = now();
+    s.message = "done";
+    s.counts = { items: "1000" };
+    run.progress = undefined;
+  }
+  return run;
+}
+
+/** A job with its run state: running, current run and last run. */
+function jobState(db: Db, job: Job): Job {
+  const runs = db.jobRuns.map(settle).filter((r) => r.summary?.jobId === job.id);
+  const current = runs.find((r) => r.summary?.status === "JOB_RUN_STATUS_RUNNING");
+  return { ...job, running: !!current, currentRunId: current?.summary?.id, lastRun: runs[0]?.summary };
+}
+
 export function createHandlers(db: Db = createDb(), latency = 0) {
   const wait = () => (latency > 0 ? delay(latency) : Promise.resolve());
   const base = "*/v1";
@@ -409,6 +460,101 @@ export function createHandlers(db: Db = createDb(), latency = 0) {
       if (denied) return denied;
       const run = db.runs.find((r) => r.id === params.id);
       return run ? ok({ run }) : grpcError("NOT_FOUND", `no sync run ${params.id}`);
+    }),
+
+    // ----- MetaJobsService --------------------------------------------------------
+    http.get(`${base}/admin/jobs`, async ({ request }) => {
+      await wait();
+      return guard(request, true) ?? ok({ jobs: db.jobs.map((j) => jobState(db, j)) });
+    }),
+
+    // "/jobs/{id}", "/jobs/{id}/runs" and "/jobs/{id}:run": the ":run" verb needs a pattern.
+    http.get(pattern(base, "/admin/jobs/([^/:]+)$"), async ({ request }) => {
+      await wait();
+      const denied = guard(request, true);
+      if (denied) return denied;
+      const job = db.jobs.find((j) => j.id === lastSegment(request.url));
+      return job ? ok({ job: jobState(db, job) }) : grpcError("NOT_FOUND", `no job ${lastSegment(request.url)}`);
+    }),
+
+    http.get(`${base}/admin/jobs/:jobId/runs`, async ({ request, params }) => {
+      await wait();
+      const denied = guard(request, true);
+      if (denied) return denied;
+      if (!db.jobs.some((j) => j.id === params.jobId)) return grpcError("NOT_FOUND", `no job ${params.jobId}`);
+      const query = new URL(request.url).searchParams;
+      const status = query.get("status");
+      const runs = db.jobRuns
+        .map((r) => settle(r))
+        .filter((r) => r.summary?.jobId === params.jobId && (!status || r.summary?.status === status))
+        .map((r) => r.summary);
+      const { items, next } = page(runs, query);
+      return ok({ runs: items, nextPageToken: next });
+    }),
+
+    http.post(pattern(base, "/admin/jobs/([^/:]+):run$"), async ({ request }) => {
+      await wait();
+      const denied = guard(request, true);
+      if (denied) return denied;
+      const id = decodeURIComponent(new URL(request.url).pathname.split("/").pop()?.replace(/:run$/, "") ?? "");
+      const job = db.jobs.find((j) => j.id === id);
+      if (!job) return grpcError("NOT_FOUND", `not found: no job "${id}"`);
+      const current = db.jobRuns
+        .map(settle)
+        .find((r) => r.summary?.jobId === id && r.summary.status === "JOB_RUN_STATUS_RUNNING");
+      if (current) return grpcError("ALREADY_EXISTS", `job ${id} is already running (run ${current.summary?.id})`);
+      const body = (await request.json().catch(() => ({}))) as { params?: Record<string, string> };
+      const params: Record<string, string> = {};
+      for (const p of job.params ?? []) {
+        const v = body.params?.[p.name ?? ""] ?? p.default;
+        if (v) params[p.name ?? ""] = v;
+      }
+      for (const k of Object.keys(body.params ?? {}))
+        if (!(job.params ?? []).some((p) => p.name === k))
+          return grpcError("INVALID_ARGUMENT", `invalid parameter: job ${id} takes no "${k}"`);
+      const run: JobRun = {
+        summary: {
+          id: `0192dd00-0000-7000-8000-${String(1000 + db.nextId++).padStart(12, "0")}`,
+          jobId: id,
+          status: "JOB_RUN_STATUS_RUNNING",
+          trigger: "JOB_TRIGGER_MANUAL",
+          triggeredBy: principal(request) === "config" ? "api_keys setting" : "admin",
+          startedAt: now(),
+          counts: {},
+        },
+        params,
+        notes: [],
+        progress: { phase: "work", done: "250", total: "1000", unit: "items" },
+      };
+      db.jobRuns = [run, ...db.jobRuns];
+      return ok({ run: run.summary });
+    }),
+
+    http.get(`${base}/admin/job-runs/:runId`, async ({ request, params }) => {
+      await wait();
+      const denied = guard(request, true);
+      if (denied) return denied;
+      const run = db.jobRuns.find((r) => r.summary?.id === params.runId);
+      return run ? ok({ run: settle(run) }) : grpcError("NOT_FOUND", `not found: no run ${params.runId}`);
+    }),
+
+    http.post(pattern(base, "/admin/job-runs/([^/:]+):cancel$"), async ({ request }) => {
+      await wait();
+      const denied = guard(request, true);
+      if (denied) return denied;
+      const id = new URL(request.url).pathname
+        .split("/")
+        .pop()
+        ?.replace(/:cancel$/, "");
+      const run = db.jobRuns.find((r) => r.summary?.id === id);
+      if (!run?.summary) return grpcError("NOT_FOUND", `not found: no run ${id}`);
+      if (run.summary.status !== "JOB_RUN_STATUS_RUNNING")
+        return grpcError("FAILED_PRECONDITION", "the run isn't running in this meta process");
+      run.summary.status = "JOB_RUN_STATUS_CANCELLED";
+      run.summary.message = "cancelled";
+      run.summary.finishedAt = now();
+      run.progress = undefined;
+      return ok({ run: run.summary });
     }),
 
     http.post(`${base}/admin/entries/:id/refresh`, async ({ request, params }) => {

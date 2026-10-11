@@ -8,6 +8,8 @@ import type {
   Entry,
   EntryStatus,
   EntryType,
+  Job,
+  JobRun,
   NetworkProfile,
   Provider,
   Solver,
@@ -344,6 +346,99 @@ export function mockProfiles(): NetworkProfile[] {
       proxy: { url: "socks5://gluetun:1080", username: "vpn", hasPassword: true },
       solverId: "flaresolverr",
       userAgentMode: "USER_AGENT_MODE_FROM_SOLVER",
+    },
+  ];
+}
+
+/** The jobs meta lists, without their run state (the handlers add it). */
+export function mockJobs(): Job[] {
+  return [
+    {
+      id: "sync.example.dump",
+      name: "Sync example (dump)",
+      description: "Reads the provider's full dump and stores every record. One sync per provider runs at a time.",
+      group: "Providers",
+      schedule: { cron: "0 3 * * *", enabled: true, source: "providers[example].schedules.dump" } as Job["schedule"],
+      nextRunAt: "2026-10-12T03:00:00Z",
+      cancellable: true,
+      params: [
+        {
+          name: "force",
+          type: "bool",
+          default: "false",
+          description: "Read everything even if the provider reports nothing changed",
+        },
+      ],
+    },
+    {
+      id: "rebuild-entries",
+      name: "Rebuild entries",
+      description:
+        "Rebuilds every merged entry from the stored provider records, downloading nothing. Runs on its own after an upgrade that changes how entries are merged.",
+      group: "Maintenance",
+      schedule: { enabled: false } as Job["schedule"],
+      cancellable: true,
+      params: [],
+    },
+    {
+      id: "stale-refresh",
+      name: "Refresh stale entries",
+      description:
+        "Looks up again the entries whose provider records are older than 168h0m0s, oldest first, from providers that can look records up.",
+      group: "Maintenance",
+      schedule: { enabled: false, source: "jobs.stale_refresh.schedule" } as Job["schedule"],
+      cancellable: true,
+      params: [{ name: "limit", type: "int", default: "100", description: "Most entries to refresh in this run" }],
+    },
+  ];
+}
+
+export function mockJobRuns(): JobRun[] {
+  return [
+    {
+      summary: {
+        id: "0192dd00-0000-7000-8000-000000000003",
+        jobId: "sync.example.dump",
+        status: "JOB_RUN_STATUS_SUCCEEDED",
+        trigger: "JOB_TRIGGER_SCHEDULE",
+        startedAt: "2026-10-10T03:00:00Z",
+        finishedAt: "2026-10-10T03:09:12Z",
+        message: "564040 records, 1203 changed, 3 marked removed",
+        counts: { upserts: "564040", changed: "1203", merges: "258029", marked_removed: "3" },
+      },
+      params: { force: "false" },
+      notes: [
+        { at: "2026-10-10T03:05:00Z", level: "warning", message: "row has no title; skipped", ref: "example:777" },
+      ],
+    },
+    {
+      summary: {
+        id: "0192dd00-0000-7000-8000-000000000002",
+        jobId: "stale-refresh",
+        status: "JOB_RUN_STATUS_FAILED",
+        trigger: "JOB_TRIGGER_MANUAL",
+        triggeredBy: "admin",
+        startedAt: "2026-10-09T12:00:00Z",
+        finishedAt: "2026-10-09T12:00:41Z",
+        message: "database out of space: free disk space on the database server, then run it again",
+        counts: { entries: "12", refreshed: "11", failed: "1" },
+      },
+      params: { limit: "100" },
+      notes: [{ at: "2026-10-09T12:00:30Z", level: "warning", message: "example: not found", ref: "0192aa00" }],
+    },
+    {
+      summary: {
+        id: "0192dd00-0000-7000-8000-000000000001",
+        jobId: "rebuild-entries",
+        status: "JOB_RUN_STATUS_SUCCEEDED",
+        trigger: "JOB_TRIGGER_STARTUP",
+        startedAt: "2026-10-09T08:00:00Z",
+        finishedAt: "2026-10-09T08:21:05Z",
+        message: "rebuilt 305026 entries",
+        counts: { entries: "305026" },
+      },
+      params: {},
+      notes: [],
     },
   ];
 }

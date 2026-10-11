@@ -108,6 +108,27 @@ IDs of entries that were merged into another keep working: `GetEntry` returns th
 | `GetHealth` | `GET /v1/admin/health` | Database, search backend and every plugin, with status, latency and details ([observability](observability.md)) |
 | `RefreshEntry` | `POST /v1/admin/entries/{id}/refresh` | Fetch fresh records for one entry from providers that support lookups |
 
+## Jobs (`MetaJobsService`)
+
+Every background job and its runs, with the same messages and paths as the other Panelarr admins ([jobs contract](https://github.com/panelarr/knowledge/blob/main/contracts/jobs.md)). Admin scope only.
+
+| Call | REST | What |
+|---|---|---|
+| `ListJobs` | `GET /v1/admin/jobs` | Every job: schedule, running, current run, last run, next run, params, group |
+| `GetJob` | `GET /v1/admin/jobs/{job_id}` | One job |
+| `ListJobRuns` | `GET /v1/admin/jobs/{job_id}/runs?status=JOB_RUN_STATUS_FAILED&pageSize=20` | A job's runs, newest first |
+| `GetJobRun` | `GET /v1/admin/job-runs/{run_id}` | One run with params, counts, notes (at most 200) and progress |
+| `RunJob` | `POST /v1/admin/jobs/{job_id}:run` with `{"params": {"force": "true"}}` | Start a run now; returns it at once. 409 `already_exists` with a `JobAlreadyRunning` detail (the current run ID) when it is running |
+| `CancelJobRun` | `POST /v1/admin/job-runs/{run_id}:cancel` | Stop a run; what it committed stays. 400 `failed_precondition` when the job can't be cancelled or the run isn't running in this meta process |
+
+| Job | Params | What |
+|---|---|---|
+| `sync.<provider>.<kind>` | `force` | A provider's dump or delta sync. Its runs are the sync runs of `ListSyncRuns`; one sync per provider runs at a time |
+| `rebuild-entries` | | Rebuild every entry from the stored records. Runs at startup when an upgrade queued it (trigger `startup`) |
+| `stale-refresh` | `limit` (default `jobs.stale_refresh.limit`) | Look up again the entries whose records are older than `ingest.stale_after`, oldest first, from providers that support lookups |
+
+Job IDs match `^[a-z0-9][a-z0-9._-]*$`: a `:` would read as the custom verb in `…:run`. Runs record their trigger (`schedule`, `manual`, `startup`) and, for manual runs, who started them (the admin, a client's name, or `cli`). A scheduled run that finds its job still running is recorded as `skipped`. Each job keeps its newest `jobs.retention` finished runs. A run whose meta process stopped is marked failed ("interrupted") when meta starts again, unless another meta process on the same database still holds it.
+
 ## Errors
 
 Errors use gRPC/Connect codes; REST maps them to HTTP statuses (`invalid_argument` → 400, `unauthenticated` → 401, `not_found` → 404, `already_exists` → 409, `resource_exhausted` → 429, `unavailable` → 503).

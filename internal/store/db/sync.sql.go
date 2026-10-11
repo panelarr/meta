@@ -14,9 +14,9 @@ import (
 
 const createSyncRun = `-- name: CreateSyncRun :one
 
-INSERT INTO sync_runs (id, provider, kind, trigger, cursor_start)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, provider, kind, trigger, status, started_at, finished_at, snapshot_id, full_snapshot, cursor_start, cursor_end, upserts, changed, removals, merges, skipped, marked_removed, error, notices, progress
+INSERT INTO sync_runs (id, provider, kind, trigger, cursor_start, triggered_by, force)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, provider, kind, trigger, status, started_at, finished_at, snapshot_id, full_snapshot, cursor_start, cursor_end, upserts, changed, removals, merges, skipped, marked_removed, error, notices, progress, triggered_by, force
 `
 
 type CreateSyncRunParams struct {
@@ -25,6 +25,8 @@ type CreateSyncRunParams struct {
 	Kind        string
 	Trigger     string
 	CursorStart string
+	TriggeredBy string
+	Force       bool
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -35,6 +37,8 @@ func (q *Queries) CreateSyncRun(ctx context.Context, arg CreateSyncRunParams) (S
 		arg.Kind,
 		arg.Trigger,
 		arg.CursorStart,
+		arg.TriggeredBy,
+		arg.Force,
 	)
 	var i SyncRun
 	err := row.Scan(
@@ -58,6 +62,8 @@ func (q *Queries) CreateSyncRun(ctx context.Context, arg CreateSyncRunParams) (S
 		&i.Error,
 		&i.Notices,
 		&i.Progress,
+		&i.TriggeredBy,
+		&i.Force,
 	)
 	return i, err
 }
@@ -65,9 +71,10 @@ func (q *Queries) CreateSyncRun(ctx context.Context, arg CreateSyncRunParams) (S
 const failInterruptedSyncRuns = `-- name: FailInterruptedSyncRuns :execrows
 UPDATE sync_runs
 SET status = 'failed', error = 'interrupted: meta stopped during the run', finished_at = now()
-WHERE status = 'running'
+WHERE status = 'running' AND pg_try_advisory_xact_lock(hashtext('meta-sync:' || provider))
 `
 
+// Only runs no meta process holds the provider's sync lock for.
 func (q *Queries) FailInterruptedSyncRuns(ctx context.Context) (int64, error) {
 	result, err := q.db.Exec(ctx, failInterruptedSyncRuns)
 	if err != nil {
@@ -126,7 +133,7 @@ func (q *Queries) GetSyncCursor(ctx context.Context, arg GetSyncCursorParams) (S
 }
 
 const getSyncRun = `-- name: GetSyncRun :one
-SELECT id, provider, kind, trigger, status, started_at, finished_at, snapshot_id, full_snapshot, cursor_start, cursor_end, upserts, changed, removals, merges, skipped, marked_removed, error, notices, progress FROM sync_runs WHERE id = $1
+SELECT id, provider, kind, trigger, status, started_at, finished_at, snapshot_id, full_snapshot, cursor_start, cursor_end, upserts, changed, removals, merges, skipped, marked_removed, error, notices, progress, triggered_by, force FROM sync_runs WHERE id = $1
 `
 
 func (q *Queries) GetSyncRun(ctx context.Context, id uuid.UUID) (SyncRun, error) {
@@ -153,12 +160,14 @@ func (q *Queries) GetSyncRun(ctx context.Context, id uuid.UUID) (SyncRun, error)
 		&i.Error,
 		&i.Notices,
 		&i.Progress,
+		&i.TriggeredBy,
+		&i.Force,
 	)
 	return i, err
 }
 
 const latestSyncRuns = `-- name: LatestSyncRuns :many
-SELECT DISTINCT ON (provider, kind) id, provider, kind, trigger, status, started_at, finished_at, snapshot_id, full_snapshot, cursor_start, cursor_end, upserts, changed, removals, merges, skipped, marked_removed, error, notices, progress
+SELECT DISTINCT ON (provider, kind) id, provider, kind, trigger, status, started_at, finished_at, snapshot_id, full_snapshot, cursor_start, cursor_end, upserts, changed, removals, merges, skipped, marked_removed, error, notices, progress, triggered_by, force
 FROM sync_runs
 ORDER BY provider, kind, started_at DESC
 `
@@ -193,6 +202,8 @@ func (q *Queries) LatestSyncRuns(ctx context.Context) ([]SyncRun, error) {
 			&i.Error,
 			&i.Notices,
 			&i.Progress,
+			&i.TriggeredBy,
+			&i.Force,
 		); err != nil {
 			return nil, err
 		}
@@ -205,7 +216,7 @@ func (q *Queries) LatestSyncRuns(ctx context.Context) ([]SyncRun, error) {
 }
 
 const listSyncRuns = `-- name: ListSyncRuns :many
-SELECT id, provider, kind, trigger, status, started_at, finished_at, snapshot_id, full_snapshot, cursor_start, cursor_end, upserts, changed, removals, merges, skipped, marked_removed, error, notices, progress FROM sync_runs
+SELECT id, provider, kind, trigger, status, started_at, finished_at, snapshot_id, full_snapshot, cursor_start, cursor_end, upserts, changed, removals, merges, skipped, marked_removed, error, notices, progress, triggered_by, force FROM sync_runs
 WHERE ($1::text IS NULL OR provider = $1)
 ORDER BY started_at DESC, id DESC
 LIMIT $3 OFFSET $2
@@ -247,6 +258,8 @@ func (q *Queries) ListSyncRuns(ctx context.Context, arg ListSyncRunsParams) ([]S
 			&i.Error,
 			&i.Notices,
 			&i.Progress,
+			&i.TriggeredBy,
+			&i.Force,
 		); err != nil {
 			return nil, err
 		}
@@ -258,8 +271,99 @@ func (q *Queries) ListSyncRuns(ctx context.Context, arg ListSyncRunsParams) ([]S
 	return items, nil
 }
 
+const listSyncRunsOfKind = `-- name: ListSyncRunsOfKind :many
+SELECT id, provider, kind, trigger, status, started_at, finished_at, snapshot_id, full_snapshot, cursor_start, cursor_end, upserts, changed, removals, merges, skipped, marked_removed, error, notices, progress, triggered_by, force FROM sync_runs
+WHERE provider = $1 AND kind = $2
+  AND ($3::text IS NULL OR status = $3)
+ORDER BY started_at DESC, id DESC
+LIMIT $5 OFFSET $4
+`
+
+type ListSyncRunsOfKindParams struct {
+	Provider string
+	Kind     string
+	Status   pgtype.Text
+	Off      int32
+	Lim      int32
+}
+
+func (q *Queries) ListSyncRunsOfKind(ctx context.Context, arg ListSyncRunsOfKindParams) ([]SyncRun, error) {
+	rows, err := q.db.Query(ctx, listSyncRunsOfKind,
+		arg.Provider,
+		arg.Kind,
+		arg.Status,
+		arg.Off,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SyncRun{}
+	for rows.Next() {
+		var i SyncRun
+		if err := rows.Scan(
+			&i.ID,
+			&i.Provider,
+			&i.Kind,
+			&i.Trigger,
+			&i.Status,
+			&i.StartedAt,
+			&i.FinishedAt,
+			&i.SnapshotID,
+			&i.FullSnapshot,
+			&i.CursorStart,
+			&i.CursorEnd,
+			&i.Upserts,
+			&i.Changed,
+			&i.Removals,
+			&i.Merges,
+			&i.Skipped,
+			&i.MarkedRemoved,
+			&i.Error,
+			&i.Notices,
+			&i.Progress,
+			&i.TriggeredBy,
+			&i.Force,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const pruneSyncRuns = `-- name: PruneSyncRuns :execrows
+DELETE FROM sync_runs r
+WHERE r.provider = $1 AND r.kind = $2 AND r.status <> 'running'
+  AND r.id NOT IN (
+    SELECT k.id FROM sync_runs k
+    WHERE k.provider = $1 AND k.kind = $2 AND k.status <> 'running'
+    ORDER BY k.started_at DESC
+    LIMIT $3
+  )
+`
+
+type PruneSyncRunsParams struct {
+	Provider string
+	Kind     string
+	Keep     int32
+}
+
+// Keeps the newest @keep finished runs of a provider and kind.
+func (q *Queries) PruneSyncRuns(ctx context.Context, arg PruneSyncRunsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, pruneSyncRuns, arg.Provider, arg.Kind, arg.Keep)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const runningSyncRun = `-- name: RunningSyncRun :one
-SELECT id, provider, kind, trigger, status, started_at, finished_at, snapshot_id, full_snapshot, cursor_start, cursor_end, upserts, changed, removals, merges, skipped, marked_removed, error, notices, progress FROM sync_runs
+SELECT id, provider, kind, trigger, status, started_at, finished_at, snapshot_id, full_snapshot, cursor_start, cursor_end, upserts, changed, removals, merges, skipped, marked_removed, error, notices, progress, triggered_by, force FROM sync_runs
 WHERE provider = $1 AND status = 'running'
 ORDER BY started_at DESC
 LIMIT 1
@@ -289,6 +393,8 @@ func (q *Queries) RunningSyncRun(ctx context.Context, provider string) (SyncRun,
 		&i.Error,
 		&i.Notices,
 		&i.Progress,
+		&i.TriggeredBy,
+		&i.Force,
 	)
 	return i, err
 }

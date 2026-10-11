@@ -1178,3 +1178,89 @@ a.chip-button {
     flex-direction: column;
   }
 }
+
+/* Jobs */
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.link-button:hover,
+.link-button:focus-visible {
+  text-decoration: underline;
+}
+
+.job-message {
+  max-width: 36rem;
+  overflow-wrap: anywhere;
+}
+
+/* Fixed columns, so the tables of every group line up. */
+.jobs-table {
+  table-layout: fixed;
+}
+
+.jobs-table th:nth-child(1) {
+  width: 34%;
+}
+
+.jobs-table th:nth-child(2) {
+  width: 18%;
+}
+
+.jobs-table th:nth-child(3) {
+  width: 24%;
+}
+
+.jobs-table th:nth-child(4) {
+  width: 11%;
+}
+
+.jobs-table td {
+  overflow-wrap: anywhere;
+}
+
+.job-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.notice-box {
+  padding: 0.6rem 0.8rem;
+  margin: 0.5rem 0;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  overflow-wrap: anywhere;
+}
+
+.inline-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 720px) {
+  .jobs-table thead {
+    display: none;
+  }
+
+  .jobs-table tr {
+    display: grid;
+    gap: 0.35rem;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .jobs-table td {
+    border: 0;
+    padding: 0;
+  }
+}

@@ -49,8 +49,14 @@ type Runner struct {
 	log       *slog.Logger
 	batchSize int
 
+	// retention is how many finished runs are kept per provider and kind;
+	// 0 keeps them all.
+	retention int
+
 	mu      sync.Mutex
 	running map[string]uuid.UUID
+	kinds   map[string]string
+	cancels map[string]context.CancelFunc
 	locks   map[string]*pgxpool.Conn
 	wg      sync.WaitGroup
 }
@@ -60,8 +66,15 @@ func NewRunner(st *store.Store, h *host.Host, w *catalog.Writer, log *slog.Logge
 	if batchSize <= 0 {
 		batchSize = 500
 	}
-	return &Runner{st: st, host: h, writer: w, log: log, batchSize: batchSize, running: map[string]uuid.UUID{}, locks: map[string]*pgxpool.Conn{}}
+	return &Runner{
+		st: st, host: h, writer: w, log: log, batchSize: batchSize,
+		running: map[string]uuid.UUID{}, kinds: map[string]string{}, cancels: map[string]context.CancelFunc{},
+		locks: map[string]*pgxpool.Conn{},
+	}
 }
+
+// SetRetention keeps the newest n finished runs per provider and kind.
+func (r *Runner) SetRetention(n int) { r.retention = n }
 
 // SetMetrics records sync runs in m.
 func (r *Runner) SetMetrics(m *metrics.Metrics) { r.metrics = m }
@@ -72,21 +85,31 @@ var ErrRunning = errors.New("a sync is already running for this provider")
 // Start begins a sync in the background and returns its run record. The
 // sync keeps going after ctx of the caller ends; it stops when base ends.
 func (r *Runner) Start(base context.Context, provider, kind, trigger string, force bool) (db.SyncRun, error) {
-	run, err := r.begin(base, provider, kind, trigger)
+	return r.StartBy(base, provider, kind, trigger, "", force)
+}
+
+// StartBy is Start recording who started the run.
+func (r *Runner) StartBy(base context.Context, provider, kind, trigger, by string, force bool) (db.SyncRun, error) {
+	run, ctx, err := r.begin(base, provider, kind, trigger, by, force)
 	if err != nil {
 		return db.SyncRun{}, err
 	}
 	r.wg.Add(1)
 	go func() {
 		defer r.wg.Done()
-		_ = r.execute(base, run, force)
+		_ = r.execute(ctx, run, force)
 	}()
 	return run, nil
 }
 
 // Run performs a sync and returns when it is done.
 func (r *Runner) Run(ctx context.Context, provider, kind, trigger string, force bool) (db.SyncRun, error) {
-	run, err := r.begin(ctx, provider, kind, trigger)
+	return r.RunBy(ctx, provider, kind, trigger, "", force)
+}
+
+// RunBy is Run recording who started the run.
+func (r *Runner) RunBy(ctx context.Context, provider, kind, trigger, by string, force bool) (db.SyncRun, error) {
+	run, ctx, err := r.begin(ctx, provider, kind, trigger, by, force)
 	if err != nil {
 		return db.SyncRun{}, err
 	}
@@ -109,7 +132,42 @@ func (r *Runner) Running(provider string) (uuid.UUID, bool) {
 	return id, ok
 }
 
-func (r *Runner) begin(ctx context.Context, provider, kind, trigger string) (db.SyncRun, error) {
+// ErrNotRunning is returned when cancelling a run that isn't going on in
+// this process.
+var ErrNotRunning = errors.New("the sync isn't running in this meta process")
+
+// Cancel stops a running sync. What it committed stays.
+func (r *Runner) Cancel(id uuid.UUID) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for provider, run := range r.running {
+		if run == id {
+			if cancel := r.cancels[provider]; cancel != nil {
+				cancel()
+				return nil
+			}
+		}
+	}
+	return ErrNotRunning
+}
+
+// JobID is the ID of a provider's sync job of a kind, e.g. "sync.mangabaka.dump".
+func JobID(provider, kind string) string { return "sync." + provider + "." + kind }
+
+func (r *Runner) begin(base context.Context, provider, kind, trigger, by string, force bool) (db.SyncRun, context.Context, error) {
+	run, err := r.open(base, provider, kind, trigger, by, force)
+	if err != nil {
+		return db.SyncRun{}, nil, err
+	}
+	ctx, cancel := context.WithCancel(base)
+	r.mu.Lock()
+	r.cancels[provider] = cancel
+	r.kinds[provider] = run.Kind
+	r.mu.Unlock()
+	return run, ctx, nil
+}
+
+func (r *Runner) open(ctx context.Context, provider, kind, trigger, by string, force bool) (db.SyncRun, error) {
 	p, ok := r.host.Get(provider)
 	if !ok {
 		return db.SyncRun{}, plugin.ErrNotFound("no provider %q is configured", provider)
@@ -169,7 +227,9 @@ func (r *Runner) begin(ctx context.Context, provider, kind, trigger string) (db.
 		r.done(provider)
 		return db.SyncRun{}, err
 	}
-	run, err := r.st.CreateSyncRun(ctx, db.CreateSyncRunParams{ID: id, Provider: provider, Kind: kind, Trigger: trigger, CursorStart: cursor})
+	run, err := r.st.CreateSyncRun(ctx, db.CreateSyncRunParams{
+		ID: id, Provider: provider, Kind: kind, Trigger: trigger, CursorStart: cursor, TriggeredBy: by, Force: force,
+	})
 	if err != nil {
 		r.done(provider)
 		return db.SyncRun{}, err
@@ -180,9 +240,15 @@ func (r *Runner) begin(ctx context.Context, provider, kind, trigger string) (db.
 func (r *Runner) done(provider string) {
 	r.mu.Lock()
 	conn := r.locks[provider]
+	cancel := r.cancels[provider]
 	delete(r.locks, provider)
 	delete(r.running, provider)
+	delete(r.kinds, provider)
+	delete(r.cancels, provider)
 	r.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 	if conn != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -228,13 +294,14 @@ func (r *Runner) execute(ctx context.Context, run db.SyncRun, force bool) (err e
 	s.log.Info("sync started", "trigger", run.Trigger, "cursor", run.CursorStart)
 	start := time.Now()
 	r.metrics.SyncStarted(run.Provider)
+	r.metrics.JobStarted(JobID(run.Provider, run.Kind))
 	marked := int64(0)
 	defer func() {
 		status, msg := "succeeded", ""
 		if err != nil {
 			err = store.Explain(err)
 			status, msg = "failed", err.Error()
-			if errors.Is(err, context.Canceled) {
+			if errors.Is(err, context.Canceled) || ctx.Err() != nil {
 				status = "cancelled"
 			}
 		}
@@ -246,8 +313,14 @@ func (r *Runner) execute(ctx context.Context, run db.SyncRun, force bool) (err e
 			Upserts: s.counts.upserts, Changed: s.counts.changed, Merges: s.counts.merges,
 			Removals: s.counts.removals, Skipped: s.counts.skipped, MarkedRemoved: marked,
 		})
+		r.metrics.JobFinished(JobID(run.Provider, run.Kind), status, run.Trigger, time.Since(start))
 		if ferr := r.st.FinishSyncRun(bg, db.FinishSyncRunParams{ID: run.ID, Status: status, Error: msg, MarkedRemoved: marked}); ferr != nil {
 			s.log.Error("record sync result", "err", ferr)
+		}
+		if r.retention > 0 {
+			if _, perr := r.st.PruneSyncRuns(bg, db.PruneSyncRunsParams{Provider: run.Provider, Kind: run.Kind, Keep: int32(r.retention)}); perr != nil { //nolint:gosec // retention is small
+				s.log.Warn("prune sync runs", "err", perr)
+			}
 		}
 		s.log.Info("sync finished", "status", status, "error", msg, "upserts", s.counts.upserts,
 			"changed", s.counts.changed, "merges", s.counts.merges, "removed", marked, "took", time.Since(start).Round(time.Millisecond))

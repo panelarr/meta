@@ -7,6 +7,7 @@ meta reads an optional YAML file (`--config FILE` or `META_CONFIG`) and then a f
 ```sh
 meta serve   [--config FILE] [--database-url URL]          # run the service
 meta sync    PROVIDER [KIND] [--force] [--config FILE]     # one sync in the foreground, then exit
+meta rebuild [--config FILE]                              # rebuild every entry from the stored records
 meta migrate [up|down|status] [--config FILE] [--database-url URL]
 meta admin-token reset [--config FILE]                    # new admin token, printed once
 meta healthcheck [--url URL]                              # probe a running meta
@@ -30,6 +31,9 @@ meta version
 | `merge.display_language` | | `en` | Language of display titles when a request doesn't ask for one |
 | `ingest.batch_size` | | `500` | Records per transaction when a plugin sends checkpoints rarely |
 | `ingest.stale_after` | | `168h` | Age after which a lookup refreshes an entry from its providers |
+| `jobs.retention` | | `100` | Finished runs kept per job, provider syncs included |
+| `jobs.stale_refresh.schedule` | | none (manual only) | Cron expression (UTC) for the stale-entry refresh job |
+| `jobs.stale_refresh.limit` | | `100` | Most entries one stale-entry refresh looks up |
 | `metrics.enabled` | `META_METRICS_ENABLED` | `false` | Prometheus metrics (see [observability](observability.md)) |
 | `metrics.listen` | `META_METRICS_LISTEN` | `:9464` | Address of the metrics endpoint. Empty: `/metrics` on the API port for the `metrics:read` scope |
 | `log.level` | `META_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |

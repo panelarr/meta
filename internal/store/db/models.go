@@ -188,6 +188,21 @@ type IntegrationSetting struct {
 	DefaultProfileID pgtype.Text
 }
 
+type JobRun struct {
+	ID          uuid.UUID
+	JobID       string
+	Trigger     string
+	Status      string
+	StartedAt   time.Time
+	FinishedAt  *time.Time
+	Message     string
+	Counts      []byte
+	TriggeredBy string
+	Params      []byte
+	Notes       []byte
+	Progress    []byte
+}
+
 type MaintenanceJob struct {
 	Name      string
 	Reason    string
@@ -296,6 +311,8 @@ type SyncRun struct {
 	Error         string
 	Notices       []byte
 	Progress      []byte
+	TriggeredBy   string
+	Force         bool
 }
 
 type Tag struct {

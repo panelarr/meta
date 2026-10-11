@@ -42,6 +42,8 @@ type Services struct {
 	Clients metav1connect.MetaClientsServiceHandler
 	// Integrations is optional; nil leaves the service unimplemented.
 	Integrations metav1connect.MetaIntegrationsServiceHandler
+	// Jobs is optional; nil leaves the service unimplemented.
+	Jobs metav1connect.MetaJobsServiceHandler
 }
 
 // Options configure the server.
@@ -77,6 +79,10 @@ func New(svc Services, opts Options) (*Server, error) {
 		svc.Integrations = metav1connect.UnimplementedMetaIntegrationsServiceHandler{}
 	}
 	add(metav1connect.NewMetaIntegrationsServiceHandler(svc.Integrations, hopts...))
+	if svc.Jobs == nil {
+		svc.Jobs = metav1connect.UnimplementedMetaJobsServiceHandler{}
+	}
+	add(metav1connect.NewMetaJobsServiceHandler(svc.Jobs, hopts...))
 	// Unknown API paths answer like other API errors, not with the UI.
 	transcoder, err := vanguard.NewTranscoder(services, vanguard.WithUnknownHandler(http.HandlerFunc(apiNotFound)))
 	if err != nil {
@@ -85,7 +91,7 @@ func New(svc Services, opts Options) (*Server, error) {
 
 	mux := http.NewServeMux()
 	reflector := grpcreflect.NewStaticReflector(metav1connect.MetaServiceName, metav1connect.MetaAdminServiceName,
-		metav1connect.MetaClientsServiceName, metav1connect.MetaIntegrationsServiceName)
+		metav1connect.MetaClientsServiceName, metav1connect.MetaIntegrationsServiceName, metav1connect.MetaJobsServiceName)
 	rpath, rhandler := grpcreflect.NewHandlerV1(reflector)
 	mux.Handle(rpath, s.authn(requireScope(auth.ScopeAdmin, rhandler)))
 	rpathA, rhandlerA := grpcreflect.NewHandlerV1Alpha(reflector)

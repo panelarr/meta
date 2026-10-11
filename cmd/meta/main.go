@@ -30,6 +30,7 @@ import (
 	"github.com/panelarr/meta/internal/host"
 	"github.com/panelarr/meta/internal/ingest"
 	"github.com/panelarr/meta/internal/integrations"
+	"github.com/panelarr/meta/internal/jobs"
 	"github.com/panelarr/meta/internal/metrics"
 	"github.com/panelarr/meta/internal/search"
 	"github.com/panelarr/meta/internal/secret"
@@ -307,19 +308,14 @@ func serve(ctx context.Context, args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	// One-off jobs an upgrade queued (e.g. rebuilding entries) run in the
-	// background; the API serves meanwhile.
-	go func() {
-		if _, err := a.writer.RunMaintenance(syncCtx, log.With("component", "maintenance")); err != nil && syncCtx.Err() == nil {
-			log.Error("maintenance", "err", err)
-		}
-	}()
 	a.host.Start(syncCtx, time.Minute)
-	sched, err := ingest.NewScheduler(syncCtx, a.cfg, a.runner, log)
-	if err != nil {
+	jm := a.newJobs()
+	if err := jm.Start(syncCtx); err != nil {
 		return err
 	}
-	sched.Start()
+	// One-off jobs an upgrade queued (e.g. rebuilding entries) run in the
+	// background; the API serves meanwhile.
+	a.startMaintenance(syncCtx, jm)
 
 	idx, err := search.New(a.cfg.Search.Backend, search.NewPostgres(a.st.Pool))
 	if err != nil {
@@ -359,6 +355,7 @@ func serve(ctx context.Context, args []string, out io.Writer) error {
 		Admin:        admin,
 		Clients:      api.NewClients(a.st),
 		Integrations: api.NewIntegrations(a.integ),
+		Jobs:         api.NewJobs(syncCtx, jm),
 	}, apiOpts)
 	if err != nil {
 		return err
@@ -379,9 +376,10 @@ func serve(ctx context.Context, args []string, out io.Writer) error {
 	}
 	shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 20*time.Second)
 	defer cancel()
-	sched.Stop()
+	jm.Stop()
 	stopSyncs()
 	a.runner.Wait()
+	jm.Wait()
 	if metricsSrv != nil {
 		_ = metricsSrv.Shutdown(shutdownCtx)
 	}
@@ -478,17 +476,29 @@ func rebuild(ctx context.Context, args []string, out io.Writer) error {
 	}
 	defer a.close()
 	start := time.Now()
-	n, err := a.writer.RebuildAll(ctx, 500, func(done int) {
-		if done%20000 == 0 {
-			fmt.Fprintf(out, "rebuilt %d entries\n", done)
-		}
-	})
+	run, err := a.newJobs().RunAndWait(ctx, jobRebuildEntries, jobs.Request{Trigger: jobs.TriggerManual, By: "cli"})
 	if err != nil {
 		return err
 	}
-	if err := a.st.FinishMaintenance(ctx, "rebuild-entries"); err != nil {
-		return err
-	}
-	_, err = fmt.Fprintf(out, "rebuilt %d entries in %s\n", n, time.Since(start).Round(time.Second))
+	_, err = fmt.Fprintf(out, "%s in %s\n", run.Message, time.Since(start).Round(time.Second))
 	return err
+}
+
+// startMaintenance starts the jobs an upgrade queued in maintenance_jobs.
+func (a *app) startMaintenance(ctx context.Context, jm *jobs.Manager) {
+	pending, err := a.st.PendingMaintenance(ctx)
+	if err != nil {
+		a.log.Error("maintenance", "err", err)
+		return
+	}
+	for _, p := range pending {
+		if _, ok := jm.Job(p.Name); !ok {
+			a.log.Warn("unknown maintenance job; leaving it", "job", p.Name)
+			continue
+		}
+		a.log.Info("maintenance job queued by an upgrade", "job", p.Name, "reason", p.Reason)
+		if _, err := jm.RunJob(ctx, p.Name, jobs.Request{Trigger: jobs.TriggerStartup}); err != nil {
+			a.log.Info("maintenance job not started", "job", p.Name, "err", err)
+		}
+	}
 }

@@ -45,6 +45,8 @@ type Config struct {
 	Merge Merge `yaml:"merge"`
 	// Ingest tunes syncs.
 	Ingest Ingest `yaml:"ingest"`
+	// Jobs tunes background jobs.
+	Jobs Jobs `yaml:"jobs"`
 	// Providers are the metadata plugins meta uses. None by default.
 	Providers []Provider `yaml:"providers"`
 	// Log configures logging.
@@ -85,6 +87,25 @@ type Ingest struct {
 	// StaleAfter is the age after which an entry counts as stale and a
 	// lookup refreshes it. Default 168h (a week).
 	StaleAfter time.Duration `yaml:"stale_after"`
+}
+
+// Jobs tunes background jobs other than provider syncs (those are
+// scheduled per provider).
+type Jobs struct {
+	// Retention is how many finished runs are kept per job, syncs
+	// included. Default 100.
+	Retention int `yaml:"retention"`
+	// StaleRefresh refreshes the entries whose provider records are older
+	// than ingest.stale_after, oldest first, from providers that can look
+	// records up.
+	StaleRefresh StaleRefresh `yaml:"stale_refresh"`
+}
+
+type StaleRefresh struct {
+	// Schedule is a cron expression (UTC). Empty: only run by hand.
+	Schedule string `yaml:"schedule"`
+	// Limit caps the entries refreshed per run. Default 100.
+	Limit int `yaml:"limit"`
 }
 
 type Log struct {
@@ -144,6 +165,7 @@ func Default() Config {
 		Search:  Search{Backend: "postgres"},
 		Merge:   Merge{DisplayLanguage: "en"},
 		Ingest:  Ingest{BatchSize: 500, StaleAfter: 7 * 24 * time.Hour},
+		Jobs:    Jobs{Retention: 100, StaleRefresh: StaleRefresh{Limit: 100}},
 		Log:     Log{Level: "info", Format: "json"},
 	}
 }
@@ -243,6 +265,17 @@ func (c Config) Validate() error {
 	}
 	if c.Ingest.BatchSize <= 0 {
 		errs = append(errs, errors.New("ingest.batch_size must be positive"))
+	}
+	if c.Jobs.Retention <= 0 {
+		errs = append(errs, errors.New("jobs.retention must be positive"))
+	}
+	if c.Jobs.StaleRefresh.Limit <= 0 {
+		errs = append(errs, errors.New("jobs.stale_refresh.limit must be positive"))
+	}
+	if spec := c.Jobs.StaleRefresh.Schedule; spec != "" {
+		if _, err := CronParser.Parse(spec); err != nil {
+			errs = append(errs, fmt.Errorf("jobs.stale_refresh.schedule: %w", err))
+		}
 	}
 	seen := map[string]bool{}
 	for i, p := range c.Providers {

@@ -31,6 +31,12 @@ export type Assignment = Schemas["panelarr.meta.v1.Assignment"];
 export type ProfileOrigin = Schemas["panelarr.meta.v1.ProfileOrigin"];
 export type GetHealthResponse = Schemas["panelarr.meta.v1.GetHealthResponse"];
 export type ComponentHealth = Schemas["panelarr.meta.v1.ComponentHealth"];
+export type Job = Schemas["panelarr.meta.v1.Job"];
+export type JobParam = Schemas["panelarr.meta.v1.JobParam"];
+export type JobRun = Schemas["panelarr.meta.v1.JobRun"];
+export type JobRunSummary = Schemas["panelarr.meta.v1.JobRunSummary"];
+export type JobRunStatus = Schemas["panelarr.meta.v1.JobRunStatus"];
+export type JobProgress = Schemas["panelarr.meta.v1.JobProgress"];
 
 // panelarr.metadata.v1: the entry schema and plugins
 export type EntryType = Schemas["panelarr.metadata.v1.EntryType"];

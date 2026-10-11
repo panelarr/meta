@@ -170,6 +170,129 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/job-runs/{runId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GetJobRun
+         * @description GetJobRun returns one run with its notes and progress.
+         */
+        get: operations["MetaJobsService_GetJobRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/job-runs/{runId}:cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * CancelJobRun
+         * @description CancelJobRun stops a running run. Jobs that can't stop midway answer
+         *      FAILED_PRECONDITION.
+         */
+        post: operations["MetaJobsService_CancelJobRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * ListJobs
+         * @description ListJobs lists every background job with its schedule and last run.
+         */
+        get: operations["MetaJobsService_ListJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/jobs/{jobId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GetJob
+         * @description GetJob returns one job.
+         */
+        get: operations["MetaJobsService_GetJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/jobs/{jobId}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * ListJobRuns
+         * @description ListJobRuns lists a job's runs, newest first.
+         */
+        get: operations["MetaJobsService_ListJobRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/jobs/{jobId}:run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * RunJob
+         * @description RunJob starts a run now and returns at once. A job runs once at a time:
+         *      when it is already running the answer is ALREADY_EXISTS (HTTP 409) with
+         *      a JobAlreadyRunning detail naming the current run.
+         */
+        post: operations["MetaJobsService_RunJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/profiles": {
         parameters: {
             query?: never;
@@ -668,6 +791,16 @@ export interface components {
              */
             noProviders?: boolean;
         };
+        /** CancelJobRunRequest */
+        "panelarr.meta.v1.CancelJobRunRequest": {
+            /** run_id */
+            runId?: string;
+        };
+        /** CancelJobRunResponse */
+        "panelarr.meta.v1.CancelJobRunResponse": {
+            /** run */
+            run?: components["schemas"]["panelarr.meta.v1.JobRunSummary"];
+        };
         /** Client */
         "panelarr.meta.v1.Client": {
             /** id */
@@ -999,6 +1132,26 @@ export interface components {
              */
             version?: string;
         };
+        /** GetJobRequest */
+        "panelarr.meta.v1.GetJobRequest": {
+            /** job_id */
+            jobId?: string;
+        };
+        /** GetJobResponse */
+        "panelarr.meta.v1.GetJobResponse": {
+            /** job */
+            job?: components["schemas"]["panelarr.meta.v1.Job"];
+        };
+        /** GetJobRunRequest */
+        "panelarr.meta.v1.GetJobRunRequest": {
+            /** run_id */
+            runId?: string;
+        };
+        /** GetJobRunResponse */
+        "panelarr.meta.v1.GetJobRunResponse": {
+            /** run */
+            run?: components["schemas"]["panelarr.meta.v1.JobRun"];
+        };
         /** GetSyncRunRequest */
         "panelarr.meta.v1.GetSyncRunRequest": {
             /** id */
@@ -1009,6 +1162,173 @@ export interface components {
             /** run */
             run?: components["schemas"]["panelarr.meta.v1.SyncRun"];
         };
+        /** Job */
+        "panelarr.meta.v1.Job": {
+            /**
+             * id
+             * @description Stable ID, e.g. "sync:mangabaka:dump", "rebuild-entries".
+             */
+            id?: string;
+            /**
+             * name
+             * @description Human label.
+             */
+            name?: string;
+            /** description */
+            description?: string;
+            /** schedule */
+            schedule?: components["schemas"]["panelarr.meta.v1.Schedule"];
+            /** running */
+            running?: boolean;
+            /**
+             * current_run_id
+             * @description The run in progress, while running.
+             */
+            currentRunId?: string;
+            /** last_run */
+            lastRun?: components["schemas"]["panelarr.meta.v1.JobRunSummary"];
+            /**
+             * next_run_at
+             * @description Unset when the job is manual only or its schedule is disabled.
+             */
+            nextRunAt?: components["schemas"]["google.protobuf.Timestamp"];
+            /** cancellable */
+            cancellable?: boolean;
+            /**
+             * params
+             * @description What RunJob accepts.
+             */
+            params?: components["schemas"]["panelarr.meta.v1.JobParam"][];
+            /**
+             * group
+             * @description UI grouping, e.g. "Providers", "Maintenance".
+             */
+            group?: string;
+        };
+        /** JobParam */
+        "panelarr.meta.v1.JobParam": {
+            /** name */
+            name?: string;
+            /**
+             * type
+             * @description "bool", "int", "string" or "string_list".
+             */
+            type?: string;
+            /** description */
+            description?: string;
+            /** required */
+            required?: boolean;
+            /**
+             * default
+             * @description Used when the parameter is left out.
+             */
+            default?: string;
+        };
+        /** JobProgress */
+        "panelarr.meta.v1.JobProgress": {
+            /**
+             * phase
+             * @description What the run is doing, e.g. "download", "rebuild".
+             */
+            phase?: string;
+            /**
+             * done
+             * Format: int64
+             */
+            done?: string;
+            /**
+             * total
+             * Format: int64
+             * @description 0 when unknown.
+             */
+            total?: string;
+            /**
+             * unit
+             * @description What done and total count, e.g. "entries", "bytes".
+             */
+            unit?: string;
+        };
+        /** JobRun */
+        "panelarr.meta.v1.JobRun": {
+            /** summary */
+            summary?: components["schemas"]["panelarr.meta.v1.JobRunSummary"];
+            /**
+             * params
+             * @description What it ran with.
+             */
+            params?: {
+                [key: string]: string;
+            };
+            /**
+             * notes
+             * @description Warnings, errors and notable events, oldest first (at most 200).
+             */
+            notes?: components["schemas"]["panelarr.meta.v1.JobRunNote"][];
+            /**
+             * progress
+             * @description The latest progress, while running.
+             */
+            progress?: components["schemas"]["panelarr.meta.v1.JobProgress"];
+        };
+        /** JobRunNote */
+        "panelarr.meta.v1.JobRunNote": {
+            /** at */
+            at?: components["schemas"]["google.protobuf.Timestamp"];
+            /**
+             * level
+             * @description "info", "warning" or "error".
+             */
+            level?: string;
+            /** message */
+            message?: string;
+            /**
+             * ref
+             * @description What it is about, e.g. a provider record ID.
+             */
+            ref?: string;
+        };
+        /**
+         * JobRunStatus
+         * @enum {string}
+         */
+        "panelarr.meta.v1.JobRunStatus": "JOB_RUN_STATUS_UNSPECIFIED" | "JOB_RUN_STATUS_RUNNING" | "JOB_RUN_STATUS_SUCCEEDED" | "JOB_RUN_STATUS_FAILED" | "JOB_RUN_STATUS_CANCELLED" | "JOB_RUN_STATUS_SKIPPED";
+        /** JobRunSummary */
+        "panelarr.meta.v1.JobRunSummary": {
+            /** id */
+            id?: string;
+            /** job_id */
+            jobId?: string;
+            /** status */
+            status?: components["schemas"]["panelarr.meta.v1.JobRunStatus"];
+            /** trigger */
+            trigger?: components["schemas"]["panelarr.meta.v1.JobTrigger"];
+            /** started_at */
+            startedAt?: components["schemas"]["google.protobuf.Timestamp"];
+            /** finished_at */
+            finishedAt?: components["schemas"]["google.protobuf.Timestamp"];
+            /**
+             * message
+             * @description One-line outcome, or the error when it failed.
+             */
+            message?: string;
+            /**
+             * counts
+             * @description What the run did, e.g. {"upserts": 564155, "merges": 258068}.
+             */
+            counts?: {
+                [key: string]: string;
+            };
+            /**
+             * triggered_by
+             * @description Who started a manual run: "admin" or a client's name.
+             */
+            triggeredBy?: string;
+        };
+        /**
+         * JobTrigger
+         * @enum {string}
+         */
+        "panelarr.meta.v1.JobTrigger": "JOB_TRIGGER_UNSPECIFIED" | "JOB_TRIGGER_SCHEDULE" | "JOB_TRIGGER_MANUAL" | "JOB_TRIGGER_STARTUP";
         /** LanguageCount */
         "panelarr.meta.v1.LanguageCount": {
             /**
@@ -1041,6 +1361,38 @@ export interface components {
         "panelarr.meta.v1.ListClientsResponse": {
             /** clients */
             clients?: components["schemas"]["panelarr.meta.v1.Client"][];
+        };
+        /** ListJobRunsRequest */
+        "panelarr.meta.v1.ListJobRunsRequest": {
+            /** job_id */
+            jobId?: string;
+            /**
+             * page_size
+             * Format: int32
+             * @description 1..100, default 20.
+             */
+            pageSize?: number;
+            /** page_token */
+            pageToken?: string;
+            /**
+             * status
+             * @description Only runs with this status.
+             */
+            status?: components["schemas"]["panelarr.meta.v1.JobRunStatus"];
+        };
+        /** ListJobRunsResponse */
+        "panelarr.meta.v1.ListJobRunsResponse": {
+            /** runs */
+            runs?: components["schemas"]["panelarr.meta.v1.JobRunSummary"][];
+            /** next_page_token */
+            nextPageToken?: string;
+        };
+        /** ListJobsRequest */
+        "panelarr.meta.v1.ListJobsRequest": Record<string, never>;
+        /** ListJobsResponse */
+        "panelarr.meta.v1.ListJobsResponse": {
+            /** jobs */
+            jobs?: components["schemas"]["panelarr.meta.v1.Job"][];
         };
         /** ListLanguagesRequest */
         "panelarr.meta.v1.ListLanguagesRequest": Record<string, never>;
@@ -1366,6 +1718,23 @@ export interface components {
              */
             apiKey?: string;
         };
+        /** RunJobRequest */
+        "panelarr.meta.v1.RunJobRequest": {
+            /** job_id */
+            jobId?: string;
+            /**
+             * params
+             * @description Values for the job's params, as strings ("true", "100", "a,b").
+             */
+            params?: {
+                [key: string]: string;
+            };
+        };
+        /** RunJobResponse */
+        "panelarr.meta.v1.RunJobResponse": {
+            /** run */
+            run?: components["schemas"]["panelarr.meta.v1.JobRunSummary"];
+        };
         /** RunSyncRequest */
         "panelarr.meta.v1.RunSyncRequest": {
             /** provider */
@@ -1385,6 +1754,29 @@ export interface components {
         "panelarr.meta.v1.RunSyncResponse": {
             /** run */
             run?: components["schemas"]["panelarr.meta.v1.SyncRun"];
+        };
+        /**
+         * Schedule
+         * @description When a job runs on its own. Neither cron nor interval: manual only.
+         */
+        "panelarr.meta.v1.Schedule": {
+            /** enabled */
+            enabled?: boolean;
+            /**
+             * source
+             * @description Where it is configured, e.g. "providers[mangabaka].schedules.dump".
+             *      Schedules are edited in the configuration, not here.
+             */
+            source?: string;
+        } | {
+            /**
+             * cron
+             * @description Five-field cron expression, UTC.
+             */
+            cron?: string;
+        } | {
+            /** interval */
+            interval?: components["schemas"]["google.protobuf.Duration"];
         };
         /** SearchHit */
         "panelarr.meta.v1.SearchHit": {
@@ -2866,6 +3258,160 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["panelarr.meta.v1.GetHealthResponse"];
+                };
+            };
+        };
+    };
+    MetaJobsService_GetJobRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The runId path parameter. */
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["panelarr.meta.v1.GetJobRunResponse"];
+                };
+            };
+        };
+    };
+    MetaJobsService_CancelJobRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The runId path parameter. */
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["panelarr.meta.v1.CancelJobRunResponse"];
+                };
+            };
+        };
+    };
+    MetaJobsService_ListJobs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["panelarr.meta.v1.ListJobsResponse"];
+                };
+            };
+        };
+    };
+    MetaJobsService_GetJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The jobId path parameter. */
+                jobId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["panelarr.meta.v1.GetJobResponse"];
+                };
+            };
+        };
+    };
+    MetaJobsService_ListJobRuns: {
+        parameters: {
+            query?: {
+                /** @description 1..100, default 20. */
+                pageSize?: number;
+                /** @description The pageToken query parameter. */
+                pageToken?: string;
+                /** @description Only runs with this status. */
+                status?: components["schemas"]["panelarr.meta.v1.JobRunStatus"];
+            };
+            header?: never;
+            path: {
+                /** @description The jobId path parameter. */
+                jobId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["panelarr.meta.v1.ListJobRunsResponse"];
+                };
+            };
+        };
+    };
+    MetaJobsService_RunJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The jobId path parameter. */
+                jobId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * params
+                     * @description Values for the job's params, as strings ("true", "100", "a,b").
+                     */
+                    params?: {
+                        [key: string]: string;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["panelarr.meta.v1.RunJobResponse"];
                 };
             };
         };

@@ -27,6 +27,9 @@ type Metrics struct {
 	APIRequests    *prometheus.CounterVec
 	APIDuration    *prometheus.HistogramVec
 	EntriesChanged *prometheus.CounterVec
+	JobRuns        *prometheus.CounterVec
+	JobDuration    *prometheus.HistogramVec
+	JobRunning     *prometheus.GaugeVec
 }
 
 // New registers meta's metrics, plus the Go runtime and process ones, on a
@@ -73,7 +76,37 @@ func New() *Metrics {
 	m.EntriesChanged = f(prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "meta_entries_changed_total", Help: "Merged entries whose content or state changed, by provider of the change.",
 	}, []string{"provider"})).(*prometheus.CounterVec)
+	m.JobRuns = f(prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "meta_job_runs_total", Help: "Finished background job runs by job, outcome and trigger.",
+	}, []string{"job", "status", "trigger"})).(*prometheus.CounterVec)
+	m.JobDuration = f(prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "meta_job_duration_seconds", Help: "Duration of background job runs.",
+		Buckets: []float64{1, 5, 15, 60, 300, 900, 1800, 3600, 7200},
+	}, []string{"job"})).(*prometheus.HistogramVec)
+	m.JobRunning = f(prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "meta_job_running", Help: "1 while a run of the job is going on in this process.",
+	}, []string{"job"})).(*prometheus.GaugeVec)
 	return m
+}
+
+// JobStarted marks a job as running. Safe on a nil *Metrics.
+func (m *Metrics) JobStarted(job string) {
+	if m == nil {
+		return
+	}
+	m.JobRunning.WithLabelValues(job).Set(1)
+}
+
+// JobFinished records a finished (or skipped) run.
+func (m *Metrics) JobFinished(job, status, trigger string, d time.Duration) {
+	if m == nil {
+		return
+	}
+	if status != "skipped" {
+		m.JobRunning.WithLabelValues(job).Set(0)
+		m.JobDuration.WithLabelValues(job).Observe(d.Seconds())
+	}
+	m.JobRuns.WithLabelValues(job, status, trigger).Inc()
 }
 
 // Code returns the status code name of err for labels ("ok" for nil).

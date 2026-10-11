@@ -88,6 +88,7 @@ database_url: %q
 api_keys: [test-key]
 log: {level: warn}
 metrics: {enabled: true, listen: %q}
+ingest: {stale_after: 1ms}
 providers:
   - id: static
     managed:
@@ -196,6 +197,86 @@ providers:
 	c.do("GET", "/v1/admin/providers", nil, &providers)
 	if len(providers.Providers) != 1 || providers.Providers[0].Health != "HEALTH_STATUS_OK" || providers.Providers[0].RecordCount != "3" || providers.Providers[0].Mode != "managed" {
 		t.Fatalf("providers: %+v", providers)
+	}
+
+	// Jobs: the provider's sync, and the rebuild the fresh database's
+	// migrations queued, which ran at startup.
+	var jobList struct {
+		Jobs []struct {
+			ID      string `json:"id"`
+			LastRun struct {
+				Status  string `json:"status"`
+				Trigger string `json:"trigger"`
+			} `json:"lastRun"`
+		} `json:"jobs"`
+	}
+	waitJob := func(path string) map[string]any {
+		t.Helper()
+		for {
+			var run struct {
+				Run struct {
+					Summary map[string]any `json:"summary"`
+				} `json:"run"`
+			}
+			if code := c.do("GET", path, nil, &run); code != http.StatusOK {
+				t.Fatalf("GET %s: %d", path, code)
+			}
+			if run.Run.Summary["status"] != "JOB_RUN_STATUS_RUNNING" {
+				return run.Run.Summary
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("%s did not finish", path)
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
+	for {
+		c.do("GET", "/v1/admin/jobs", nil, &jobList)
+		ids := map[string]string{}
+		for _, j := range jobList.Jobs {
+			ids[j.ID] = j.LastRun.Trigger + " " + j.LastRun.Status
+		}
+		if ids["rebuild-entries"] == "JOB_TRIGGER_STARTUP JOB_RUN_STATUS_SUCCEEDED" {
+			if _, ok := ids["sync.static.dump"]; !ok {
+				t.Fatalf("jobs: %v", ids)
+			}
+			if _, ok := ids["stale-refresh"]; !ok {
+				t.Fatalf("jobs: %v", ids)
+			}
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("startup rebuild: %v", ids)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	var refresh struct {
+		Run struct {
+			ID string `json:"id"`
+		} `json:"run"`
+	}
+	if code := c.do("POST", "/v1/admin/jobs/stale-refresh:run", map[string]any{"params": map[string]string{"limit": "2"}}, &refresh); code != http.StatusOK {
+		t.Fatalf("run stale refresh: %d", code)
+	}
+	sum := waitJob("/v1/admin/job-runs/" + refresh.Run.ID)
+	counts, _ := sum["counts"].(map[string]any)
+	if sum["status"] != "JOB_RUN_STATUS_SUCCEEDED" || counts["entries"] != "2" || sum["triggeredBy"] != "api_keys setting" {
+		t.Fatalf("stale refresh: %v", sum)
+	}
+	mres, err = http.Get("http://" + metricsAddr + "/metrics") //nolint:noctx // test
+	if err != nil {
+		t.Fatal(err)
+	}
+	mbody, _ = io.ReadAll(mres.Body)
+	mres.Body.Close()
+	for _, line := range []string{
+		`meta_job_runs_total{job="stale-refresh",status="succeeded",trigger="manual"} 1`,
+		`meta_job_runs_total{job="sync.static.dump",status="succeeded",trigger="manual"} 1`,
+		`meta_job_runs_total{job="rebuild-entries",status="succeeded",trigger="startup"} 1`,
+	} {
+		if !bytes.Contains(mbody, []byte(line)) {
+			t.Fatalf("metrics lack %s:\n%s", line, mbody)
+		}
 	}
 
 	// A second run while none is running works; a bad run id is a 400.

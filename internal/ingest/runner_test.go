@@ -18,6 +18,7 @@ import (
 	"github.com/panelarr/meta/internal/config"
 	"github.com/panelarr/meta/internal/host"
 	"github.com/panelarr/meta/internal/ingest"
+	"github.com/panelarr/meta/internal/jobs"
 	"github.com/panelarr/meta/internal/metrics"
 	"github.com/panelarr/meta/internal/store"
 	"github.com/panelarr/meta/internal/store/db"
@@ -36,6 +37,11 @@ type env struct {
 
 func setup(t *testing.T) *env {
 	t.Helper()
+	return setupWith(t, nil)
+}
+
+func setupWith(t *testing.T, change func(*config.Config)) *env {
+	t.Helper()
 	st := storetest.New(t)
 	fake := &plugintest.Fake{Provider: "fake", SnapshotID: "snap-1", CheckpointEvery: 2}
 	fake.Entries = []*metadatav1.ProviderEntry{
@@ -46,6 +52,9 @@ func setup(t *testing.T) *env {
 	}
 	cfg := config.Default()
 	cfg.Providers = []config.Provider{{ID: "fake", Remote: &config.Remote{URL: "inprocess"}, Settings: map[string]any{"greeting": "hi"}}}
+	if change != nil {
+		change(&cfg)
+	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	h := host.New(cfg, st, log, func(context.Context, config.Provider, *slog.Logger) (client.Client, error) {
 		return client.InProcess(fake), nil
@@ -236,17 +245,20 @@ func TestUnknownProvider(t *testing.T) {
 	}
 }
 
-func TestScheduler(t *testing.T) {
+func TestScheduledSyncJob(t *testing.T) {
 	t.Parallel()
-	e := setup(t)
-	cfg := config.Default()
-	cfg.Providers = []config.Provider{{ID: "fake", Remote: &config.Remote{URL: "x"}, Schedules: map[string]string{"dump": "@every 1s"}}}
-	s, err := ingest.NewScheduler(context.Background(), cfg, e.runner, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	if err != nil {
+	e := setupWith(t, func(cfg *config.Config) {
+		cfg.Providers[0].Schedules = map[string]string{"dump": "@every 1s"}
+	})
+	m := jobs.New(e.st, slog.New(slog.DiscardHandler), 100)
+	m.AddSource(ingest.NewSyncJobs(e.runner))
+	if err := m.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	s.Start()
-	defer s.Stop()
+	defer m.Stop()
+	if _, ok := m.NextRun("sync.fake.dump"); !ok {
+		t.Fatal("the sync job has no next run")
+	}
 	deadline := time.Now().Add(10 * time.Second)
 	for e.fake.Syncs() == 0 {
 		if time.Now().After(deadline) {
@@ -254,8 +266,21 @@ func TestScheduler(t *testing.T) {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	s.Stop()
+	m.Stop()
 	e.runner.Wait()
+	run, err := m.GetRun(context.Background(), mustLatestRun(t, e))
+	if err != nil || run.Trigger != jobs.TriggerSchedule || run.JobID != "sync.fake.dump" {
+		t.Fatalf("scheduled run: %+v %v", run, err)
+	}
+}
+
+func mustLatestRun(t *testing.T, e *env) string {
+	t.Helper()
+	var id string
+	if err := e.st.Pool.QueryRow(context.Background(), `SELECT id::text FROM sync_runs ORDER BY started_at DESC LIMIT 1`).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	return id
 }
 
 func TestOneRunPerProviderAcrossProcesses(t *testing.T) {

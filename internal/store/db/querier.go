@@ -12,9 +12,12 @@ import (
 )
 
 type Querier interface {
+	CountActiveEntries(ctx context.Context) (int64, error)
 	CountEntries(ctx context.Context) (int64, error)
 	CountProfiles(ctx context.Context) (int64, error)
 	CountProviderEntries(ctx context.Context) ([]CountProviderEntriesRow, error)
+	// SPDX-License-Identifier: GPL-3.0-or-later
+	CreateJobRun(ctx context.Context, arg CreateJobRunParams) (JobRun, error)
 	// SPDX-License-Identifier: GPL-3.0-or-later
 	CreateSyncRun(ctx context.Context, arg CreateSyncRunParams) (SyncRun, error)
 	DeleteAssignment(ctx context.Context, provider string) error
@@ -48,6 +51,9 @@ type Querier interface {
 	// than the given one). Two records of one provider are never merged by
 	// shared IDs: the provider itself keeps them apart.
 	EntryHasProviderRecord(ctx context.Context, arg EntryHasProviderRecordParams) (bool, error)
+	// A run is interrupted when no meta process holds its job's lock any more.
+	FailInterruptedJobRuns(ctx context.Context) (int64, error)
+	// Only runs no meta process holds the provider's sync lock for.
 	FailInterruptedSyncRuns(ctx context.Context) (int64, error)
 	FindCompanyByExternalIDs(ctx context.Context, arg FindCompanyByExternalIDsParams) (uuid.UUID, error)
 	// Entries that any of the given (provider, id) pairs point at.
@@ -60,6 +66,7 @@ type Querier interface {
 	// SPDX-License-Identifier: GPL-3.0-or-later
 	FindPersonByExternalIDs(ctx context.Context, arg FindPersonByExternalIDsParams) (uuid.UUID, error)
 	FindTagByExternalID(ctx context.Context, arg FindTagByExternalIDParams) (uuid.UUID, error)
+	FinishJobRun(ctx context.Context, arg FinishJobRunParams) error
 	FinishMaintenance(ctx context.Context, name string) error
 	FinishSyncRun(ctx context.Context, arg FinishSyncRunParams) error
 	GetAdminToken(ctx context.Context) (AdminToken, error)
@@ -73,6 +80,7 @@ type Querier interface {
 	GetEntries(ctx context.Context, ids []uuid.UUID) ([]Entry, error)
 	GetEntry(ctx context.Context, id uuid.UUID) (Entry, error)
 	GetEntryHash(ctx context.Context, id uuid.UUID) ([]byte, error)
+	GetJobRun(ctx context.Context, id uuid.UUID) (JobRun, error)
 	GetProfile(ctx context.Context, id string) (NetworkProfile, error)
 	GetProvider(ctx context.Context, id string) (Provider, error)
 	GetProviderEntry(ctx context.Context, arg GetProviderEntryParams) (ProviderEntry, error)
@@ -104,6 +112,7 @@ type Querier interface {
 	InsertRedirect(ctx context.Context, arg InsertRedirectParams) error
 	// A provider's tag ID points at the tag that has it now.
 	InsertTagExternalID(ctx context.Context, arg InsertTagExternalIDParams) error
+	LatestJobRuns(ctx context.Context) ([]JobRun, error)
 	LatestSyncRuns(ctx context.Context) ([]SyncRun, error)
 	// Records a provider merged, and that meta never gave an entry of their own,
 	// point at their target's entry. One statement for the whole provider;
@@ -128,6 +137,7 @@ type Querier interface {
 	ListFieldLocksForEntries(ctx context.Context, ids []uuid.UUID) ([]FieldLock, error)
 	ListGenreKeysForEntries(ctx context.Context, ids []uuid.UUID) ([]ListGenreKeysForEntriesRow, error)
 	ListGenresForEntries(ctx context.Context, ids []uuid.UUID) ([]ListGenresForEntriesRow, error)
+	ListJobRuns(ctx context.Context, arg ListJobRunsParams) ([]JobRun, error)
 	// Provider merges whose records still sit in different entries. With
 	// external_ids empty, checks every merged record of the provider.
 	ListMergeTargets(ctx context.Context, arg ListMergeTargetsParams) ([]ListMergeTargetsRow, error)
@@ -140,7 +150,11 @@ type Querier interface {
 	// SPDX-License-Identifier: GPL-3.0-or-later
 	ListSolvers(ctx context.Context) ([]Solver, error)
 	ListSourcesForEntry(ctx context.Context, entryID uuid.NullUUID) ([]ListSourcesForEntryRow, error)
+	// Entries with an active record of one of the providers fetched before
+	// @before, the longest unrefreshed first.
+	ListStaleEntries(ctx context.Context, arg ListStaleEntriesParams) ([]ListStaleEntriesRow, error)
 	ListSyncRuns(ctx context.Context, arg ListSyncRunsParams) ([]SyncRun, error)
+	ListSyncRunsOfKind(ctx context.Context, arg ListSyncRunsOfKindParams) ([]SyncRun, error)
 	ListTags(ctx context.Context, arg ListTagsParams) ([]Tag, error)
 	ListTagsWithParent(ctx context.Context, arg ListTagsWithParentParams) ([]ListTagsWithParentRow, error)
 	ListTitleLanguages(ctx context.Context) ([]ListTitleLanguagesRow, error)
@@ -162,13 +176,19 @@ type Querier interface {
 	MoveProviderEntries(ctx context.Context, arg MoveProviderEntriesParams) error
 	PendingMaintenance(ctx context.Context) ([]MaintenanceJob, error)
 	ProfilesUsingSolver(ctx context.Context, solverID pgtype.Text) ([]string, error)
+	// Keeps the newest @keep finished runs of a job.
+	PruneJobRuns(ctx context.Context, arg PruneJobRunsParams) (int64, error)
+	// Keeps the newest @keep finished runs of a provider and kind.
+	PruneSyncRuns(ctx context.Context, arg PruneSyncRunsParams) (int64, error)
 	PutProfile(ctx context.Context, arg PutProfileParams) error
 	PutSolver(ctx context.Context, arg PutSolverParams) error
 	RecountTags(ctx context.Context) error
 	// Keep redirect chains one hop long.
 	RepointRedirects(ctx context.Context, arg RepointRedirectsParams) error
 	RotateClientKey(ctx context.Context, arg RotateClientKeyParams) (Client, error)
+	RunningJobRun(ctx context.Context, jobID string) (JobRun, error)
 	RunningSyncRun(ctx context.Context, provider string) (SyncRun, error)
+	SaveJobRun(ctx context.Context, arg SaveJobRunParams) error
 	SetAdminToken(ctx context.Context, tokenHash []byte) error
 	SetAssignment(ctx context.Context, arg SetAssignmentParams) error
 	SetDefaultProfileID(ctx context.Context, profileID pgtype.Text) error

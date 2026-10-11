@@ -4,7 +4,6 @@ package catalog_test
 
 import (
 	"context"
-	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
@@ -108,19 +107,3 @@ func TestRebuildAllRepairsTags(t *testing.T) {
 }
 
 // The upgrade queues a rebuild; it runs once and is then done.
-func TestMaintenanceRunsOnce(t *testing.T) {
-	t.Parallel()
-	ctx := context.Background()
-	w, s := newWriter(t)
-	jobs, err := s.PendingMaintenance(ctx)
-	if err != nil || len(jobs) != 1 || jobs[0].Name != "rebuild-entries" {
-		t.Fatalf("queued jobs: %v %v", jobs, err)
-	}
-	log := slog.New(slog.DiscardHandler)
-	if n, err := w.RunMaintenance(ctx, log); err != nil || n != 1 {
-		t.Fatalf("first run: %d %v", n, err)
-	}
-	if n, err := w.RunMaintenance(ctx, log); err != nil || n != 0 {
-		t.Fatalf("second run: %d %v", n, err)
-	}
-}

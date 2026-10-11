@@ -254,6 +254,89 @@ describe("providers", () => {
   });
 });
 
+describe("jobs", () => {
+  it("lists jobs by group with schedule, last run and next run", async () => {
+    const app = renderApp("/jobs");
+    const providers = await screen.findByRole("region", { name: "Providers" });
+    const sync = within(providers).getByRole("row", { name: "Job Sync example (dump)" });
+    expect(within(sync).getByText("0 3 * * * UTC")).toBeInTheDocument();
+    expect(within(sync).getByText("providers[example].schedules.dump")).toBeInTheDocument();
+    expect(within(sync).getByText("Succeeded")).toBeInTheDocument();
+    expect(within(sync).getByText(/564040 records/)).toBeInTheDocument();
+    const maintenance = screen.getByRole("region", { name: "Maintenance" });
+    const stale = within(maintenance).getByRole("row", { name: "Job Refresh stale entries" });
+    expect(within(stale).getByText("manual only")).toBeInTheDocument();
+    expect(within(stale).getByText("Failed")).toBeInTheDocument();
+    expect(within(stale).getByText(/database out of space/)).toBeInTheDocument();
+    app.dispose();
+  });
+
+  it("runs a job with its params, follows the run and cancels it", async () => {
+    let sent: unknown;
+    server.events.on("request:start", async ({ request }) => {
+      if (request.url.endsWith(":run")) sent = await request.clone().json();
+    });
+    const app = renderApp("/jobs");
+    const row = await screen.findByRole("row", { name: "Job Refresh stale entries" });
+    await userEvent.click(within(row).getByRole("button", { name: "Run now" }));
+    const form = await screen.findByRole("dialog", { name: "Run Refresh stale entries?" });
+    const limit = within(form).getByLabelText("limit");
+    expect(limit).toHaveValue(100);
+    await userEvent.clear(limit);
+    await userEvent.type(limit, "5");
+    await userEvent.click(within(form).getByRole("button", { name: "Run now" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Run of Refresh stale entries" });
+    expect(within(dialog).getByText("Running")).toBeInTheDocument();
+    expect(within(dialog).getByText(/250 \/ 1,000 items \(25%\)/)).toBeInTheDocument();
+    expect(within(dialog).getByText("by admin", { exact: false })).toBeInTheDocument();
+    expect(sent).toEqual({ params: { limit: "5" } });
+    expect(app.router.state.location.search).toMatchObject({ job: "stale-refresh" });
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel run" }));
+    expect(await within(dialog).findByText("Cancelled")).toBeInTheDocument();
+    server.events.removeAllListeners();
+    app.dispose();
+  });
+
+  it("says when a job started elsewhere is already running", async () => {
+    // Another admin or the schedule started it after the list loaded: the API answers 409.
+    server.use(
+      http.post(/\/v1\/admin\/jobs\/rebuild-entries:run$/, () =>
+        HttpResponse.json(
+          { code: 6, message: "job rebuild-entries is already running (run r-1)", details: [] },
+          { status: 409 },
+        ),
+      ),
+      http.get("*/v1/admin/jobs/rebuild-entries", () =>
+        HttpResponse.json({ job: { id: "rebuild-entries", running: true, currentRunId: "r-1" } }),
+      ),
+    );
+    const app = renderApp("/jobs");
+    const row = await screen.findByRole("row", { name: "Job Rebuild entries" });
+    await userEvent.click(within(row).getByRole("button", { name: "Run now" }));
+    await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Run now" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Rebuild entries is already running");
+    await userEvent.click(await screen.findByRole("button", { name: "Open the current run" }));
+    await waitFor(() => expect(app.router.state.location.search).toMatchObject({ job: "rebuild-entries", run: "r-1" }));
+    app.dispose();
+  });
+
+  it("shows a job's run history with a status filter and run details", async () => {
+    const app = renderApp("/jobs?job=sync.example.dump");
+    const runs = await screen.findByRole("region", { name: "Runs of Sync example (dump)" });
+    expect(await within(runs).findByText(/1,203 changed/)).toBeInTheDocument();
+    await userEvent.selectOptions(within(runs).getByLabelText("Status"), "JOB_RUN_STATUS_FAILED");
+    expect(await within(runs).findByText("No runs.")).toBeInTheDocument();
+    await userEvent.selectOptions(within(runs).getByLabelText("Status"), "");
+    await userEvent.click(await within(runs).findByRole("button", { name: "Details" }));
+    const dialog = await screen.findByRole("dialog", { name: "Run of Sync example (dump)" });
+    expect(within(dialog).getByText("row has no title; skipped")).toBeInTheDocument();
+    expect(within(dialog).getByText("force")).toBeInTheDocument();
+    app.dispose();
+  });
+});
+
 describe("clients", () => {
   it("creates a client and shows its key once", async () => {
     const app = renderApp("/clients");

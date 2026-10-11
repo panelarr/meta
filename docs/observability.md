@@ -36,6 +36,9 @@ With `listen: ""` they're served on the API port at `/metrics` instead, to calle
 | `meta_plugin_call_duration_seconds` | provider, operation | Plugin call latency (histogram; for sync, until the stream opens) |
 | `meta_plugin_up` | provider | 1 healthy, 0.5 degraded, 0 down |
 | `meta_search_duration_seconds` | backend, kind | Search and browse latency (histogram) |
+| `meta_job_runs_total` | job, status, trigger | Finished job runs, syncs included (succeeded, failed, cancelled, skipped) |
+| `meta_job_duration_seconds` | job | Job run duration (histogram) |
+| `meta_job_running` | job | 1 while a run of the job goes on in this process |
 | `meta_api_requests_total` | procedure, code | API calls by RPC and outcome (REST calls count under their RPC) |
 | `meta_api_request_duration_seconds` | procedure | API latency (histogram) |
 

@@ -1,8 +1,8 @@
 -- SPDX-License-Identifier: GPL-3.0-or-later
 
 -- name: CreateSyncRun :one
-INSERT INTO sync_runs (id, provider, kind, trigger, cursor_start)
-VALUES (@id, @provider, @kind, @trigger, @cursor_start)
+INSERT INTO sync_runs (id, provider, kind, trigger, cursor_start, triggered_by, force)
+VALUES (@id, @provider, @kind, @trigger, @cursor_start, @triggered_by, @force)
 RETURNING *;
 
 -- name: StartSyncRun :exec
@@ -39,6 +39,24 @@ WHERE (sqlc.narg('provider')::text IS NULL OR provider = sqlc.narg('provider'))
 ORDER BY started_at DESC, id DESC
 LIMIT @lim OFFSET @off;
 
+-- name: ListSyncRunsOfKind :many
+SELECT * FROM sync_runs
+WHERE provider = @provider AND kind = @kind
+  AND (sqlc.narg('status')::text IS NULL OR status = sqlc.narg('status'))
+ORDER BY started_at DESC, id DESC
+LIMIT @lim OFFSET @off;
+
+-- name: PruneSyncRuns :execrows
+-- Keeps the newest @keep finished runs of a provider and kind.
+DELETE FROM sync_runs r
+WHERE r.provider = @provider AND r.kind = @kind AND r.status <> 'running'
+  AND r.id NOT IN (
+    SELECT k.id FROM sync_runs k
+    WHERE k.provider = @provider AND k.kind = @kind AND k.status <> 'running'
+    ORDER BY k.started_at DESC
+    LIMIT @keep
+  );
+
 -- name: LatestSyncRuns :many
 SELECT DISTINCT ON (provider, kind) *
 FROM sync_runs
@@ -53,7 +71,8 @@ LIMIT 1;
 -- name: FailInterruptedSyncRuns :execrows
 UPDATE sync_runs
 SET status = 'failed', error = 'interrupted: meta stopped during the run', finished_at = now()
-WHERE status = 'running';
+-- Only runs no meta process holds the provider's sync lock for.
+WHERE status = 'running' AND pg_try_advisory_xact_lock(hashtext('meta-sync:' || provider));
 
 -- name: GetSyncCursor :one
 SELECT * FROM sync_cursors WHERE provider = @provider AND kind = @kind;

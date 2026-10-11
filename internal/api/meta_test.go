@@ -27,6 +27,7 @@ import (
 	"github.com/panelarr/meta/internal/host"
 	"github.com/panelarr/meta/internal/ingest"
 	"github.com/panelarr/meta/internal/integrations"
+	"github.com/panelarr/meta/internal/jobs"
 	"github.com/panelarr/meta/internal/metrics"
 	"github.com/panelarr/meta/internal/search"
 	"github.com/panelarr/meta/internal/secret"
@@ -45,6 +46,9 @@ type fixture struct {
 	meta    metav1connect.MetaServiceClient
 	fake    *plugintest.Fake
 	writer  *catalog.Writer
+	jobs    *jobs.Manager
+	// release lets the "hold" test job finish.
+	release chan struct{}
 }
 
 func p[T any](v T) *T { return &v }
@@ -152,18 +156,39 @@ func setup(t *testing.T, apiKeys ...string) *fixture {
 	admin := api.NewAdmin(ctx, st, h, r, w)
 	idx := search.Instrumented(search.NewPostgres(st.Pool), m)
 	admin.SetIndex(idx)
+	jm := jobs.New(st, log, 100)
+	jm.AddSource(ingest.NewSyncJobs(r))
+	release := make(chan struct{})
+	jm.Add(jobs.Def{
+		ID: "hold", Name: "Hold", Group: "Test", Cancellable: true,
+		Params: []jobs.Param{{Name: "limit", Type: jobs.ParamInt, Default: "10"}},
+	}, func(ctx context.Context, rec *jobs.Recorder) error {
+		rec.Progress(ctx, "hold", 1, 2, "steps")
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-release:
+			rec.Message("held")
+			return nil
+		}
+	})
+	if err := jm.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { jm.Stop(); r.Wait(); jm.Wait() })
 	srv, err := api.New(api.Services{
 		Meta:         api.NewMeta(st, h, w, api.MetaOptions{DisplayLanguage: "en", Log: log, Index: idx}),
 		Admin:        admin,
 		Clients:      api.NewClients(st),
 		Integrations: api.NewIntegrations(integ),
+		Jobs:         api.NewJobs(ctx, jm),
 	}, api.Options{Auth: authn, Log: log, Metrics: m, MetricsHandler: promhttp.HandlerFor(m.Registry, promhttp.HandlerOpts{})})
 	if err != nil {
 		t.Fatal(err)
 	}
 	hs := httptest.NewServer(srv.Handler())
 	t.Cleanup(hs.Close)
-	return &fixture{metrics: m, integ: integ, st: st, srv: hs, meta: metav1connect.NewMetaServiceClient(hs.Client(), hs.URL), fake: fake, writer: w}
+	return &fixture{metrics: m, integ: integ, st: st, srv: hs, meta: metav1connect.NewMetaServiceClient(hs.Client(), hs.URL), fake: fake, writer: w, jobs: jm, release: release}
 }
 
 func (f *fixture) entryID(t *testing.T, provider, id string) string {

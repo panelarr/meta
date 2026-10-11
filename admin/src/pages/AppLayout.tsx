@@ -13,6 +13,7 @@ export function RootLayout() {
 const nav = [
   { to: "/catalogue", label: "Catalogue" },
   { to: "/providers", label: "Providers" },
+  { to: "/jobs", label: "Jobs" },
   { to: "/clients", label: "Clients" },
   { to: "/integrations", label: "Integrations" },
   { to: "/health", label: "Health" },

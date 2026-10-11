@@ -11,6 +11,17 @@ import (
 	"github.com/google/uuid"
 )
 
+const countActiveEntries = `-- name: CountActiveEntries :one
+SELECT count(*) FROM entries WHERE state = 'active'
+`
+
+func (q *Queries) CountActiveEntries(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countActiveEntries)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deleteCompaniesOf = `-- name: DeleteCompaniesOf :exec
 DELETE FROM entry_companies WHERE entry_id = ANY($1::uuid[])
 `
