@@ -34,6 +34,7 @@ Usage:
   meta serve                          run the service (API, plugins, scheduled syncs)
   meta sync PROVIDER [KIND] [--force] run one sync in the foreground and print the result
   meta migrate [up|down|status]       apply, roll back or list database migrations
+  meta healthcheck [--url URL]        probe a running meta (for container health checks)
   meta version                        print the version
 
 Flags (all commands):
@@ -73,6 +74,11 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		return serve(ctx, args[1:], out)
 	case "sync":
 		return syncOnce(ctx, args[1:], out)
+	case "healthcheck":
+		if code := runHealthcheck(args[1:], os.Stderr); code != 0 {
+			return fmt.Errorf("unhealthy (exit %d)", code)
+		}
+		return nil
 	default:
 		return errUsage
 	}

@@ -1,0 +1,18 @@
+# meta configuration for compose.yaml. The database URL and the keys come
+# from the environment (see compose.yaml).
+listen: ":8901"
+api_keys:
+  - ${META_API_KEY}
+log:
+  level: info
+  format: text
+providers:
+  - id: mangabaka
+    remote:
+      url: http://meta-mangabaka:8903
+      api_key: ${MANGABAKA_PLUGIN_KEY}
+    settings:
+      dump_variant: default
+    schedules:
+      # Daily at 03:00 UTC; MangaBaka rebuilds its dump at 00:00 UTC.
+      dump: "0 3 * * *"

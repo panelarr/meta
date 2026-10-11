@@ -1,0 +1,65 @@
+# A complete metadata stack for trying meta out: PostgreSQL, meta and the
+# MangaBaka plugin. See the quick start in README.md.
+#
+# Until the images are published, `docker compose up --build` builds them
+# from this checkout and a meta-mangabaka checkout next to it.
+#
+# This is a development setup: PostgreSQL runs with a password from the
+# environment and meta's database user owns its database. In production,
+# give meta its own database on your PostgreSQL server (it needs no
+# superuser) and keep the keys secret.
+name: panelarr-meta
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: meta
+      POSTGRES_USER: meta
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-meta}
+    volumes:
+      - postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "meta", "-d", "meta"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  meta:
+    image: panelarr/meta:${META_TAG:-dev}
+    build:
+      context: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      meta-mangabaka:
+        condition: service_started
+    environment:
+      META_CONFIG: /etc/meta/meta.yaml
+      META_DATABASE_URL: postgres://meta:${POSTGRES_PASSWORD:-meta}@postgres:5432/meta?sslmode=disable
+      META_API_KEY: ${META_API_KEY:?set META_API_KEY}
+      MANGABAKA_PLUGIN_KEY: ${MANGABAKA_PLUGIN_KEY:?set MANGABAKA_PLUGIN_KEY}
+    volumes:
+      - ./compose/meta.yaml:/etc/meta/meta.yaml:ro
+    ports:
+      - "${META_PORT:-8901}:8901"
+    restart: unless-stopped
+
+  meta-mangabaka:
+    image: panelarr/meta-mangabaka:${MANGABAKA_TAG:-dev}
+    build:
+      context: ../meta-mangabaka
+      additional_contexts:
+        meta: .
+    environment:
+      PLUGIN_API_KEY: ${MANGABAKA_PLUGIN_KEY:?set MANGABAKA_PLUGIN_KEY}
+    volumes:
+      # The downloaded dump lives here (about 4 GB with the default variant).
+      - mangabaka:/data
+    # No published port: only meta talks to the plugin.
+    restart: unless-stopped
+
+volumes:
+  postgres: {}
+  mangabaka: {}

@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	metadatav1 "github.com/panelarr/meta/gen/panelarr/metadata/v1"
@@ -48,6 +49,7 @@ type Runner struct {
 
 	mu      sync.Mutex
 	running map[string]uuid.UUID
+	locks   map[string]*pgxpool.Conn
 	wg      sync.WaitGroup
 }
 
@@ -56,7 +58,7 @@ func NewRunner(st *store.Store, h *host.Host, w *catalog.Writer, log *slog.Logge
 	if batchSize <= 0 {
 		batchSize = 500
 	}
-	return &Runner{st: st, host: h, writer: w, log: log, batchSize: batchSize, running: map[string]uuid.UUID{}}
+	return &Runner{st: st, host: h, writer: w, log: log, batchSize: batchSize, running: map[string]uuid.UUID{}, locks: map[string]*pgxpool.Conn{}}
 }
 
 // ErrRunning is returned when the provider already has a sync running.
@@ -130,6 +132,29 @@ func (r *Runner) begin(ctx context.Context, provider, kind, trigger string) (db.
 	r.running[provider] = id
 	r.mu.Unlock()
 
+	// Other meta processes on the same database (a second replica, or
+	// `meta sync` next to `meta serve`) must not sync the provider at the
+	// same time: hold a session advisory lock for the whole run.
+	conn, err := r.st.Pool.Acquire(ctx)
+	if err != nil {
+		r.done(provider)
+		return db.SyncRun{}, err
+	}
+	var locked bool
+	if err := conn.QueryRow(ctx, `SELECT pg_try_advisory_lock(hashtext('meta-sync:' || $1))`, provider).Scan(&locked); err != nil {
+		conn.Release()
+		r.done(provider)
+		return db.SyncRun{}, err
+	}
+	if !locked {
+		conn.Release()
+		r.done(provider)
+		return db.SyncRun{}, fmt.Errorf("%w (in another meta process)", ErrRunning)
+	}
+	r.mu.Lock()
+	r.locks[provider] = conn
+	r.mu.Unlock()
+
 	cursor := ""
 	cur, err := r.st.GetSyncCursor(ctx, db.GetSyncCursorParams{Provider: provider, Kind: kind})
 	switch {
@@ -149,8 +174,19 @@ func (r *Runner) begin(ctx context.Context, provider, kind, trigger string) (db.
 
 func (r *Runner) done(provider string) {
 	r.mu.Lock()
+	conn := r.locks[provider]
+	delete(r.locks, provider)
 	delete(r.running, provider)
 	r.mu.Unlock()
+	if conn != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if _, err := conn.Exec(ctx, `SELECT pg_advisory_unlock(hashtext('meta-sync:' || $1))`, provider); err != nil {
+			// Closing the connection drops the lock.
+			_ = conn.Conn().Close(ctx)
+		}
+		conn.Release()
+	}
 }
 
 type notice struct {

@@ -1,0 +1,12 @@
+# Image built by GoReleaser from the release binaries (see .goreleaser.yaml).
+# For local builds use the Dockerfile (`make docker`).
+FROM gcr.io/distroless/static-debian12:nonroot
+ARG TARGETPLATFORM
+COPY $TARGETPLATFORM/meta /meta
+ENV META_LISTEN=:8901
+EXPOSE 8901
+USER 65532:65532
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD ["/meta", "healthcheck"]
+ENTRYPOINT ["/meta"]
+CMD ["serve"]

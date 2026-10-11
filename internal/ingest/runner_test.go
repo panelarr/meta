@@ -211,3 +211,27 @@ func TestScheduler(t *testing.T) {
 	s.Stop()
 	e.runner.Wait()
 }
+
+func TestOneRunPerProviderAcrossProcesses(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	e := setup(t)
+	// Another process holds the provider's sync lock.
+	conn, err := e.st.Pool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Release()
+	if _, err := conn.Exec(ctx, `SELECT pg_advisory_lock(hashtext('meta-sync:' || $1))`, "fake"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.runner.Run(ctx, "fake", "dump", ingest.TriggerManual, false); !errors.Is(err, ingest.ErrRunning) {
+		t.Fatalf("want ErrRunning while another process syncs, got %v", err)
+	}
+	if _, err := conn.Exec(ctx, `SELECT pg_advisory_unlock(hashtext('meta-sync:' || $1))`, "fake"); err != nil {
+		t.Fatal(err)
+	}
+	if run, err := e.runner.Run(ctx, "fake", "dump", ingest.TriggerManual, false); err != nil || run.Status != "succeeded" {
+		t.Fatalf("after unlock: %+v %v", run, err)
+	}
+}

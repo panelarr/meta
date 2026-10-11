@@ -18,7 +18,42 @@ meta is optional and works on its own. Any project that wants a searchable manga
 
 Plugins live in their own repositories. A fresh meta has no plugins and an empty catalogue; you add the providers you want.
 
+## Quick start
+
+The fastest way to try meta is the compose example: PostgreSQL, meta and the [MangaBaka plugin](https://github.com/panelarr/meta-mangabaka). You need Docker with Compose, about 5 GB of free disk, and both repositories next to each other (the images are built locally until they are published).
+
+```sh
+git clone https://github.com/panelarr/meta
+git clone https://github.com/panelarr/meta-mangabaka
+cd meta
+
+export META_API_KEY=$(openssl rand -hex 16) MANGABAKA_PLUGIN_KEY=$(openssl rand -hex 16)
+docker compose up -d --build
+
+# Fill the catalogue from MangaBaka's nightly dump: downloads about 400 MB,
+# then reads about half a million series (expect 10 to 15 minutes).
+docker compose exec meta /meta sync mangabaka
+
+# Browse and search.
+curl -H "Authorization: Bearer $META_API_KEY" 'http://localhost:8901/v1/entries?sort=SORT_FIELD_POPULARITY&pageSize=5'
+curl -H "Authorization: Bearer $META_API_KEY" 'http://localhost:8901/v1/search?query=one%20piece'
+```
+
+After that, the dump is synced every night at 03:00 UTC. A sync can also be started over the API (`POST /v1/admin/providers/mangabaka/sync`). MangaBaka's data is CC BY-NC-SA 4.0: every entry carries its attribution, and the data must not be redistributed.
+
+### Without Docker
+
+```sh
+make build
+export META_DATABASE_URL='postgres://meta:secret@localhost:5432/meta?sslmode=disable'
+bin/meta serve --config meta.example.yaml
+```
+
+meta listens on `:8901`. With no providers configured it runs with an empty catalogue and says so in its responses (`no_providers`). See [docs/running.md](docs/running.md) and [docs/configuration.md](docs/configuration.md).
+
 ## Documentation
+
+- [Running meta](docs/running.md)
 
 - [The API](docs/api.md)
 - [Configuration](docs/configuration.md)
