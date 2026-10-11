@@ -101,3 +101,19 @@ func TestUIAndAPIRouting(t *testing.T) {
 		t.Fatalf("client key on admin path: %d %q", res.StatusCode, body)
 	}
 }
+
+// curl -d sends a form content type; the REST API reads such bodies as JSON.
+func TestRESTBodiesWithoutJSONContentType(t *testing.T) {
+	t.Parallel()
+	f := setup(t, "k")
+	for _, ct := range []string{"", "application/x-www-form-urlencoded"} {
+		var hdr []string
+		if ct != "" {
+			hdr = []string{"Content-Type", ct}
+		}
+		res, body := do(t, http.MethodPost, f.srv.URL+"/v1/admin/clients", testAdminToken, `{"name":"curl","scopes":["catalog:read"]}`, hdr...)
+		if res.StatusCode != http.StatusOK || !strings.Contains(body, "mtk_") {
+			t.Fatalf("content type %q: %d %s", ct, res.StatusCode, body)
+		}
+	}
+}

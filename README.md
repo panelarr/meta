@@ -44,22 +44,36 @@ Or open `http://localhost:8901/` and sign in with the admin token: the [admin UI
 
 Give other callers their own key with only the scopes they need (`POST /v1/admin/clients`, see [docs/api.md](docs/api.md#clients-and-scopes-metaclientsservice)). After that, the dump is synced every night at 03:00 UTC. A sync can also be started over the API (`POST /v1/admin/providers/mangabaka/sync`). MangaBaka's data is CC BY-NC-SA 4.0: every entry carries its attribution, and the data must not be redistributed.
 
-### Without Docker
+### With your own PostgreSQL
+
+meta only needs a database of its own (no superuser): create a role and a database owned by it, and point `META_DATABASE_URL` at it. Then run meta and the plugin as binaries (Go and Node are needed to build them; clone both repositories next to each other):
 
 ```sh
-make build
+make build                                     # meta, with the admin UI
+(cd ../meta-mangabaka && make build)           # the MangaBaka plugin
+
 export META_DATABASE_URL='postgres://meta:secret@localhost:5432/meta?sslmode=disable'
-bin/meta serve --config meta.example.yaml
+export META_ADMIN_TOKEN=mta_$(openssl rand -hex 24)
+cat > meta.yaml <<'YAML'
+providers:
+  - id: mangabaka
+    managed:
+      path: ../meta-mangabaka/bin/meta-mangabaka   # meta starts the plugin itself
+    schedules:
+      dump: "0 3 * * *"
+YAML
+bin/meta serve --config meta.yaml
 ```
 
-meta listens on `:8901`. With no providers configured it runs with an empty catalogue and says so in its responses (`no_providers`). See [docs/running.md](docs/running.md) and [docs/configuration.md](docs/configuration.md).
+meta listens on `:8901` and applies its migrations at start. With no providers configured it runs with an empty catalogue and says so in its responses (`no_providers`). See [docs/running.md](docs/running.md) and [docs/configuration.md](docs/configuration.md).
 
 ## Documentation
 
 - [The admin UI](docs/admin.md)
 - [Running meta](docs/running.md)
-
-- [The API](docs/api.md)
+- [The API](docs/api.md), including clients and scoped API keys
+- [Integrations](docs/integrations.md): proxies, VPN containers and challenge solvers for plugins
+- [Logs, health and metrics](docs/observability.md)
 - [Configuration](docs/configuration.md)
 - [The plugin protocol](docs/protocol.md)
 - [Writing a plugin](docs/writing-a-plugin.md)

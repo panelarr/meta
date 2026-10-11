@@ -127,8 +127,22 @@ func (s *Server) route(api, ui http.Handler) http.Handler {
 			ui.ServeHTTP(w, r)
 			return
 		}
+		jsonBody(r)
 		api.ServeHTTP(w, r)
 	})
+}
+
+// jsonBody reads REST bodies as JSON when the client didn't say what they
+// are: `curl -d '{…}'` sends application/x-www-form-urlencoded, and the REST
+// API only takes JSON anyway.
+func jsonBody(r *http.Request) {
+	if !strings.HasPrefix(r.URL.Path, "/v1/") || r.Body == nil || r.Method == http.MethodGet {
+		return
+	}
+	ct := r.Header.Get("Content-Type")
+	if ct == "" || strings.HasPrefix(ct, "application/x-www-form-urlencoded") {
+		r.Header.Set("Content-Type", "application/json")
+	}
 }
 
 func apiNotFound(w http.ResponseWriter, _ *http.Request) {

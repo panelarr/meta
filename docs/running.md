@@ -2,7 +2,7 @@
 
 ## The image
 
-`panelarr/meta` is a small static image (distroless, non-root, about 25 MB). It runs `meta serve` by default and listens on port 8901.
+`panelarr/meta` is a small static image (distroless, non-root, about 27 MB) with the [admin UI](admin.md) built in. It runs `meta serve` by default and listens on port 8901: open `http://<host>:8901/` and sign in with the admin token.
 
 ```sh
 docker run -d --name meta -p 8901:8901 \

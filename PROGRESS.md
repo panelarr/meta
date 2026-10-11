@@ -22,11 +22,11 @@ The plan for the first version of meta and its first plugin, [meta-mangabaka](ht
 | 3 | `SetNetworkProfile` in the plugin protocol, SDK HTTP client from a profile, meta-mangabaka uses it | meta, meta-mangabaka | `feat/network-profiles` | done |
 | 4 | Admin UI (React SPA) served at `/` | meta | `feat/admin-ui` | done |
 | 5 | Observability: Prometheus metrics (syncs, plugin calls, search latency, API requests), off the public port by default; detailed health for the admin | meta | `feat/observability` | done |
-| 6 | Image and docs | meta | | |
+| 6 | Image and docs | meta | `feat/image-and-docs` | done |
 
 ## Next
 
-Admin slice 6: the image with the admin UI built in, and the remaining docs.
+GOAL-0003 is done; waiting for verification. Queued: GOAL-0004 (duplicates), then GOAL-0006 (search engines).
 
 ## Notes
 
