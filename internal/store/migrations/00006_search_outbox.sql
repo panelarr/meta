@@ -19,6 +19,26 @@ CREATE TABLE search_indexes (
     built_at       timestamptz NOT NULL DEFAULT now()
 );
 
+-- Search engine settings saved in the admin; they win over the
+-- configuration file. The API key is sealed with meta's secret key.
+CREATE TABLE search_settings (
+    id             integer PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    backend        text NOT NULL,
+    url            text NOT NULL DEFAULT '',
+    api_key_sealed text,
+    index_prefix   text NOT NULL DEFAULT 'meta',
+    browse         text NOT NULL DEFAULT 'facets',
+    updated_at     timestamptz NOT NULL DEFAULT now()
+);
+
+-- Jobs meta starts on its own while running (e.g. a search rebuild).
+ALTER TABLE job_runs DROP CONSTRAINT job_runs_trigger_check;
+ALTER TABLE job_runs ADD CONSTRAINT job_runs_trigger_check CHECK (trigger IN ('schedule', 'manual', 'startup', 'system'));
+
 -- +goose Down
+DELETE FROM job_runs WHERE trigger = 'system';
+ALTER TABLE job_runs DROP CONSTRAINT job_runs_trigger_check;
+ALTER TABLE job_runs ADD CONSTRAINT job_runs_trigger_check CHECK (trigger IN ('schedule', 'manual', 'startup'));
+DROP TABLE search_settings;
 DROP TABLE search_indexes;
 DROP TABLE search_outbox;

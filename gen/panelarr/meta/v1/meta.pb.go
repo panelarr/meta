@@ -783,7 +783,10 @@ type BrowseRequest struct {
 	PageSize  int32  `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	PageToken string `protobuf:"bytes,5,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	// Preferred language for display titles (BCP 47).
-	Language      string `protobuf:"bytes,6,opt,name=language,proto3" json:"language,omitempty"`
+	Language string `protobuf:"bytes,6,opt,name=language,proto3" json:"language,omitempty"`
+	// Ask for counts per filter value. Only a search engine backend has
+	// them; with PostgreSQL the response has none.
+	Facets        bool `protobuf:"varint,7,opt,name=facets,proto3" json:"facets,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -860,6 +863,13 @@ func (x *BrowseRequest) GetLanguage() string {
 	return ""
 }
 
+func (x *BrowseRequest) GetFacets() bool {
+	if x != nil {
+		return x.Facets
+	}
+	return false
+}
+
 type BrowseResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Entries       []*EntrySummary        `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
@@ -868,7 +878,10 @@ type BrowseResponse struct {
 	TotalSize int64 `protobuf:"varint,3,opt,name=total_size,json=totalSize,proto3" json:"total_size,omitempty"`
 	// True when meta has no providers configured, so an empty result means
 	// "nothing set up" rather than "nothing matched".
-	NoProviders   bool `protobuf:"varint,4,opt,name=no_providers,json=noProviders,proto3" json:"no_providers,omitempty"`
+	NoProviders bool `protobuf:"varint,4,opt,name=no_providers,json=noProviders,proto3" json:"no_providers,omitempty"`
+	// Counts per filter value among all matches, when asked for and the
+	// search backend has them.
+	Facets        []*Facet `protobuf:"bytes,5,rep,name=facets,proto3" json:"facets,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -931,23 +944,141 @@ func (x *BrowseResponse) GetNoProviders() bool {
 	return false
 }
 
+func (x *BrowseResponse) GetFacets() []*Facet {
+	if x != nil {
+		return x.Facets
+	}
+	return nil
+}
+
+// The counts of one filter's values.
+type Facet struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// "genres", "tags", "type", "status", "content_rating" or
+	// "original_language".
+	Field string `protobuf:"bytes,1,opt,name=field,proto3" json:"field,omitempty"`
+	// Most frequent first (at most 50). Genre and tag values are tag keys
+	// ("genre/fantasy"); the others are the filter's short names ("manga").
+	Values        []*FacetValue `protobuf:"bytes,2,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Facet) Reset() {
+	*x = Facet{}
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Facet) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Facet) ProtoMessage() {}
+
+func (x *Facet) ProtoReflect() protoreflect.Message {
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Facet.ProtoReflect.Descriptor instead.
+func (*Facet) Descriptor() ([]byte, []int) {
+	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *Facet) GetField() string {
+	if x != nil {
+		return x.Field
+	}
+	return ""
+}
+
+func (x *Facet) GetValues() []*FacetValue {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+type FacetValue struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Value         string                 `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	Count         int64                  `protobuf:"varint,2,opt,name=count,proto3" json:"count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FacetValue) Reset() {
+	*x = FacetValue{}
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FacetValue) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FacetValue) ProtoMessage() {}
+
+func (x *FacetValue) ProtoReflect() protoreflect.Message {
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FacetValue.ProtoReflect.Descriptor instead.
+func (*FacetValue) Descriptor() ([]byte, []int) {
+	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *FacetValue) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+func (x *FacetValue) GetCount() int64 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
 type SearchRequest struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	Query  string                 `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
 	Filter *EntryFilter           `protobuf:"bytes,2,opt,name=filter,proto3" json:"filter,omitempty"`
 	// Defaults to relevance.
-	Sort          SortField `protobuf:"varint,3,opt,name=sort,proto3,enum=panelarr.meta.v1.SortField" json:"sort,omitempty"`
-	Reverse       bool      `protobuf:"varint,4,opt,name=reverse,proto3" json:"reverse,omitempty"`
-	PageSize      int32     `protobuf:"varint,5,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
-	PageToken     string    `protobuf:"bytes,6,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
-	Language      string    `protobuf:"bytes,7,opt,name=language,proto3" json:"language,omitempty"`
+	Sort      SortField `protobuf:"varint,3,opt,name=sort,proto3,enum=panelarr.meta.v1.SortField" json:"sort,omitempty"`
+	Reverse   bool      `protobuf:"varint,4,opt,name=reverse,proto3" json:"reverse,omitempty"`
+	PageSize  int32     `protobuf:"varint,5,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	PageToken string    `protobuf:"bytes,6,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	Language  string    `protobuf:"bytes,7,opt,name=language,proto3" json:"language,omitempty"`
+	// Ask for counts per filter value (see BrowseRequest.facets).
+	Facets        bool `protobuf:"varint,8,opt,name=facets,proto3" json:"facets,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SearchRequest) Reset() {
 	*x = SearchRequest{}
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[7]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -959,7 +1090,7 @@ func (x *SearchRequest) String() string {
 func (*SearchRequest) ProtoMessage() {}
 
 func (x *SearchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[7]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -972,7 +1103,7 @@ func (x *SearchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchRequest.ProtoReflect.Descriptor instead.
 func (*SearchRequest) Descriptor() ([]byte, []int) {
-	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{7}
+	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *SearchRequest) GetQuery() string {
@@ -1024,6 +1155,13 @@ func (x *SearchRequest) GetLanguage() string {
 	return ""
 }
 
+func (x *SearchRequest) GetFacets() bool {
+	if x != nil {
+		return x.Facets
+	}
+	return false
+}
+
 type SearchHit struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Entry *EntrySummary          `protobuf:"bytes,1,opt,name=entry,proto3" json:"entry,omitempty"`
@@ -1039,7 +1177,7 @@ type SearchHit struct {
 
 func (x *SearchHit) Reset() {
 	*x = SearchHit{}
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[8]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1051,7 +1189,7 @@ func (x *SearchHit) String() string {
 func (*SearchHit) ProtoMessage() {}
 
 func (x *SearchHit) ProtoReflect() protoreflect.Message {
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[8]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1064,7 +1202,7 @@ func (x *SearchHit) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchHit.ProtoReflect.Descriptor instead.
 func (*SearchHit) Descriptor() ([]byte, []int) {
-	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{8}
+	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *SearchHit) GetEntry() *EntrySummary {
@@ -1101,13 +1239,14 @@ type SearchResponse struct {
 	NextPageToken string                 `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
 	TotalSize     int64                  `protobuf:"varint,3,opt,name=total_size,json=totalSize,proto3" json:"total_size,omitempty"`
 	NoProviders   bool                   `protobuf:"varint,4,opt,name=no_providers,json=noProviders,proto3" json:"no_providers,omitempty"`
+	Facets        []*Facet               `protobuf:"bytes,5,rep,name=facets,proto3" json:"facets,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SearchResponse) Reset() {
 	*x = SearchResponse{}
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[9]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1119,7 +1258,7 @@ func (x *SearchResponse) String() string {
 func (*SearchResponse) ProtoMessage() {}
 
 func (x *SearchResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[9]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1132,7 +1271,7 @@ func (x *SearchResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchResponse.ProtoReflect.Descriptor instead.
 func (*SearchResponse) Descriptor() ([]byte, []int) {
-	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{9}
+	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *SearchResponse) GetHits() []*SearchHit {
@@ -1163,6 +1302,13 @@ func (x *SearchResponse) GetNoProviders() bool {
 	return false
 }
 
+func (x *SearchResponse) GetFacets() []*Facet {
+	if x != nil {
+		return x.Facets
+	}
+	return nil
+}
+
 type GetEntryRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -1173,7 +1319,7 @@ type GetEntryRequest struct {
 
 func (x *GetEntryRequest) Reset() {
 	*x = GetEntryRequest{}
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[10]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1185,7 +1331,7 @@ func (x *GetEntryRequest) String() string {
 func (*GetEntryRequest) ProtoMessage() {}
 
 func (x *GetEntryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[10]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1198,7 +1344,7 @@ func (x *GetEntryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetEntryRequest.ProtoReflect.Descriptor instead.
 func (*GetEntryRequest) Descriptor() ([]byte, []int) {
-	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{10}
+	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *GetEntryRequest) GetId() string {
@@ -1227,7 +1373,7 @@ type GetEntryResponse struct {
 
 func (x *GetEntryResponse) Reset() {
 	*x = GetEntryResponse{}
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[11]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1239,7 +1385,7 @@ func (x *GetEntryResponse) String() string {
 func (*GetEntryResponse) ProtoMessage() {}
 
 func (x *GetEntryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[11]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1252,7 +1398,7 @@ func (x *GetEntryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetEntryResponse.ProtoReflect.Descriptor instead.
 func (*GetEntryResponse) Descriptor() ([]byte, []int) {
-	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{11}
+	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *GetEntryResponse) GetEntry() *Entry {
@@ -1283,7 +1429,7 @@ type LookupExternalRequest struct {
 
 func (x *LookupExternalRequest) Reset() {
 	*x = LookupExternalRequest{}
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[12]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1295,7 +1441,7 @@ func (x *LookupExternalRequest) String() string {
 func (*LookupExternalRequest) ProtoMessage() {}
 
 func (x *LookupExternalRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[12]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1308,7 +1454,7 @@ func (x *LookupExternalRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LookupExternalRequest.ProtoReflect.Descriptor instead.
 func (*LookupExternalRequest) Descriptor() ([]byte, []int) {
-	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{12}
+	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *LookupExternalRequest) GetProvider() string {
@@ -1348,7 +1494,7 @@ type LookupExternalResponse struct {
 
 func (x *LookupExternalResponse) Reset() {
 	*x = LookupExternalResponse{}
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[13]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1360,7 +1506,7 @@ func (x *LookupExternalResponse) String() string {
 func (*LookupExternalResponse) ProtoMessage() {}
 
 func (x *LookupExternalResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[13]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1373,7 +1519,7 @@ func (x *LookupExternalResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LookupExternalResponse.ProtoReflect.Descriptor instead.
 func (*LookupExternalResponse) Descriptor() ([]byte, []int) {
-	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{13}
+	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *LookupExternalResponse) GetEntry() *Entry {
@@ -1403,7 +1549,7 @@ type ListTagsRequest struct {
 
 func (x *ListTagsRequest) Reset() {
 	*x = ListTagsRequest{}
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[14]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1415,7 +1561,7 @@ func (x *ListTagsRequest) String() string {
 func (*ListTagsRequest) ProtoMessage() {}
 
 func (x *ListTagsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[14]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1428,7 +1574,7 @@ func (x *ListTagsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTagsRequest.ProtoReflect.Descriptor instead.
 func (*ListTagsRequest) Descriptor() ([]byte, []int) {
-	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{14}
+	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ListTagsRequest) GetGenresOnly() bool {
@@ -1481,7 +1627,7 @@ type ListLanguagesRequest struct {
 
 func (x *ListLanguagesRequest) Reset() {
 	*x = ListLanguagesRequest{}
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[15]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1493,7 +1639,7 @@ func (x *ListLanguagesRequest) String() string {
 func (*ListLanguagesRequest) ProtoMessage() {}
 
 func (x *ListLanguagesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[15]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1506,7 +1652,7 @@ func (x *ListLanguagesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLanguagesRequest.ProtoReflect.Descriptor instead.
 func (*ListLanguagesRequest) Descriptor() ([]byte, []int) {
-	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{15}
+	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{17}
 }
 
 type LanguageCount struct {
@@ -1521,7 +1667,7 @@ type LanguageCount struct {
 
 func (x *LanguageCount) Reset() {
 	*x = LanguageCount{}
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[16]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1533,7 +1679,7 @@ func (x *LanguageCount) String() string {
 func (*LanguageCount) ProtoMessage() {}
 
 func (x *LanguageCount) ProtoReflect() protoreflect.Message {
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[16]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1546,7 +1692,7 @@ func (x *LanguageCount) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LanguageCount.ProtoReflect.Descriptor instead.
 func (*LanguageCount) Descriptor() ([]byte, []int) {
-	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{16}
+	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *LanguageCount) GetCode() string {
@@ -1575,7 +1721,7 @@ type ListLanguagesResponse struct {
 
 func (x *ListLanguagesResponse) Reset() {
 	*x = ListLanguagesResponse{}
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[17]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1587,7 +1733,7 @@ func (x *ListLanguagesResponse) String() string {
 func (*ListLanguagesResponse) ProtoMessage() {}
 
 func (x *ListLanguagesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[17]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1600,7 +1746,7 @@ func (x *ListLanguagesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLanguagesResponse.ProtoReflect.Descriptor instead.
 func (*ListLanguagesResponse) Descriptor() ([]byte, []int) {
-	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{17}
+	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ListLanguagesResponse) GetOriginal() []*LanguageCount {
@@ -1627,7 +1773,7 @@ type ListTagsResponse struct {
 
 func (x *ListTagsResponse) Reset() {
 	*x = ListTagsResponse{}
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[18]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1639,7 +1785,7 @@ func (x *ListTagsResponse) String() string {
 func (*ListTagsResponse) ProtoMessage() {}
 
 func (x *ListTagsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[18]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1652,7 +1798,7 @@ func (x *ListTagsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTagsResponse.ProtoReflect.Descriptor instead.
 func (*ListTagsResponse) Descriptor() ([]byte, []int) {
-	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{18}
+	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ListTagsResponse) GetTags() []*v1.Tag {
@@ -1749,7 +1895,7 @@ const file_panelarr_meta_v1_meta_proto_rawDesc = "" +
 	"\ayear_to\x18\t \x01(\x05R\x06yearTo\x12'\n" +
 	"\x0ftitle_languages\x18\n" +
 	" \x03(\tR\x0etitleLanguages\x12)\n" +
-	"\x10include_inactive\x18\v \x01(\bR\x0fincludeInactive\"\xe9\x01\n" +
+	"\x10include_inactive\x18\v \x01(\bR\x0fincludeInactive\"\x81\x02\n" +
 	"\rBrowseRequest\x125\n" +
 	"\x06filter\x18\x01 \x01(\v2\x1d.panelarr.meta.v1.EntryFilterR\x06filter\x12/\n" +
 	"\x04sort\x18\x02 \x01(\x0e2\x1b.panelarr.meta.v1.SortFieldR\x04sort\x12\x18\n" +
@@ -1757,13 +1903,22 @@ const file_panelarr_meta_v1_meta_proto_rawDesc = "" +
 	"\tpage_size\x18\x04 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
 	"page_token\x18\x05 \x01(\tR\tpageToken\x12\x1a\n" +
-	"\blanguage\x18\x06 \x01(\tR\blanguage\"\xb4\x01\n" +
+	"\blanguage\x18\x06 \x01(\tR\blanguage\x12\x16\n" +
+	"\x06facets\x18\a \x01(\bR\x06facets\"\xe5\x01\n" +
 	"\x0eBrowseResponse\x128\n" +
 	"\aentries\x18\x01 \x03(\v2\x1e.panelarr.meta.v1.EntrySummaryR\aentries\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1d\n" +
 	"\n" +
 	"total_size\x18\x03 \x01(\x03R\ttotalSize\x12!\n" +
-	"\fno_providers\x18\x04 \x01(\bR\vnoProviders\"\xff\x01\n" +
+	"\fno_providers\x18\x04 \x01(\bR\vnoProviders\x12/\n" +
+	"\x06facets\x18\x05 \x03(\v2\x17.panelarr.meta.v1.FacetR\x06facets\"S\n" +
+	"\x05Facet\x12\x14\n" +
+	"\x05field\x18\x01 \x01(\tR\x05field\x124\n" +
+	"\x06values\x18\x02 \x03(\v2\x1c.panelarr.meta.v1.FacetValueR\x06values\"8\n" +
+	"\n" +
+	"FacetValue\x12\x14\n" +
+	"\x05value\x18\x01 \x01(\tR\x05value\x12\x14\n" +
+	"\x05count\x18\x02 \x01(\x03R\x05count\"\x97\x02\n" +
 	"\rSearchRequest\x12\x14\n" +
 	"\x05query\x18\x01 \x01(\tR\x05query\x125\n" +
 	"\x06filter\x18\x02 \x01(\v2\x1d.panelarr.meta.v1.EntryFilterR\x06filter\x12/\n" +
@@ -1772,18 +1927,20 @@ const file_panelarr_meta_v1_meta_proto_rawDesc = "" +
 	"\tpage_size\x18\x05 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
 	"page_token\x18\x06 \x01(\tR\tpageToken\x12\x1a\n" +
-	"\blanguage\x18\a \x01(\tR\blanguage\"\x96\x01\n" +
+	"\blanguage\x18\a \x01(\tR\blanguage\x12\x16\n" +
+	"\x06facets\x18\b \x01(\bR\x06facets\"\x96\x01\n" +
 	"\tSearchHit\x124\n" +
 	"\x05entry\x18\x01 \x01(\v2\x1e.panelarr.meta.v1.EntrySummaryR\x05entry\x12\x14\n" +
 	"\x05score\x18\x02 \x01(\x01R\x05score\x12\x18\n" +
 	"\amatched\x18\x03 \x01(\tR\amatched\x12#\n" +
-	"\rmatched_field\x18\x04 \x01(\tR\fmatchedField\"\xab\x01\n" +
+	"\rmatched_field\x18\x04 \x01(\tR\fmatchedField\"\xdc\x01\n" +
 	"\x0eSearchResponse\x12/\n" +
 	"\x04hits\x18\x01 \x03(\v2\x1b.panelarr.meta.v1.SearchHitR\x04hits\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1d\n" +
 	"\n" +
 	"total_size\x18\x03 \x01(\x03R\ttotalSize\x12!\n" +
-	"\fno_providers\x18\x04 \x01(\bR\vnoProviders\"=\n" +
+	"\fno_providers\x18\x04 \x01(\bR\vnoProviders\x12/\n" +
+	"\x06facets\x18\x05 \x03(\v2\x17.panelarr.meta.v1.FacetR\x06facets\"=\n" +
 	"\x0fGetEntryRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
 	"\blanguage\x18\x02 \x01(\tR\blanguage\"j\n" +
@@ -1849,7 +2006,7 @@ func file_panelarr_meta_v1_meta_proto_rawDescGZIP() []byte {
 }
 
 var file_panelarr_meta_v1_meta_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_panelarr_meta_v1_meta_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
+var file_panelarr_meta_v1_meta_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
 var file_panelarr_meta_v1_meta_proto_goTypes = []any{
 	(SortField)(0),                 // 0: panelarr.meta.v1.SortField
 	(*EntrySummary)(nil),           // 1: panelarr.meta.v1.EntrySummary
@@ -1859,109 +2016,114 @@ var file_panelarr_meta_v1_meta_proto_goTypes = []any{
 	(*EntryFilter)(nil),            // 5: panelarr.meta.v1.EntryFilter
 	(*BrowseRequest)(nil),          // 6: panelarr.meta.v1.BrowseRequest
 	(*BrowseResponse)(nil),         // 7: panelarr.meta.v1.BrowseResponse
-	(*SearchRequest)(nil),          // 8: panelarr.meta.v1.SearchRequest
-	(*SearchHit)(nil),              // 9: panelarr.meta.v1.SearchHit
-	(*SearchResponse)(nil),         // 10: panelarr.meta.v1.SearchResponse
-	(*GetEntryRequest)(nil),        // 11: panelarr.meta.v1.GetEntryRequest
-	(*GetEntryResponse)(nil),       // 12: panelarr.meta.v1.GetEntryResponse
-	(*LookupExternalRequest)(nil),  // 13: panelarr.meta.v1.LookupExternalRequest
-	(*LookupExternalResponse)(nil), // 14: panelarr.meta.v1.LookupExternalResponse
-	(*ListTagsRequest)(nil),        // 15: panelarr.meta.v1.ListTagsRequest
-	(*ListLanguagesRequest)(nil),   // 16: panelarr.meta.v1.ListLanguagesRequest
-	(*LanguageCount)(nil),          // 17: panelarr.meta.v1.LanguageCount
-	(*ListLanguagesResponse)(nil),  // 18: panelarr.meta.v1.ListLanguagesResponse
-	(*ListTagsResponse)(nil),       // 19: panelarr.meta.v1.ListTagsResponse
-	nil,                            // 20: panelarr.meta.v1.Entry.FieldSourcesEntry
-	(v1.EntryType)(0),              // 21: panelarr.metadata.v1.EntryType
-	(v1.EntryStatus)(0),            // 22: panelarr.metadata.v1.EntryStatus
-	(v1.ContentRating)(0),          // 23: panelarr.metadata.v1.ContentRating
-	(*v1.Image)(nil),               // 24: panelarr.metadata.v1.Image
-	(*v1.Attribution)(nil),         // 25: panelarr.metadata.v1.Attribution
-	(*v1.Title)(nil),               // 26: panelarr.metadata.v1.Title
-	(*v1.Description)(nil),         // 27: panelarr.metadata.v1.Description
-	(*v1.Credit)(nil),              // 28: panelarr.metadata.v1.Credit
-	(*v1.CompanyCredit)(nil),       // 29: panelarr.metadata.v1.CompanyCredit
-	(*v1.License)(nil),             // 30: panelarr.metadata.v1.License
-	(*v1.TagAssignment)(nil),       // 31: panelarr.metadata.v1.TagAssignment
-	(*v1.Relation)(nil),            // 32: panelarr.metadata.v1.Relation
-	(*v1.Adaptation)(nil),          // 33: panelarr.metadata.v1.Adaptation
-	(*v1.Item)(nil),                // 34: panelarr.metadata.v1.Item
-	(*v1.Progress)(nil),            // 35: panelarr.metadata.v1.Progress
-	(*v1.Dates)(nil),               // 36: panelarr.metadata.v1.Dates
-	(*v1.Link)(nil),                // 37: panelarr.metadata.v1.Link
-	(*v1.ExternalId)(nil),          // 38: panelarr.metadata.v1.ExternalId
-	(v1.EntryState)(0),             // 39: panelarr.metadata.v1.EntryState
-	(*timestamppb.Timestamp)(nil),  // 40: google.protobuf.Timestamp
-	(*v1.Stats)(nil),               // 41: panelarr.metadata.v1.Stats
-	(*v1.Tag)(nil),                 // 42: panelarr.metadata.v1.Tag
+	(*Facet)(nil),                  // 8: panelarr.meta.v1.Facet
+	(*FacetValue)(nil),             // 9: panelarr.meta.v1.FacetValue
+	(*SearchRequest)(nil),          // 10: panelarr.meta.v1.SearchRequest
+	(*SearchHit)(nil),              // 11: panelarr.meta.v1.SearchHit
+	(*SearchResponse)(nil),         // 12: panelarr.meta.v1.SearchResponse
+	(*GetEntryRequest)(nil),        // 13: panelarr.meta.v1.GetEntryRequest
+	(*GetEntryResponse)(nil),       // 14: panelarr.meta.v1.GetEntryResponse
+	(*LookupExternalRequest)(nil),  // 15: panelarr.meta.v1.LookupExternalRequest
+	(*LookupExternalResponse)(nil), // 16: panelarr.meta.v1.LookupExternalResponse
+	(*ListTagsRequest)(nil),        // 17: panelarr.meta.v1.ListTagsRequest
+	(*ListLanguagesRequest)(nil),   // 18: panelarr.meta.v1.ListLanguagesRequest
+	(*LanguageCount)(nil),          // 19: panelarr.meta.v1.LanguageCount
+	(*ListLanguagesResponse)(nil),  // 20: panelarr.meta.v1.ListLanguagesResponse
+	(*ListTagsResponse)(nil),       // 21: panelarr.meta.v1.ListTagsResponse
+	nil,                            // 22: panelarr.meta.v1.Entry.FieldSourcesEntry
+	(v1.EntryType)(0),              // 23: panelarr.metadata.v1.EntryType
+	(v1.EntryStatus)(0),            // 24: panelarr.metadata.v1.EntryStatus
+	(v1.ContentRating)(0),          // 25: panelarr.metadata.v1.ContentRating
+	(*v1.Image)(nil),               // 26: panelarr.metadata.v1.Image
+	(*v1.Attribution)(nil),         // 27: panelarr.metadata.v1.Attribution
+	(*v1.Title)(nil),               // 28: panelarr.metadata.v1.Title
+	(*v1.Description)(nil),         // 29: panelarr.metadata.v1.Description
+	(*v1.Credit)(nil),              // 30: panelarr.metadata.v1.Credit
+	(*v1.CompanyCredit)(nil),       // 31: panelarr.metadata.v1.CompanyCredit
+	(*v1.License)(nil),             // 32: panelarr.metadata.v1.License
+	(*v1.TagAssignment)(nil),       // 33: panelarr.metadata.v1.TagAssignment
+	(*v1.Relation)(nil),            // 34: panelarr.metadata.v1.Relation
+	(*v1.Adaptation)(nil),          // 35: panelarr.metadata.v1.Adaptation
+	(*v1.Item)(nil),                // 36: panelarr.metadata.v1.Item
+	(*v1.Progress)(nil),            // 37: panelarr.metadata.v1.Progress
+	(*v1.Dates)(nil),               // 38: panelarr.metadata.v1.Dates
+	(*v1.Link)(nil),                // 39: panelarr.metadata.v1.Link
+	(*v1.ExternalId)(nil),          // 40: panelarr.metadata.v1.ExternalId
+	(v1.EntryState)(0),             // 41: panelarr.metadata.v1.EntryState
+	(*timestamppb.Timestamp)(nil),  // 42: google.protobuf.Timestamp
+	(*v1.Stats)(nil),               // 43: panelarr.metadata.v1.Stats
+	(*v1.Tag)(nil),                 // 44: panelarr.metadata.v1.Tag
 }
 var file_panelarr_meta_v1_meta_proto_depIdxs = []int32{
-	21, // 0: panelarr.meta.v1.EntrySummary.type:type_name -> panelarr.metadata.v1.EntryType
-	22, // 1: panelarr.meta.v1.EntrySummary.status:type_name -> panelarr.metadata.v1.EntryStatus
-	23, // 2: panelarr.meta.v1.EntrySummary.content_rating:type_name -> panelarr.metadata.v1.ContentRating
-	24, // 3: panelarr.meta.v1.EntrySummary.cover:type_name -> panelarr.metadata.v1.Image
-	25, // 4: panelarr.meta.v1.EntrySummary.attributions:type_name -> panelarr.metadata.v1.Attribution
-	21, // 5: panelarr.meta.v1.Entry.type:type_name -> panelarr.metadata.v1.EntryType
-	22, // 6: panelarr.meta.v1.Entry.status:type_name -> panelarr.metadata.v1.EntryStatus
-	23, // 7: panelarr.meta.v1.Entry.content_rating:type_name -> panelarr.metadata.v1.ContentRating
-	26, // 8: panelarr.meta.v1.Entry.titles:type_name -> panelarr.metadata.v1.Title
-	27, // 9: panelarr.meta.v1.Entry.descriptions:type_name -> panelarr.metadata.v1.Description
-	28, // 10: panelarr.meta.v1.Entry.credits:type_name -> panelarr.metadata.v1.Credit
-	29, // 11: panelarr.meta.v1.Entry.companies:type_name -> panelarr.metadata.v1.CompanyCredit
-	30, // 12: panelarr.meta.v1.Entry.licenses:type_name -> panelarr.metadata.v1.License
-	31, // 13: panelarr.meta.v1.Entry.tags:type_name -> panelarr.metadata.v1.TagAssignment
-	32, // 14: panelarr.meta.v1.Entry.relations:type_name -> panelarr.metadata.v1.Relation
-	33, // 15: panelarr.meta.v1.Entry.adaptations:type_name -> panelarr.metadata.v1.Adaptation
-	34, // 16: panelarr.meta.v1.Entry.items:type_name -> panelarr.metadata.v1.Item
-	35, // 17: panelarr.meta.v1.Entry.progress:type_name -> panelarr.metadata.v1.Progress
-	36, // 18: panelarr.meta.v1.Entry.dates:type_name -> panelarr.metadata.v1.Dates
-	24, // 19: panelarr.meta.v1.Entry.images:type_name -> panelarr.metadata.v1.Image
-	37, // 20: panelarr.meta.v1.Entry.links:type_name -> panelarr.metadata.v1.Link
-	38, // 21: panelarr.meta.v1.Entry.external_ids:type_name -> panelarr.metadata.v1.ExternalId
+	23, // 0: panelarr.meta.v1.EntrySummary.type:type_name -> panelarr.metadata.v1.EntryType
+	24, // 1: panelarr.meta.v1.EntrySummary.status:type_name -> panelarr.metadata.v1.EntryStatus
+	25, // 2: panelarr.meta.v1.EntrySummary.content_rating:type_name -> panelarr.metadata.v1.ContentRating
+	26, // 3: panelarr.meta.v1.EntrySummary.cover:type_name -> panelarr.metadata.v1.Image
+	27, // 4: panelarr.meta.v1.EntrySummary.attributions:type_name -> panelarr.metadata.v1.Attribution
+	23, // 5: panelarr.meta.v1.Entry.type:type_name -> panelarr.metadata.v1.EntryType
+	24, // 6: panelarr.meta.v1.Entry.status:type_name -> panelarr.metadata.v1.EntryStatus
+	25, // 7: panelarr.meta.v1.Entry.content_rating:type_name -> panelarr.metadata.v1.ContentRating
+	28, // 8: panelarr.meta.v1.Entry.titles:type_name -> panelarr.metadata.v1.Title
+	29, // 9: panelarr.meta.v1.Entry.descriptions:type_name -> panelarr.metadata.v1.Description
+	30, // 10: panelarr.meta.v1.Entry.credits:type_name -> panelarr.metadata.v1.Credit
+	31, // 11: panelarr.meta.v1.Entry.companies:type_name -> panelarr.metadata.v1.CompanyCredit
+	32, // 12: panelarr.meta.v1.Entry.licenses:type_name -> panelarr.metadata.v1.License
+	33, // 13: panelarr.meta.v1.Entry.tags:type_name -> panelarr.metadata.v1.TagAssignment
+	34, // 14: panelarr.meta.v1.Entry.relations:type_name -> panelarr.metadata.v1.Relation
+	35, // 15: panelarr.meta.v1.Entry.adaptations:type_name -> panelarr.metadata.v1.Adaptation
+	36, // 16: panelarr.meta.v1.Entry.items:type_name -> panelarr.metadata.v1.Item
+	37, // 17: panelarr.meta.v1.Entry.progress:type_name -> panelarr.metadata.v1.Progress
+	38, // 18: panelarr.meta.v1.Entry.dates:type_name -> panelarr.metadata.v1.Dates
+	26, // 19: panelarr.meta.v1.Entry.images:type_name -> panelarr.metadata.v1.Image
+	39, // 20: panelarr.meta.v1.Entry.links:type_name -> panelarr.metadata.v1.Link
+	40, // 21: panelarr.meta.v1.Entry.external_ids:type_name -> panelarr.metadata.v1.ExternalId
 	3,  // 22: panelarr.meta.v1.Entry.stats:type_name -> panelarr.meta.v1.ProviderStats
-	39, // 23: panelarr.meta.v1.Entry.state:type_name -> panelarr.metadata.v1.EntryState
+	41, // 23: panelarr.meta.v1.Entry.state:type_name -> panelarr.metadata.v1.EntryState
 	4,  // 24: panelarr.meta.v1.Entry.sources:type_name -> panelarr.meta.v1.EntrySource
-	20, // 25: panelarr.meta.v1.Entry.field_sources:type_name -> panelarr.meta.v1.Entry.FieldSourcesEntry
-	40, // 26: panelarr.meta.v1.Entry.created_at:type_name -> google.protobuf.Timestamp
-	40, // 27: panelarr.meta.v1.Entry.updated_at:type_name -> google.protobuf.Timestamp
-	41, // 28: panelarr.meta.v1.ProviderStats.stats:type_name -> panelarr.metadata.v1.Stats
-	38, // 29: panelarr.meta.v1.EntrySource.ref:type_name -> panelarr.metadata.v1.ExternalId
-	25, // 30: panelarr.meta.v1.EntrySource.attribution:type_name -> panelarr.metadata.v1.Attribution
-	39, // 31: panelarr.meta.v1.EntrySource.state:type_name -> panelarr.metadata.v1.EntryState
-	40, // 32: panelarr.meta.v1.EntrySource.fetched_at:type_name -> google.protobuf.Timestamp
-	40, // 33: panelarr.meta.v1.EntrySource.provider_updated_at:type_name -> google.protobuf.Timestamp
-	21, // 34: panelarr.meta.v1.EntryFilter.types:type_name -> panelarr.metadata.v1.EntryType
-	22, // 35: panelarr.meta.v1.EntryFilter.statuses:type_name -> panelarr.metadata.v1.EntryStatus
-	23, // 36: panelarr.meta.v1.EntryFilter.content_ratings:type_name -> panelarr.metadata.v1.ContentRating
+	22, // 25: panelarr.meta.v1.Entry.field_sources:type_name -> panelarr.meta.v1.Entry.FieldSourcesEntry
+	42, // 26: panelarr.meta.v1.Entry.created_at:type_name -> google.protobuf.Timestamp
+	42, // 27: panelarr.meta.v1.Entry.updated_at:type_name -> google.protobuf.Timestamp
+	43, // 28: panelarr.meta.v1.ProviderStats.stats:type_name -> panelarr.metadata.v1.Stats
+	40, // 29: panelarr.meta.v1.EntrySource.ref:type_name -> panelarr.metadata.v1.ExternalId
+	27, // 30: panelarr.meta.v1.EntrySource.attribution:type_name -> panelarr.metadata.v1.Attribution
+	41, // 31: panelarr.meta.v1.EntrySource.state:type_name -> panelarr.metadata.v1.EntryState
+	42, // 32: panelarr.meta.v1.EntrySource.fetched_at:type_name -> google.protobuf.Timestamp
+	42, // 33: panelarr.meta.v1.EntrySource.provider_updated_at:type_name -> google.protobuf.Timestamp
+	23, // 34: panelarr.meta.v1.EntryFilter.types:type_name -> panelarr.metadata.v1.EntryType
+	24, // 35: panelarr.meta.v1.EntryFilter.statuses:type_name -> panelarr.metadata.v1.EntryStatus
+	25, // 36: panelarr.meta.v1.EntryFilter.content_ratings:type_name -> panelarr.metadata.v1.ContentRating
 	5,  // 37: panelarr.meta.v1.BrowseRequest.filter:type_name -> panelarr.meta.v1.EntryFilter
 	0,  // 38: panelarr.meta.v1.BrowseRequest.sort:type_name -> panelarr.meta.v1.SortField
 	1,  // 39: panelarr.meta.v1.BrowseResponse.entries:type_name -> panelarr.meta.v1.EntrySummary
-	5,  // 40: panelarr.meta.v1.SearchRequest.filter:type_name -> panelarr.meta.v1.EntryFilter
-	0,  // 41: panelarr.meta.v1.SearchRequest.sort:type_name -> panelarr.meta.v1.SortField
-	1,  // 42: panelarr.meta.v1.SearchHit.entry:type_name -> panelarr.meta.v1.EntrySummary
-	9,  // 43: panelarr.meta.v1.SearchResponse.hits:type_name -> panelarr.meta.v1.SearchHit
-	2,  // 44: panelarr.meta.v1.GetEntryResponse.entry:type_name -> panelarr.meta.v1.Entry
-	2,  // 45: panelarr.meta.v1.LookupExternalResponse.entry:type_name -> panelarr.meta.v1.Entry
-	17, // 46: panelarr.meta.v1.ListLanguagesResponse.original:type_name -> panelarr.meta.v1.LanguageCount
-	17, // 47: panelarr.meta.v1.ListLanguagesResponse.titles:type_name -> panelarr.meta.v1.LanguageCount
-	42, // 48: panelarr.meta.v1.ListTagsResponse.tags:type_name -> panelarr.metadata.v1.Tag
-	6,  // 49: panelarr.meta.v1.MetaService.Browse:input_type -> panelarr.meta.v1.BrowseRequest
-	8,  // 50: panelarr.meta.v1.MetaService.Search:input_type -> panelarr.meta.v1.SearchRequest
-	11, // 51: panelarr.meta.v1.MetaService.GetEntry:input_type -> panelarr.meta.v1.GetEntryRequest
-	13, // 52: panelarr.meta.v1.MetaService.LookupExternal:input_type -> panelarr.meta.v1.LookupExternalRequest
-	15, // 53: panelarr.meta.v1.MetaService.ListTags:input_type -> panelarr.meta.v1.ListTagsRequest
-	16, // 54: panelarr.meta.v1.MetaService.ListLanguages:input_type -> panelarr.meta.v1.ListLanguagesRequest
-	7,  // 55: panelarr.meta.v1.MetaService.Browse:output_type -> panelarr.meta.v1.BrowseResponse
-	10, // 56: panelarr.meta.v1.MetaService.Search:output_type -> panelarr.meta.v1.SearchResponse
-	12, // 57: panelarr.meta.v1.MetaService.GetEntry:output_type -> panelarr.meta.v1.GetEntryResponse
-	14, // 58: panelarr.meta.v1.MetaService.LookupExternal:output_type -> panelarr.meta.v1.LookupExternalResponse
-	19, // 59: panelarr.meta.v1.MetaService.ListTags:output_type -> panelarr.meta.v1.ListTagsResponse
-	18, // 60: panelarr.meta.v1.MetaService.ListLanguages:output_type -> panelarr.meta.v1.ListLanguagesResponse
-	55, // [55:61] is the sub-list for method output_type
-	49, // [49:55] is the sub-list for method input_type
-	49, // [49:49] is the sub-list for extension type_name
-	49, // [49:49] is the sub-list for extension extendee
-	0,  // [0:49] is the sub-list for field type_name
+	8,  // 40: panelarr.meta.v1.BrowseResponse.facets:type_name -> panelarr.meta.v1.Facet
+	9,  // 41: panelarr.meta.v1.Facet.values:type_name -> panelarr.meta.v1.FacetValue
+	5,  // 42: panelarr.meta.v1.SearchRequest.filter:type_name -> panelarr.meta.v1.EntryFilter
+	0,  // 43: panelarr.meta.v1.SearchRequest.sort:type_name -> panelarr.meta.v1.SortField
+	1,  // 44: panelarr.meta.v1.SearchHit.entry:type_name -> panelarr.meta.v1.EntrySummary
+	11, // 45: panelarr.meta.v1.SearchResponse.hits:type_name -> panelarr.meta.v1.SearchHit
+	8,  // 46: panelarr.meta.v1.SearchResponse.facets:type_name -> panelarr.meta.v1.Facet
+	2,  // 47: panelarr.meta.v1.GetEntryResponse.entry:type_name -> panelarr.meta.v1.Entry
+	2,  // 48: panelarr.meta.v1.LookupExternalResponse.entry:type_name -> panelarr.meta.v1.Entry
+	19, // 49: panelarr.meta.v1.ListLanguagesResponse.original:type_name -> panelarr.meta.v1.LanguageCount
+	19, // 50: panelarr.meta.v1.ListLanguagesResponse.titles:type_name -> panelarr.meta.v1.LanguageCount
+	44, // 51: panelarr.meta.v1.ListTagsResponse.tags:type_name -> panelarr.metadata.v1.Tag
+	6,  // 52: panelarr.meta.v1.MetaService.Browse:input_type -> panelarr.meta.v1.BrowseRequest
+	10, // 53: panelarr.meta.v1.MetaService.Search:input_type -> panelarr.meta.v1.SearchRequest
+	13, // 54: panelarr.meta.v1.MetaService.GetEntry:input_type -> panelarr.meta.v1.GetEntryRequest
+	15, // 55: panelarr.meta.v1.MetaService.LookupExternal:input_type -> panelarr.meta.v1.LookupExternalRequest
+	17, // 56: panelarr.meta.v1.MetaService.ListTags:input_type -> panelarr.meta.v1.ListTagsRequest
+	18, // 57: panelarr.meta.v1.MetaService.ListLanguages:input_type -> panelarr.meta.v1.ListLanguagesRequest
+	7,  // 58: panelarr.meta.v1.MetaService.Browse:output_type -> panelarr.meta.v1.BrowseResponse
+	12, // 59: panelarr.meta.v1.MetaService.Search:output_type -> panelarr.meta.v1.SearchResponse
+	14, // 60: panelarr.meta.v1.MetaService.GetEntry:output_type -> panelarr.meta.v1.GetEntryResponse
+	16, // 61: panelarr.meta.v1.MetaService.LookupExternal:output_type -> panelarr.meta.v1.LookupExternalResponse
+	21, // 62: panelarr.meta.v1.MetaService.ListTags:output_type -> panelarr.meta.v1.ListTagsResponse
+	20, // 63: panelarr.meta.v1.MetaService.ListLanguages:output_type -> panelarr.meta.v1.ListLanguagesResponse
+	58, // [58:64] is the sub-list for method output_type
+	52, // [52:58] is the sub-list for method input_type
+	52, // [52:52] is the sub-list for extension type_name
+	52, // [52:52] is the sub-list for extension extendee
+	0,  // [0:52] is the sub-list for field type_name
 }
 
 func init() { file_panelarr_meta_v1_meta_proto_init() }
@@ -1976,7 +2138,7 @@ func file_panelarr_meta_v1_meta_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_panelarr_meta_v1_meta_proto_rawDesc), len(file_panelarr_meta_v1_meta_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   20,
+			NumMessages:   22,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

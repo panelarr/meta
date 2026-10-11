@@ -9,7 +9,6 @@ package search
 
 import (
 	"context"
-	"fmt"
 	"slices"
 	"strings"
 
@@ -150,14 +149,4 @@ func sortFacetValues(vs []FacetValue) {
 type FacetValue struct {
 	Value string
 	Count int64
-}
-
-// New returns the backend named by the configuration.
-func New(backend string, pg *Postgres) (Index, error) {
-	switch backend {
-	case "", "postgres":
-		return pg, nil
-	default:
-		return nil, fmt.Errorf("search: backend %q is not available", backend)
-	}
 }

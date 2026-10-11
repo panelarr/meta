@@ -11,6 +11,7 @@ import (
 	"slices"
 	"sort"
 	"sync"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -29,7 +30,7 @@ type Options struct {
 	DisplayLanguage string
 	// SearchOutbox records every entry whose indexed content or state
 	// changes in search_outbox, in the same transaction, for an external
-	// search engine to pick up.
+	// search engine to pick up. SetSearchOutbox changes it later.
 	SearchOutbox bool
 }
 
@@ -43,6 +44,8 @@ type Writer struct {
 	st   *store.Store
 	opts Options
 
+	outbox atomic.Bool
+
 	// Shared-entity IDs known to exist, by kind and key. Only filled after
 	// a transaction commits, so a rolled-back row is never reused.
 	mu    sync.RWMutex
@@ -51,8 +54,13 @@ type Writer struct {
 
 // NewWriter returns a Writer.
 func NewWriter(st *store.Store, opts Options) *Writer {
-	return &Writer{st: st, opts: opts, known: map[string]uuid.UUID{}}
+	w := &Writer{st: st, opts: opts, known: map[string]uuid.UUID{}}
+	w.outbox.Store(opts.SearchOutbox)
+	return w
 }
+
+// SetSearchOutbox turns the search outbox on or off.
+func (w *Writer) SetSearchOutbox(on bool) { w.outbox.Store(on) }
 
 // Result counts what a call changed.
 type Result struct {
@@ -665,7 +673,7 @@ func (t *tx) retireIfEmpty(ctx context.Context, from, to uuid.UUID) error {
 // enqueueSearch writes the entries that changed to the search outbox, when
 // an external search engine is configured.
 func (t *tx) enqueueSearch(ctx context.Context) error {
-	if !t.w.opts.SearchOutbox || len(t.reindex) == 0 {
+	if !t.w.outbox.Load() || len(t.reindex) == 0 {
 		return nil
 	}
 	ids := make([]uuid.UUID, 0, len(t.reindex))

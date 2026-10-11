@@ -34,6 +34,8 @@ const (
 	TriggerSchedule = "schedule"
 	TriggerManual   = "manual"
 	TriggerStartup  = "startup"
+	// TriggerSystem: meta started the run on its own while running.
+	TriggerSystem = "system"
 )
 
 // Param types.

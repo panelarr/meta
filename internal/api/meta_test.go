@@ -29,7 +29,7 @@ import (
 	"github.com/panelarr/meta/internal/integrations"
 	"github.com/panelarr/meta/internal/jobs"
 	"github.com/panelarr/meta/internal/metrics"
-	"github.com/panelarr/meta/internal/search"
+	"github.com/panelarr/meta/internal/searchsvc"
 	"github.com/panelarr/meta/internal/secret"
 	"github.com/panelarr/meta/internal/store"
 	"github.com/panelarr/meta/internal/store/db"
@@ -47,6 +47,7 @@ type fixture struct {
 	fake    *plugintest.Fake
 	writer  *catalog.Writer
 	jobs    *jobs.Manager
+	search  *searchsvc.Service
 	// release lets the "hold" test job finish.
 	release chan struct{}
 }
@@ -149,12 +150,18 @@ func setup(t *testing.T, apiKeys ...string) *fixture {
 			t.Fatal(err)
 		}
 	}
-	integ := integrations.New(st, secret.NewBox("", filepath.Join(t.TempDir(), "secret.key")), func() []integrations.ProviderInfo {
+	box := secret.NewBox("", filepath.Join(t.TempDir(), "secret.key"))
+	integ := integrations.New(st, box, func() []integrations.ProviderInfo {
 		return []integrations.ProviderInfo{{ID: "fake"}}
 	})
 	m := metrics.New()
 	admin := api.NewAdmin(ctx, st, h, r, w)
-	idx := search.Instrumented(search.NewPostgres(st.Pool), m)
+	ss := searchsvc.New(st, box, w, config.Default().Search, log, m)
+	if err := ss.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(ss.Stop)
+	idx := ss.Index()
 	admin.SetIndex(idx)
 	jm := jobs.New(st, log, 100)
 	jm.AddSource(ingest.NewSyncJobs(r))
@@ -176,11 +183,13 @@ func setup(t *testing.T, apiKeys ...string) *fixture {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { jm.Stop(); r.Wait(); jm.Wait() })
+	integAPI := api.NewIntegrations(integ)
+	integAPI.SetSearch(ss)
 	srv, err := api.New(api.Services{
 		Meta:         api.NewMeta(st, h, w, api.MetaOptions{DisplayLanguage: "en", Log: log, Index: idx}),
 		Admin:        admin,
 		Clients:      api.NewClients(st),
-		Integrations: api.NewIntegrations(integ),
+		Integrations: integAPI,
 		Jobs:         api.NewJobs(ctx, jm),
 	}, api.Options{Auth: authn, Log: log, Metrics: m, MetricsHandler: promhttp.HandlerFor(m.Registry, promhttp.HandlerOpts{})})
 	if err != nil {
@@ -188,7 +197,7 @@ func setup(t *testing.T, apiKeys ...string) *fixture {
 	}
 	hs := httptest.NewServer(srv.Handler())
 	t.Cleanup(hs.Close)
-	return &fixture{metrics: m, integ: integ, st: st, srv: hs, meta: metav1connect.NewMetaServiceClient(hs.Client(), hs.URL), fake: fake, writer: w, jobs: jm, release: release}
+	return &fixture{metrics: m, integ: integ, st: st, srv: hs, meta: metav1connect.NewMetaServiceClient(hs.Client(), hs.URL), fake: fake, writer: w, jobs: jm, release: release, search: ss}
 }
 
 func (f *fixture) entryID(t *testing.T, provider, id string) string {

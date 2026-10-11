@@ -65,6 +65,18 @@ const (
 	// MetaIntegrationsServiceSetPushedProfileProcedure is the fully-qualified name of the
 	// MetaIntegrationsService's SetPushedProfile RPC.
 	MetaIntegrationsServiceSetPushedProfileProcedure = "/panelarr.meta.v1.MetaIntegrationsService/SetPushedProfile"
+	// MetaIntegrationsServiceGetSearchEngineProcedure is the fully-qualified name of the
+	// MetaIntegrationsService's GetSearchEngine RPC.
+	MetaIntegrationsServiceGetSearchEngineProcedure = "/panelarr.meta.v1.MetaIntegrationsService/GetSearchEngine"
+	// MetaIntegrationsServicePutSearchEngineProcedure is the fully-qualified name of the
+	// MetaIntegrationsService's PutSearchEngine RPC.
+	MetaIntegrationsServicePutSearchEngineProcedure = "/panelarr.meta.v1.MetaIntegrationsService/PutSearchEngine"
+	// MetaIntegrationsServiceTestSearchEngineProcedure is the fully-qualified name of the
+	// MetaIntegrationsService's TestSearchEngine RPC.
+	MetaIntegrationsServiceTestSearchEngineProcedure = "/panelarr.meta.v1.MetaIntegrationsService/TestSearchEngine"
+	// MetaIntegrationsServiceResetSearchEngineProcedure is the fully-qualified name of the
+	// MetaIntegrationsService's ResetSearchEngine RPC.
+	MetaIntegrationsServiceResetSearchEngineProcedure = "/panelarr.meta.v1.MetaIntegrationsService/ResetSearchEngine"
 )
 
 // MetaIntegrationsServiceClient is a client for the panelarr.meta.v1.MetaIntegrationsService
@@ -97,6 +109,22 @@ type MetaIntegrationsServiceClient interface {
 	// server) gives a provider its profile. A pushed profile wins over the local
 	// assignment and default. Leaving `profile` unset removes the override.
 	SetPushedProfile(context.Context, *connect.Request[v1.SetPushedProfileRequest]) (*connect.Response[v1.SetPushedProfileResponse], error)
+	// GetSearchEngine returns the search backend in force, where its settings
+	// come from, and the state of its index and change feed. The API key is
+	// never returned.
+	GetSearchEngine(context.Context, *connect.Request[v1.GetSearchEngineRequest]) (*connect.Response[v1.GetSearchEngineResponse], error)
+	// PutSearchEngine saves search engine settings, which then win over the
+	// configuration file, and switches to them at once. An empty api_key keeps
+	// the stored key for the same engine and URL. A new or outdated index is
+	// rebuilt in the background (the search-rebuild job); PostgreSQL answers
+	// until it is ready.
+	PutSearchEngine(context.Context, *connect.Request[v1.PutSearchEngineRequest]) (*connect.Response[v1.PutSearchEngineResponse], error)
+	// TestSearchEngine reaches an engine with the given settings without
+	// saving them.
+	TestSearchEngine(context.Context, *connect.Request[v1.TestSearchEngineRequest]) (*connect.Response[v1.TestSearchEngineResponse], error)
+	// ResetSearchEngine forgets the admin's settings and goes back to the
+	// configuration file's.
+	ResetSearchEngine(context.Context, *connect.Request[v1.ResetSearchEngineRequest]) (*connect.Response[v1.ResetSearchEngineResponse], error)
 }
 
 // NewMetaIntegrationsServiceClient constructs a client for the
@@ -170,6 +198,30 @@ func NewMetaIntegrationsServiceClient(httpClient connect.HTTPClient, baseURL str
 			connect.WithSchema(metaIntegrationsServiceMethods.ByName("SetPushedProfile")),
 			connect.WithClientOptions(opts...),
 		),
+		getSearchEngine: connect.NewClient[v1.GetSearchEngineRequest, v1.GetSearchEngineResponse](
+			httpClient,
+			baseURL+MetaIntegrationsServiceGetSearchEngineProcedure,
+			connect.WithSchema(metaIntegrationsServiceMethods.ByName("GetSearchEngine")),
+			connect.WithClientOptions(opts...),
+		),
+		putSearchEngine: connect.NewClient[v1.PutSearchEngineRequest, v1.PutSearchEngineResponse](
+			httpClient,
+			baseURL+MetaIntegrationsServicePutSearchEngineProcedure,
+			connect.WithSchema(metaIntegrationsServiceMethods.ByName("PutSearchEngine")),
+			connect.WithClientOptions(opts...),
+		),
+		testSearchEngine: connect.NewClient[v1.TestSearchEngineRequest, v1.TestSearchEngineResponse](
+			httpClient,
+			baseURL+MetaIntegrationsServiceTestSearchEngineProcedure,
+			connect.WithSchema(metaIntegrationsServiceMethods.ByName("TestSearchEngine")),
+			connect.WithClientOptions(opts...),
+		),
+		resetSearchEngine: connect.NewClient[v1.ResetSearchEngineRequest, v1.ResetSearchEngineResponse](
+			httpClient,
+			baseURL+MetaIntegrationsServiceResetSearchEngineProcedure,
+			connect.WithSchema(metaIntegrationsServiceMethods.ByName("ResetSearchEngine")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -185,6 +237,10 @@ type metaIntegrationsServiceClient struct {
 	assignProfile     *connect.Client[v1.AssignProfileRequest, v1.AssignProfileResponse]
 	setDefaultProfile *connect.Client[v1.SetDefaultProfileRequest, v1.SetDefaultProfileResponse]
 	setPushedProfile  *connect.Client[v1.SetPushedProfileRequest, v1.SetPushedProfileResponse]
+	getSearchEngine   *connect.Client[v1.GetSearchEngineRequest, v1.GetSearchEngineResponse]
+	putSearchEngine   *connect.Client[v1.PutSearchEngineRequest, v1.PutSearchEngineResponse]
+	testSearchEngine  *connect.Client[v1.TestSearchEngineRequest, v1.TestSearchEngineResponse]
+	resetSearchEngine *connect.Client[v1.ResetSearchEngineRequest, v1.ResetSearchEngineResponse]
 }
 
 // ListSolvers calls panelarr.meta.v1.MetaIntegrationsService.ListSolvers.
@@ -237,6 +293,26 @@ func (c *metaIntegrationsServiceClient) SetPushedProfile(ctx context.Context, re
 	return c.setPushedProfile.CallUnary(ctx, req)
 }
 
+// GetSearchEngine calls panelarr.meta.v1.MetaIntegrationsService.GetSearchEngine.
+func (c *metaIntegrationsServiceClient) GetSearchEngine(ctx context.Context, req *connect.Request[v1.GetSearchEngineRequest]) (*connect.Response[v1.GetSearchEngineResponse], error) {
+	return c.getSearchEngine.CallUnary(ctx, req)
+}
+
+// PutSearchEngine calls panelarr.meta.v1.MetaIntegrationsService.PutSearchEngine.
+func (c *metaIntegrationsServiceClient) PutSearchEngine(ctx context.Context, req *connect.Request[v1.PutSearchEngineRequest]) (*connect.Response[v1.PutSearchEngineResponse], error) {
+	return c.putSearchEngine.CallUnary(ctx, req)
+}
+
+// TestSearchEngine calls panelarr.meta.v1.MetaIntegrationsService.TestSearchEngine.
+func (c *metaIntegrationsServiceClient) TestSearchEngine(ctx context.Context, req *connect.Request[v1.TestSearchEngineRequest]) (*connect.Response[v1.TestSearchEngineResponse], error) {
+	return c.testSearchEngine.CallUnary(ctx, req)
+}
+
+// ResetSearchEngine calls panelarr.meta.v1.MetaIntegrationsService.ResetSearchEngine.
+func (c *metaIntegrationsServiceClient) ResetSearchEngine(ctx context.Context, req *connect.Request[v1.ResetSearchEngineRequest]) (*connect.Response[v1.ResetSearchEngineResponse], error) {
+	return c.resetSearchEngine.CallUnary(ctx, req)
+}
+
 // MetaIntegrationsServiceHandler is an implementation of the
 // panelarr.meta.v1.MetaIntegrationsService service.
 type MetaIntegrationsServiceHandler interface {
@@ -267,6 +343,22 @@ type MetaIntegrationsServiceHandler interface {
 	// server) gives a provider its profile. A pushed profile wins over the local
 	// assignment and default. Leaving `profile` unset removes the override.
 	SetPushedProfile(context.Context, *connect.Request[v1.SetPushedProfileRequest]) (*connect.Response[v1.SetPushedProfileResponse], error)
+	// GetSearchEngine returns the search backend in force, where its settings
+	// come from, and the state of its index and change feed. The API key is
+	// never returned.
+	GetSearchEngine(context.Context, *connect.Request[v1.GetSearchEngineRequest]) (*connect.Response[v1.GetSearchEngineResponse], error)
+	// PutSearchEngine saves search engine settings, which then win over the
+	// configuration file, and switches to them at once. An empty api_key keeps
+	// the stored key for the same engine and URL. A new or outdated index is
+	// rebuilt in the background (the search-rebuild job); PostgreSQL answers
+	// until it is ready.
+	PutSearchEngine(context.Context, *connect.Request[v1.PutSearchEngineRequest]) (*connect.Response[v1.PutSearchEngineResponse], error)
+	// TestSearchEngine reaches an engine with the given settings without
+	// saving them.
+	TestSearchEngine(context.Context, *connect.Request[v1.TestSearchEngineRequest]) (*connect.Response[v1.TestSearchEngineResponse], error)
+	// ResetSearchEngine forgets the admin's settings and goes back to the
+	// configuration file's.
+	ResetSearchEngine(context.Context, *connect.Request[v1.ResetSearchEngineRequest]) (*connect.Response[v1.ResetSearchEngineResponse], error)
 }
 
 // NewMetaIntegrationsServiceHandler builds an HTTP handler from the service implementation. It
@@ -336,6 +428,30 @@ func NewMetaIntegrationsServiceHandler(svc MetaIntegrationsServiceHandler, opts 
 		connect.WithSchema(metaIntegrationsServiceMethods.ByName("SetPushedProfile")),
 		connect.WithHandlerOptions(opts...),
 	)
+	metaIntegrationsServiceGetSearchEngineHandler := connect.NewUnaryHandler(
+		MetaIntegrationsServiceGetSearchEngineProcedure,
+		svc.GetSearchEngine,
+		connect.WithSchema(metaIntegrationsServiceMethods.ByName("GetSearchEngine")),
+		connect.WithHandlerOptions(opts...),
+	)
+	metaIntegrationsServicePutSearchEngineHandler := connect.NewUnaryHandler(
+		MetaIntegrationsServicePutSearchEngineProcedure,
+		svc.PutSearchEngine,
+		connect.WithSchema(metaIntegrationsServiceMethods.ByName("PutSearchEngine")),
+		connect.WithHandlerOptions(opts...),
+	)
+	metaIntegrationsServiceTestSearchEngineHandler := connect.NewUnaryHandler(
+		MetaIntegrationsServiceTestSearchEngineProcedure,
+		svc.TestSearchEngine,
+		connect.WithSchema(metaIntegrationsServiceMethods.ByName("TestSearchEngine")),
+		connect.WithHandlerOptions(opts...),
+	)
+	metaIntegrationsServiceResetSearchEngineHandler := connect.NewUnaryHandler(
+		MetaIntegrationsServiceResetSearchEngineProcedure,
+		svc.ResetSearchEngine,
+		connect.WithSchema(metaIntegrationsServiceMethods.ByName("ResetSearchEngine")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/panelarr.meta.v1.MetaIntegrationsService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case MetaIntegrationsServiceListSolversProcedure:
@@ -358,6 +474,14 @@ func NewMetaIntegrationsServiceHandler(svc MetaIntegrationsServiceHandler, opts 
 			metaIntegrationsServiceSetDefaultProfileHandler.ServeHTTP(w, r)
 		case MetaIntegrationsServiceSetPushedProfileProcedure:
 			metaIntegrationsServiceSetPushedProfileHandler.ServeHTTP(w, r)
+		case MetaIntegrationsServiceGetSearchEngineProcedure:
+			metaIntegrationsServiceGetSearchEngineHandler.ServeHTTP(w, r)
+		case MetaIntegrationsServicePutSearchEngineProcedure:
+			metaIntegrationsServicePutSearchEngineHandler.ServeHTTP(w, r)
+		case MetaIntegrationsServiceTestSearchEngineProcedure:
+			metaIntegrationsServiceTestSearchEngineHandler.ServeHTTP(w, r)
+		case MetaIntegrationsServiceResetSearchEngineProcedure:
+			metaIntegrationsServiceResetSearchEngineHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -405,4 +529,20 @@ func (UnimplementedMetaIntegrationsServiceHandler) SetDefaultProfile(context.Con
 
 func (UnimplementedMetaIntegrationsServiceHandler) SetPushedProfile(context.Context, *connect.Request[v1.SetPushedProfileRequest]) (*connect.Response[v1.SetPushedProfileResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("panelarr.meta.v1.MetaIntegrationsService.SetPushedProfile is not implemented"))
+}
+
+func (UnimplementedMetaIntegrationsServiceHandler) GetSearchEngine(context.Context, *connect.Request[v1.GetSearchEngineRequest]) (*connect.Response[v1.GetSearchEngineResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("panelarr.meta.v1.MetaIntegrationsService.GetSearchEngine is not implemented"))
+}
+
+func (UnimplementedMetaIntegrationsServiceHandler) PutSearchEngine(context.Context, *connect.Request[v1.PutSearchEngineRequest]) (*connect.Response[v1.PutSearchEngineResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("panelarr.meta.v1.MetaIntegrationsService.PutSearchEngine is not implemented"))
+}
+
+func (UnimplementedMetaIntegrationsServiceHandler) TestSearchEngine(context.Context, *connect.Request[v1.TestSearchEngineRequest]) (*connect.Response[v1.TestSearchEngineResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("panelarr.meta.v1.MetaIntegrationsService.TestSearchEngine is not implemented"))
+}
+
+func (UnimplementedMetaIntegrationsServiceHandler) ResetSearchEngine(context.Context, *connect.Request[v1.ResetSearchEngineRequest]) (*connect.Response[v1.ResetSearchEngineResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("panelarr.meta.v1.MetaIntegrationsService.ResetSearchEngine is not implemented"))
 }

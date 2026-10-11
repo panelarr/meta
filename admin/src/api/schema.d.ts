@@ -416,6 +416,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/search-engine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GetSearchEngine
+         * @description GetSearchEngine returns the search backend in force, where its settings
+         *      come from, and the state of its index and change feed. The API key is
+         *      never returned.
+         */
+        get: operations["MetaIntegrationsService_GetSearchEngine"];
+        /**
+         * PutSearchEngine
+         * @description PutSearchEngine saves search engine settings, which then win over the
+         *      configuration file, and switches to them at once. An empty api_key keeps
+         *      the stored key for the same engine and URL. A new or outdated index is
+         *      rebuilt in the background (the search-rebuild job); PostgreSQL answers
+         *      until it is ready.
+         */
+        put: operations["MetaIntegrationsService_PutSearchEngine"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/search-engine:reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * ResetSearchEngine
+         * @description ResetSearchEngine forgets the admin's settings and goes back to the
+         *      configuration file's.
+         */
+        post: operations["MetaIntegrationsService_ResetSearchEngine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/search-engine:test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * TestSearchEngine
+         * @description TestSearchEngine reaches an engine with the given settings without
+         *      saving them.
+         */
+        post: operations["MetaIntegrationsService_TestSearchEngine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/solvers": {
         parameters: {
             query?: never;
@@ -771,6 +843,12 @@ export interface components {
              * @description Preferred language for display titles (BCP 47).
              */
             language?: string;
+            /**
+             * facets
+             * @description Ask for counts per filter value. Only a search engine backend has
+             *      them; with PostgreSQL the response has none.
+             */
+            facets?: boolean;
         };
         /** BrowseResponse */
         "panelarr.meta.v1.BrowseResponse": {
@@ -790,6 +868,12 @@ export interface components {
              *      "nothing set up" rather than "nothing matched".
              */
             noProviders?: boolean;
+            /**
+             * facets
+             * @description Counts per filter value among all matches, when asked for and the
+             *      search backend has them.
+             */
+            facets?: components["schemas"]["panelarr.meta.v1.Facet"][];
         };
         /** CancelJobRunRequest */
         "panelarr.meta.v1.CancelJobRunRequest": {
@@ -1096,6 +1180,34 @@ export interface components {
              */
             attributions?: components["schemas"]["panelarr.metadata.v1.Attribution"][];
         };
+        /**
+         * Facet
+         * @description The counts of one filter's values.
+         */
+        "panelarr.meta.v1.Facet": {
+            /**
+             * field
+             * @description "genres", "tags", "type", "status", "content_rating" or
+             *      "original_language".
+             */
+            field?: string;
+            /**
+             * values
+             * @description Most frequent first (at most 50). Genre and tag values are tag keys
+             *      ("genre/fantasy"); the others are the filter's short names ("manga").
+             */
+            values?: components["schemas"]["panelarr.meta.v1.FacetValue"][];
+        };
+        /** FacetValue */
+        "panelarr.meta.v1.FacetValue": {
+            /** value */
+            value?: string;
+            /**
+             * count
+             * Format: int64
+             */
+            count?: string;
+        };
         /** GetEntryRequest */
         "panelarr.meta.v1.GetEntryRequest": {
             /** id */
@@ -1151,6 +1263,15 @@ export interface components {
         "panelarr.meta.v1.GetJobRunResponse": {
             /** run */
             run?: components["schemas"]["panelarr.meta.v1.JobRun"];
+        };
+        /** GetSearchEngineRequest */
+        "panelarr.meta.v1.GetSearchEngineRequest": Record<string, never>;
+        /** GetSearchEngineResponse */
+        "panelarr.meta.v1.GetSearchEngineResponse": {
+            /** settings */
+            settings?: components["schemas"]["panelarr.meta.v1.SearchEngineSettings"];
+            /** status */
+            status?: components["schemas"]["panelarr.meta.v1.SearchEngineStatus"];
         };
         /** GetSyncRunRequest */
         "panelarr.meta.v1.GetSyncRunRequest": {
@@ -1328,7 +1449,7 @@ export interface components {
          * JobTrigger
          * @enum {string}
          */
-        "panelarr.meta.v1.JobTrigger": "JOB_TRIGGER_UNSPECIFIED" | "JOB_TRIGGER_SCHEDULE" | "JOB_TRIGGER_MANUAL" | "JOB_TRIGGER_STARTUP";
+        "panelarr.meta.v1.JobTrigger": "JOB_TRIGGER_UNSPECIFIED" | "JOB_TRIGGER_SCHEDULE" | "JOB_TRIGGER_MANUAL" | "JOB_TRIGGER_STARTUP" | "JOB_TRIGGER_SYSTEM";
         /** LanguageCount */
         "panelarr.meta.v1.LanguageCount": {
             /**
@@ -1653,6 +1774,18 @@ export interface components {
             /** profile */
             profile?: components["schemas"]["panelarr.meta.v1.NetworkProfile"];
         };
+        /** PutSearchEngineRequest */
+        "panelarr.meta.v1.PutSearchEngineRequest": {
+            /** settings */
+            settings?: components["schemas"]["panelarr.meta.v1.SearchEngineSettings"];
+        };
+        /** PutSearchEngineResponse */
+        "panelarr.meta.v1.PutSearchEngineResponse": {
+            /** settings */
+            settings?: components["schemas"]["panelarr.meta.v1.SearchEngineSettings"];
+            /** status */
+            status?: components["schemas"]["panelarr.meta.v1.SearchEngineStatus"];
+        };
         /** PutSolverRequest */
         "panelarr.meta.v1.PutSolverRequest": {
             /** solver */
@@ -1702,6 +1835,15 @@ export interface components {
             failed?: {
                 [key: string]: string;
             };
+        };
+        /** ResetSearchEngineRequest */
+        "panelarr.meta.v1.ResetSearchEngineRequest": Record<string, never>;
+        /** ResetSearchEngineResponse */
+        "panelarr.meta.v1.ResetSearchEngineResponse": {
+            /** settings */
+            settings?: components["schemas"]["panelarr.meta.v1.SearchEngineSettings"];
+            /** status */
+            status?: components["schemas"]["panelarr.meta.v1.SearchEngineStatus"];
         };
         /** RotateClientKeyRequest */
         "panelarr.meta.v1.RotateClientKeyRequest": {
@@ -1778,6 +1920,106 @@ export interface components {
             /** interval */
             interval?: components["schemas"]["google.protobuf.Duration"];
         };
+        /** SearchEngineSettings */
+        "panelarr.meta.v1.SearchEngineSettings": {
+            /**
+             * backend
+             * @description "postgres", "typesense" or "meilisearch".
+             */
+            backend?: string;
+            /**
+             * url
+             * @description The engine's URL, e.g. http://typesense:8108. meta talks to it; browsers
+             *      never do.
+             */
+            url?: string;
+            /**
+             * api_key
+             * @description Input only: never returned. Empty keeps the stored key.
+             */
+            apiKey?: string;
+            /**
+             * has_api_key
+             * @description Output only: whether a key is stored.
+             */
+            hasApiKey?: boolean;
+            /**
+             * index_prefix
+             * @description Names of meta's indexes start with it. Default "meta".
+             */
+            indexPrefix?: string;
+            /**
+             * browse
+             * @description Who serves browsing (no search text): "facets" (the engine when facets
+             *      are asked for; default), "engine" or "postgres".
+             */
+            browse?: string;
+            /**
+             * origin
+             * @description Output only: "config" (the configuration file) or "admin".
+             */
+            origin?: string;
+        };
+        /** SearchEngineStatus */
+        "panelarr.meta.v1.SearchEngineStatus": {
+            /**
+             * backend
+             * @description The backend answering searches.
+             */
+            backend?: string;
+            /** typo_tolerance */
+            typoTolerance?: boolean;
+            /** substring */
+            substring?: boolean;
+            /** facets */
+            facets?: boolean;
+            /**
+             * ready
+             * @description Engine only: the index is built and searches use it.
+             */
+            ready?: boolean;
+            /** reachable */
+            reachable?: boolean;
+            /**
+             * error
+             * @description Why the engine can't be reached, or why recent queries fell back.
+             */
+            error?: string;
+            /** error_at */
+            errorAt?: components["schemas"]["google.protobuf.Timestamp"];
+            /**
+             * degraded
+             * @description Recent queries failed and PostgreSQL answered them.
+             */
+            degraded?: boolean;
+            /** index */
+            index?: string;
+            /**
+             * documents
+             * Format: int64
+             */
+            documents?: string;
+            /** built_at */
+            builtAt?: components["schemas"]["google.protobuf.Timestamp"];
+            /**
+             * pending
+             * Format: int64
+             * @description Entry changes waiting for the engine, and the age of the oldest.
+             */
+            pending?: string;
+            /** lag */
+            lag?: components["schemas"]["google.protobuf.Duration"];
+            /**
+             * applied
+             * Format: int64
+             * @description Changes the indexer applied since meta started, and its last error.
+             */
+            applied?: string;
+            /** indexer_error */
+            indexerError?: string;
+            /** indexer_error_at */
+            indexerErrorAt?: components["schemas"]["google.protobuf.Timestamp"];
+        };
         /** SearchHit */
         "panelarr.meta.v1.SearchHit": {
             /** entry */
@@ -1821,6 +2063,11 @@ export interface components {
             pageToken?: string;
             /** language */
             language?: string;
+            /**
+             * facets
+             * @description Ask for counts per filter value (see BrowseRequest.facets).
+             */
+            facets?: boolean;
         };
         /** SearchResponse */
         "panelarr.meta.v1.SearchResponse": {
@@ -1835,6 +2082,8 @@ export interface components {
             totalSize?: string;
             /** no_providers */
             noProviders?: boolean;
+            /** facets */
+            facets?: components["schemas"]["panelarr.meta.v1.Facet"][];
         };
         /** SetDefaultProfileRequest */
         "panelarr.meta.v1.SetDefaultProfileRequest": {
@@ -1997,6 +2246,21 @@ export interface components {
          * @enum {string}
          */
         "panelarr.meta.v1.SyncRunStatus": "SYNC_RUN_STATUS_UNSPECIFIED" | "SYNC_RUN_STATUS_RUNNING" | "SYNC_RUN_STATUS_SUCCEEDED" | "SYNC_RUN_STATUS_FAILED" | "SYNC_RUN_STATUS_CANCELLED";
+        /** TestSearchEngineRequest */
+        "panelarr.meta.v1.TestSearchEngineRequest": {
+            /** settings */
+            settings?: components["schemas"]["panelarr.meta.v1.SearchEngineSettings"];
+        };
+        /** TestSearchEngineResponse */
+        "panelarr.meta.v1.TestSearchEngineResponse": {
+            /** ok */
+            ok?: boolean;
+            /**
+             * error
+             * @description Why it failed.
+             */
+            error?: string;
+        };
         /** UpdateClientRequest */
         "panelarr.meta.v1.UpdateClientRequest": {
             /** client_id */
@@ -3578,6 +3842,98 @@ export interface operations {
             };
         };
     };
+    MetaIntegrationsService_GetSearchEngine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["panelarr.meta.v1.GetSearchEngineResponse"];
+                };
+            };
+        };
+    };
+    MetaIntegrationsService_PutSearchEngine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["panelarr.meta.v1.PutSearchEngineRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["panelarr.meta.v1.PutSearchEngineResponse"];
+                };
+            };
+        };
+    };
+    MetaIntegrationsService_ResetSearchEngine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["panelarr.meta.v1.ResetSearchEngineRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["panelarr.meta.v1.ResetSearchEngineResponse"];
+                };
+            };
+        };
+    };
+    MetaIntegrationsService_TestSearchEngine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["panelarr.meta.v1.TestSearchEngineRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["panelarr.meta.v1.TestSearchEngineResponse"];
+                };
+            };
+        };
+    };
     MetaIntegrationsService_ListSolvers: {
         parameters: {
             query?: never;
@@ -3736,6 +4092,11 @@ export interface operations {
                 pageToken?: string;
                 /** @description Preferred language for display titles (BCP 47). */
                 language?: string;
+                /**
+                 * @description Ask for counts per filter value. Only a search engine backend has
+                 *      them; with PostgreSQL the response has none.
+                 */
+                facets?: boolean;
             };
             header?: never;
             path?: never;
@@ -3870,6 +4231,8 @@ export interface operations {
                 pageToken?: string;
                 /** @description The language query parameter. */
                 language?: string;
+                /** @description Ask for counts per filter value (see BrowseRequest.facets). */
+                facets?: boolean;
             };
             header?: never;
             path?: never;

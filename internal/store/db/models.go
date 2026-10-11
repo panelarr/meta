@@ -288,6 +288,16 @@ type SearchOutbox struct {
 	EnqueuedAt time.Time
 }
 
+type SearchSetting struct {
+	ID           int32
+	Backend      string
+	Url          string
+	ApiKeySealed pgtype.Text
+	IndexPrefix  string
+	Browse       string
+	UpdatedAt    time.Time
+}
+
 type Solver struct {
 	ID        string
 	Settings  []byte

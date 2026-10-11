@@ -14,6 +14,7 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -1524,11 +1525,659 @@ func (*SetPushedProfileResponse) Descriptor() ([]byte, []int) {
 	return file_panelarr_meta_v1_integrations_proto_rawDescGZIP(), []int{24}
 }
 
+type SearchEngineSettings struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// "postgres", "typesense" or "meilisearch".
+	Backend string `protobuf:"bytes,1,opt,name=backend,proto3" json:"backend,omitempty"`
+	// The engine's URL, e.g. http://typesense:8108. meta talks to it; browsers
+	// never do.
+	Url string `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`
+	// Input only: never returned. Empty keeps the stored key.
+	ApiKey string `protobuf:"bytes,3,opt,name=api_key,json=apiKey,proto3" json:"api_key,omitempty"`
+	// Output only: whether a key is stored.
+	HasApiKey bool `protobuf:"varint,4,opt,name=has_api_key,json=hasApiKey,proto3" json:"has_api_key,omitempty"`
+	// Names of meta's indexes start with it. Default "meta".
+	IndexPrefix string `protobuf:"bytes,5,opt,name=index_prefix,json=indexPrefix,proto3" json:"index_prefix,omitempty"`
+	// Who serves browsing (no search text): "facets" (the engine when facets
+	// are asked for; default), "engine" or "postgres".
+	Browse string `protobuf:"bytes,6,opt,name=browse,proto3" json:"browse,omitempty"`
+	// Output only: "config" (the configuration file) or "admin".
+	Origin        string `protobuf:"bytes,7,opt,name=origin,proto3" json:"origin,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SearchEngineSettings) Reset() {
+	*x = SearchEngineSettings{}
+	mi := &file_panelarr_meta_v1_integrations_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SearchEngineSettings) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SearchEngineSettings) ProtoMessage() {}
+
+func (x *SearchEngineSettings) ProtoReflect() protoreflect.Message {
+	mi := &file_panelarr_meta_v1_integrations_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SearchEngineSettings.ProtoReflect.Descriptor instead.
+func (*SearchEngineSettings) Descriptor() ([]byte, []int) {
+	return file_panelarr_meta_v1_integrations_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *SearchEngineSettings) GetBackend() string {
+	if x != nil {
+		return x.Backend
+	}
+	return ""
+}
+
+func (x *SearchEngineSettings) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+func (x *SearchEngineSettings) GetApiKey() string {
+	if x != nil {
+		return x.ApiKey
+	}
+	return ""
+}
+
+func (x *SearchEngineSettings) GetHasApiKey() bool {
+	if x != nil {
+		return x.HasApiKey
+	}
+	return false
+}
+
+func (x *SearchEngineSettings) GetIndexPrefix() string {
+	if x != nil {
+		return x.IndexPrefix
+	}
+	return ""
+}
+
+func (x *SearchEngineSettings) GetBrowse() string {
+	if x != nil {
+		return x.Browse
+	}
+	return ""
+}
+
+func (x *SearchEngineSettings) GetOrigin() string {
+	if x != nil {
+		return x.Origin
+	}
+	return ""
+}
+
+type SearchEngineStatus struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The backend answering searches.
+	Backend       string `protobuf:"bytes,1,opt,name=backend,proto3" json:"backend,omitempty"`
+	TypoTolerance bool   `protobuf:"varint,2,opt,name=typo_tolerance,json=typoTolerance,proto3" json:"typo_tolerance,omitempty"`
+	Substring     bool   `protobuf:"varint,3,opt,name=substring,proto3" json:"substring,omitempty"`
+	Facets        bool   `protobuf:"varint,4,opt,name=facets,proto3" json:"facets,omitempty"`
+	// Engine only: the index is built and searches use it.
+	Ready     bool `protobuf:"varint,5,opt,name=ready,proto3" json:"ready,omitempty"`
+	Reachable bool `protobuf:"varint,6,opt,name=reachable,proto3" json:"reachable,omitempty"`
+	// Why the engine can't be reached, or why recent queries fell back.
+	Error   string                 `protobuf:"bytes,7,opt,name=error,proto3" json:"error,omitempty"`
+	ErrorAt *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=error_at,json=errorAt,proto3" json:"error_at,omitempty"`
+	// Recent queries failed and PostgreSQL answered them.
+	Degraded  bool                   `protobuf:"varint,9,opt,name=degraded,proto3" json:"degraded,omitempty"`
+	Index     string                 `protobuf:"bytes,10,opt,name=index,proto3" json:"index,omitempty"`
+	Documents int64                  `protobuf:"varint,11,opt,name=documents,proto3" json:"documents,omitempty"`
+	BuiltAt   *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=built_at,json=builtAt,proto3" json:"built_at,omitempty"`
+	// Entry changes waiting for the engine, and the age of the oldest.
+	Pending int64                `protobuf:"varint,13,opt,name=pending,proto3" json:"pending,omitempty"`
+	Lag     *durationpb.Duration `protobuf:"bytes,14,opt,name=lag,proto3" json:"lag,omitempty"`
+	// Changes the indexer applied since meta started, and its last error.
+	Applied        int64                  `protobuf:"varint,15,opt,name=applied,proto3" json:"applied,omitempty"`
+	IndexerError   string                 `protobuf:"bytes,16,opt,name=indexer_error,json=indexerError,proto3" json:"indexer_error,omitempty"`
+	IndexerErrorAt *timestamppb.Timestamp `protobuf:"bytes,17,opt,name=indexer_error_at,json=indexerErrorAt,proto3" json:"indexer_error_at,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *SearchEngineStatus) Reset() {
+	*x = SearchEngineStatus{}
+	mi := &file_panelarr_meta_v1_integrations_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SearchEngineStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SearchEngineStatus) ProtoMessage() {}
+
+func (x *SearchEngineStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_panelarr_meta_v1_integrations_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SearchEngineStatus.ProtoReflect.Descriptor instead.
+func (*SearchEngineStatus) Descriptor() ([]byte, []int) {
+	return file_panelarr_meta_v1_integrations_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *SearchEngineStatus) GetBackend() string {
+	if x != nil {
+		return x.Backend
+	}
+	return ""
+}
+
+func (x *SearchEngineStatus) GetTypoTolerance() bool {
+	if x != nil {
+		return x.TypoTolerance
+	}
+	return false
+}
+
+func (x *SearchEngineStatus) GetSubstring() bool {
+	if x != nil {
+		return x.Substring
+	}
+	return false
+}
+
+func (x *SearchEngineStatus) GetFacets() bool {
+	if x != nil {
+		return x.Facets
+	}
+	return false
+}
+
+func (x *SearchEngineStatus) GetReady() bool {
+	if x != nil {
+		return x.Ready
+	}
+	return false
+}
+
+func (x *SearchEngineStatus) GetReachable() bool {
+	if x != nil {
+		return x.Reachable
+	}
+	return false
+}
+
+func (x *SearchEngineStatus) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *SearchEngineStatus) GetErrorAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ErrorAt
+	}
+	return nil
+}
+
+func (x *SearchEngineStatus) GetDegraded() bool {
+	if x != nil {
+		return x.Degraded
+	}
+	return false
+}
+
+func (x *SearchEngineStatus) GetIndex() string {
+	if x != nil {
+		return x.Index
+	}
+	return ""
+}
+
+func (x *SearchEngineStatus) GetDocuments() int64 {
+	if x != nil {
+		return x.Documents
+	}
+	return 0
+}
+
+func (x *SearchEngineStatus) GetBuiltAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.BuiltAt
+	}
+	return nil
+}
+
+func (x *SearchEngineStatus) GetPending() int64 {
+	if x != nil {
+		return x.Pending
+	}
+	return 0
+}
+
+func (x *SearchEngineStatus) GetLag() *durationpb.Duration {
+	if x != nil {
+		return x.Lag
+	}
+	return nil
+}
+
+func (x *SearchEngineStatus) GetApplied() int64 {
+	if x != nil {
+		return x.Applied
+	}
+	return 0
+}
+
+func (x *SearchEngineStatus) GetIndexerError() string {
+	if x != nil {
+		return x.IndexerError
+	}
+	return ""
+}
+
+func (x *SearchEngineStatus) GetIndexerErrorAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.IndexerErrorAt
+	}
+	return nil
+}
+
+type GetSearchEngineRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSearchEngineRequest) Reset() {
+	*x = GetSearchEngineRequest{}
+	mi := &file_panelarr_meta_v1_integrations_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSearchEngineRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSearchEngineRequest) ProtoMessage() {}
+
+func (x *GetSearchEngineRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_panelarr_meta_v1_integrations_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSearchEngineRequest.ProtoReflect.Descriptor instead.
+func (*GetSearchEngineRequest) Descriptor() ([]byte, []int) {
+	return file_panelarr_meta_v1_integrations_proto_rawDescGZIP(), []int{27}
+}
+
+type GetSearchEngineResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Settings      *SearchEngineSettings  `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
+	Status        *SearchEngineStatus    `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSearchEngineResponse) Reset() {
+	*x = GetSearchEngineResponse{}
+	mi := &file_panelarr_meta_v1_integrations_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSearchEngineResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSearchEngineResponse) ProtoMessage() {}
+
+func (x *GetSearchEngineResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_panelarr_meta_v1_integrations_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSearchEngineResponse.ProtoReflect.Descriptor instead.
+func (*GetSearchEngineResponse) Descriptor() ([]byte, []int) {
+	return file_panelarr_meta_v1_integrations_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *GetSearchEngineResponse) GetSettings() *SearchEngineSettings {
+	if x != nil {
+		return x.Settings
+	}
+	return nil
+}
+
+func (x *GetSearchEngineResponse) GetStatus() *SearchEngineStatus {
+	if x != nil {
+		return x.Status
+	}
+	return nil
+}
+
+type PutSearchEngineRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Settings      *SearchEngineSettings  `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PutSearchEngineRequest) Reset() {
+	*x = PutSearchEngineRequest{}
+	mi := &file_panelarr_meta_v1_integrations_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PutSearchEngineRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PutSearchEngineRequest) ProtoMessage() {}
+
+func (x *PutSearchEngineRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_panelarr_meta_v1_integrations_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PutSearchEngineRequest.ProtoReflect.Descriptor instead.
+func (*PutSearchEngineRequest) Descriptor() ([]byte, []int) {
+	return file_panelarr_meta_v1_integrations_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *PutSearchEngineRequest) GetSettings() *SearchEngineSettings {
+	if x != nil {
+		return x.Settings
+	}
+	return nil
+}
+
+type PutSearchEngineResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Settings      *SearchEngineSettings  `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
+	Status        *SearchEngineStatus    `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PutSearchEngineResponse) Reset() {
+	*x = PutSearchEngineResponse{}
+	mi := &file_panelarr_meta_v1_integrations_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PutSearchEngineResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PutSearchEngineResponse) ProtoMessage() {}
+
+func (x *PutSearchEngineResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_panelarr_meta_v1_integrations_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PutSearchEngineResponse.ProtoReflect.Descriptor instead.
+func (*PutSearchEngineResponse) Descriptor() ([]byte, []int) {
+	return file_panelarr_meta_v1_integrations_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *PutSearchEngineResponse) GetSettings() *SearchEngineSettings {
+	if x != nil {
+		return x.Settings
+	}
+	return nil
+}
+
+func (x *PutSearchEngineResponse) GetStatus() *SearchEngineStatus {
+	if x != nil {
+		return x.Status
+	}
+	return nil
+}
+
+type TestSearchEngineRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Settings      *SearchEngineSettings  `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TestSearchEngineRequest) Reset() {
+	*x = TestSearchEngineRequest{}
+	mi := &file_panelarr_meta_v1_integrations_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TestSearchEngineRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TestSearchEngineRequest) ProtoMessage() {}
+
+func (x *TestSearchEngineRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_panelarr_meta_v1_integrations_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TestSearchEngineRequest.ProtoReflect.Descriptor instead.
+func (*TestSearchEngineRequest) Descriptor() ([]byte, []int) {
+	return file_panelarr_meta_v1_integrations_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *TestSearchEngineRequest) GetSettings() *SearchEngineSettings {
+	if x != nil {
+		return x.Settings
+	}
+	return nil
+}
+
+type TestSearchEngineResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Ok    bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	// Why it failed.
+	Error         string `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TestSearchEngineResponse) Reset() {
+	*x = TestSearchEngineResponse{}
+	mi := &file_panelarr_meta_v1_integrations_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TestSearchEngineResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TestSearchEngineResponse) ProtoMessage() {}
+
+func (x *TestSearchEngineResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_panelarr_meta_v1_integrations_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TestSearchEngineResponse.ProtoReflect.Descriptor instead.
+func (*TestSearchEngineResponse) Descriptor() ([]byte, []int) {
+	return file_panelarr_meta_v1_integrations_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *TestSearchEngineResponse) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *TestSearchEngineResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+type ResetSearchEngineRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResetSearchEngineRequest) Reset() {
+	*x = ResetSearchEngineRequest{}
+	mi := &file_panelarr_meta_v1_integrations_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResetSearchEngineRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResetSearchEngineRequest) ProtoMessage() {}
+
+func (x *ResetSearchEngineRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_panelarr_meta_v1_integrations_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResetSearchEngineRequest.ProtoReflect.Descriptor instead.
+func (*ResetSearchEngineRequest) Descriptor() ([]byte, []int) {
+	return file_panelarr_meta_v1_integrations_proto_rawDescGZIP(), []int{33}
+}
+
+type ResetSearchEngineResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Settings      *SearchEngineSettings  `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
+	Status        *SearchEngineStatus    `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResetSearchEngineResponse) Reset() {
+	*x = ResetSearchEngineResponse{}
+	mi := &file_panelarr_meta_v1_integrations_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResetSearchEngineResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResetSearchEngineResponse) ProtoMessage() {}
+
+func (x *ResetSearchEngineResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_panelarr_meta_v1_integrations_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResetSearchEngineResponse.ProtoReflect.Descriptor instead.
+func (*ResetSearchEngineResponse) Descriptor() ([]byte, []int) {
+	return file_panelarr_meta_v1_integrations_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *ResetSearchEngineResponse) GetSettings() *SearchEngineSettings {
+	if x != nil {
+		return x.Settings
+	}
+	return nil
+}
+
+func (x *ResetSearchEngineResponse) GetStatus() *SearchEngineStatus {
+	if x != nil {
+		return x.Status
+	}
+	return nil
+}
+
 var File_panelarr_meta_v1_integrations_proto protoreflect.FileDescriptor
 
 const file_panelarr_meta_v1_integrations_proto_rawDesc = "" +
 	"\n" +
-	"#panelarr/meta/v1/integrations.proto\x12\x10panelarr.meta.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1egoogle/protobuf/duration.proto\x1a!panelarr/metadata/v1/plugin.proto\"\xb3\x02\n" +
+	"#panelarr/meta/v1/integrations.proto\x12\x10panelarr.meta.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a!panelarr/metadata/v1/plugin.proto\"\xb3\x02\n" +
 	"\x06Solver\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x120\n" +
@@ -1622,7 +2271,52 @@ const file_panelarr_meta_v1_integrations_proto_rawDesc = "" +
 	"\vprovider_id\x18\x01 \x01(\tR\n" +
 	"providerId\x12>\n" +
 	"\aprofile\x18\x02 \x01(\v2$.panelarr.metadata.v1.NetworkProfileR\aprofile\"\x1a\n" +
-	"\x18SetPushedProfileResponse*_\n" +
+	"\x18SetPushedProfileResponse\"\xce\x01\n" +
+	"\x14SearchEngineSettings\x12\x18\n" +
+	"\abackend\x18\x01 \x01(\tR\abackend\x12\x10\n" +
+	"\x03url\x18\x02 \x01(\tR\x03url\x12\x17\n" +
+	"\aapi_key\x18\x03 \x01(\tR\x06apiKey\x12\x1e\n" +
+	"\vhas_api_key\x18\x04 \x01(\bR\thasApiKey\x12!\n" +
+	"\findex_prefix\x18\x05 \x01(\tR\vindexPrefix\x12\x16\n" +
+	"\x06browse\x18\x06 \x01(\tR\x06browse\x12\x16\n" +
+	"\x06origin\x18\a \x01(\tR\x06origin\"\xdf\x04\n" +
+	"\x12SearchEngineStatus\x12\x18\n" +
+	"\abackend\x18\x01 \x01(\tR\abackend\x12%\n" +
+	"\x0etypo_tolerance\x18\x02 \x01(\bR\rtypoTolerance\x12\x1c\n" +
+	"\tsubstring\x18\x03 \x01(\bR\tsubstring\x12\x16\n" +
+	"\x06facets\x18\x04 \x01(\bR\x06facets\x12\x14\n" +
+	"\x05ready\x18\x05 \x01(\bR\x05ready\x12\x1c\n" +
+	"\treachable\x18\x06 \x01(\bR\treachable\x12\x14\n" +
+	"\x05error\x18\a \x01(\tR\x05error\x125\n" +
+	"\berror_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\aerrorAt\x12\x1a\n" +
+	"\bdegraded\x18\t \x01(\bR\bdegraded\x12\x14\n" +
+	"\x05index\x18\n" +
+	" \x01(\tR\x05index\x12\x1c\n" +
+	"\tdocuments\x18\v \x01(\x03R\tdocuments\x125\n" +
+	"\bbuilt_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\abuiltAt\x12\x18\n" +
+	"\apending\x18\r \x01(\x03R\apending\x12+\n" +
+	"\x03lag\x18\x0e \x01(\v2\x19.google.protobuf.DurationR\x03lag\x12\x18\n" +
+	"\aapplied\x18\x0f \x01(\x03R\aapplied\x12#\n" +
+	"\rindexer_error\x18\x10 \x01(\tR\findexerError\x12D\n" +
+	"\x10indexer_error_at\x18\x11 \x01(\v2\x1a.google.protobuf.TimestampR\x0eindexerErrorAt\"\x18\n" +
+	"\x16GetSearchEngineRequest\"\x9b\x01\n" +
+	"\x17GetSearchEngineResponse\x12B\n" +
+	"\bsettings\x18\x01 \x01(\v2&.panelarr.meta.v1.SearchEngineSettingsR\bsettings\x12<\n" +
+	"\x06status\x18\x02 \x01(\v2$.panelarr.meta.v1.SearchEngineStatusR\x06status\"\\\n" +
+	"\x16PutSearchEngineRequest\x12B\n" +
+	"\bsettings\x18\x01 \x01(\v2&.panelarr.meta.v1.SearchEngineSettingsR\bsettings\"\x9b\x01\n" +
+	"\x17PutSearchEngineResponse\x12B\n" +
+	"\bsettings\x18\x01 \x01(\v2&.panelarr.meta.v1.SearchEngineSettingsR\bsettings\x12<\n" +
+	"\x06status\x18\x02 \x01(\v2$.panelarr.meta.v1.SearchEngineStatusR\x06status\"]\n" +
+	"\x17TestSearchEngineRequest\x12B\n" +
+	"\bsettings\x18\x01 \x01(\v2&.panelarr.meta.v1.SearchEngineSettingsR\bsettings\"@\n" +
+	"\x18TestSearchEngineResponse\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\"\x1a\n" +
+	"\x18ResetSearchEngineRequest\"\x9d\x01\n" +
+	"\x19ResetSearchEngineResponse\x12B\n" +
+	"\bsettings\x18\x01 \x01(\v2&.panelarr.meta.v1.SearchEngineSettingsR\bsettings\x12<\n" +
+	"\x06status\x18\x02 \x01(\v2$.panelarr.meta.v1.SearchEngineStatusR\x06status*_\n" +
 	"\n" +
 	"SolverType\x12\x1b\n" +
 	"\x17SOLVER_TYPE_UNSPECIFIED\x10\x00\x12\x1c\n" +
@@ -1638,7 +2332,7 @@ const file_panelarr_meta_v1_integrations_proto_rawDesc = "" +
 	"\x13PROFILE_ORIGIN_NONE\x10\x01\x12\x1a\n" +
 	"\x16PROFILE_ORIGIN_DEFAULT\x10\x02\x12\x1b\n" +
 	"\x17PROFILE_ORIGIN_ASSIGNED\x10\x03\x12\x19\n" +
-	"\x15PROFILE_ORIGIN_PUSHED\x10\x042\x80\v\n" +
+	"\x15PROFILE_ORIGIN_PUSHED\x10\x042\xc5\x0f\n" +
 	"\x17MetaIntegrationsService\x12u\n" +
 	"\vListSolvers\x12$.panelarr.meta.v1.ListSolversRequest\x1a%.panelarr.meta.v1.ListSolversResponse\"\x19\x82\xd3\xe4\x93\x02\x13\x12\x11/v1/admin/solvers\x12\x83\x01\n" +
 	"\tPutSolver\x12\".panelarr.meta.v1.PutSolverRequest\x1a#.panelarr.meta.v1.PutSolverResponse\"-\x82\xd3\xe4\x93\x02':\x06solver\x1a\x1d/v1/admin/solvers/{solver.id}\x12\x84\x01\n" +
@@ -1650,7 +2344,11 @@ const file_panelarr_meta_v1_integrations_proto_rawDesc = "" +
 	"\x0fListAssignments\x12(.panelarr.meta.v1.ListAssignmentsRequest\x1a).panelarr.meta.v1.ListAssignmentsResponse\"\x1d\x82\xd3\xe4\x93\x02\x17\x12\x15/v1/admin/assignments\x12\x90\x01\n" +
 	"\rAssignProfile\x12&.panelarr.meta.v1.AssignProfileRequest\x1a'.panelarr.meta.v1.AssignProfileResponse\".\x82\xd3\xe4\x93\x02(:\x01*\x1a#/v1/admin/assignments/{provider_id}\x12\x92\x01\n" +
 	"\x11SetDefaultProfile\x12*.panelarr.meta.v1.SetDefaultProfileRequest\x1a+.panelarr.meta.v1.SetDefaultProfileResponse\"$\x82\xd3\xe4\x93\x02\x1e:\x01*\x1a\x19/v1/admin/default-profile\x12\x9d\x01\n" +
-	"\x10SetPushedProfile\x12).panelarr.meta.v1.SetPushedProfileRequest\x1a*.panelarr.meta.v1.SetPushedProfileResponse\"2\x82\xd3\xe4\x93\x02,:\x01*\x1a'/v1/admin/pushed-profiles/{provider_id}B\xc1\x01\n" +
+	"\x10SetPushedProfile\x12).panelarr.meta.v1.SetPushedProfileRequest\x1a*.panelarr.meta.v1.SetPushedProfileResponse\"2\x82\xd3\xe4\x93\x02,:\x01*\x1a'/v1/admin/pushed-profiles/{provider_id}\x12\x87\x01\n" +
+	"\x0fGetSearchEngine\x12(.panelarr.meta.v1.GetSearchEngineRequest\x1a).panelarr.meta.v1.GetSearchEngineResponse\"\x1f\x82\xd3\xe4\x93\x02\x19\x12\x17/v1/admin/search-engine\x12\x8a\x01\n" +
+	"\x0fPutSearchEngine\x12(.panelarr.meta.v1.PutSearchEngineRequest\x1a).panelarr.meta.v1.PutSearchEngineResponse\"\"\x82\xd3\xe4\x93\x02\x1c:\x01*\x1a\x17/v1/admin/search-engine\x12\x92\x01\n" +
+	"\x10TestSearchEngine\x12).panelarr.meta.v1.TestSearchEngineRequest\x1a*.panelarr.meta.v1.TestSearchEngineResponse\"'\x82\xd3\xe4\x93\x02!:\x01*\"\x1c/v1/admin/search-engine:test\x12\x96\x01\n" +
+	"\x11ResetSearchEngine\x12*.panelarr.meta.v1.ResetSearchEngineRequest\x1a+.panelarr.meta.v1.ResetSearchEngineResponse\"(\x82\xd3\xe4\x93\x02\":\x01*\"\x1d/v1/admin/search-engine:resetB\xc1\x01\n" +
 	"\x14com.panelarr.meta.v1B\x11IntegrationsProtoP\x01Z4github.com/panelarr/meta/gen/panelarr/meta/v1;metav1\xa2\x02\x03PMX\xaa\x02\x10Panelarr.Meta.V1\xca\x02\x10Panelarr\\Meta\\V1\xe2\x02\x1cPanelarr\\Meta\\V1\\GPBMetadata\xea\x02\x12Panelarr::Meta::V1b\x06proto3"
 
 var (
@@ -1666,7 +2364,7 @@ func file_panelarr_meta_v1_integrations_proto_rawDescGZIP() []byte {
 }
 
 var file_panelarr_meta_v1_integrations_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_panelarr_meta_v1_integrations_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
+var file_panelarr_meta_v1_integrations_proto_msgTypes = make([]protoimpl.MessageInfo, 36)
 var file_panelarr_meta_v1_integrations_proto_goTypes = []any{
 	(SolverType)(0),                   // 0: panelarr.meta.v1.SolverType
 	(UserAgentMode)(0),                // 1: panelarr.meta.v1.UserAgentMode
@@ -1696,22 +2394,33 @@ var file_panelarr_meta_v1_integrations_proto_goTypes = []any{
 	(*SetDefaultProfileResponse)(nil), // 25: panelarr.meta.v1.SetDefaultProfileResponse
 	(*SetPushedProfileRequest)(nil),   // 26: panelarr.meta.v1.SetPushedProfileRequest
 	(*SetPushedProfileResponse)(nil),  // 27: panelarr.meta.v1.SetPushedProfileResponse
-	nil,                               // 28: panelarr.meta.v1.NetworkProfile.HeadersEntry
-	(*durationpb.Duration)(nil),       // 29: google.protobuf.Duration
-	(*v1.NetworkProfile)(nil),         // 30: panelarr.metadata.v1.NetworkProfile
+	(*SearchEngineSettings)(nil),      // 28: panelarr.meta.v1.SearchEngineSettings
+	(*SearchEngineStatus)(nil),        // 29: panelarr.meta.v1.SearchEngineStatus
+	(*GetSearchEngineRequest)(nil),    // 30: panelarr.meta.v1.GetSearchEngineRequest
+	(*GetSearchEngineResponse)(nil),   // 31: panelarr.meta.v1.GetSearchEngineResponse
+	(*PutSearchEngineRequest)(nil),    // 32: panelarr.meta.v1.PutSearchEngineRequest
+	(*PutSearchEngineResponse)(nil),   // 33: panelarr.meta.v1.PutSearchEngineResponse
+	(*TestSearchEngineRequest)(nil),   // 34: panelarr.meta.v1.TestSearchEngineRequest
+	(*TestSearchEngineResponse)(nil),  // 35: panelarr.meta.v1.TestSearchEngineResponse
+	(*ResetSearchEngineRequest)(nil),  // 36: panelarr.meta.v1.ResetSearchEngineRequest
+	(*ResetSearchEngineResponse)(nil), // 37: panelarr.meta.v1.ResetSearchEngineResponse
+	nil,                               // 38: panelarr.meta.v1.NetworkProfile.HeadersEntry
+	(*durationpb.Duration)(nil),       // 39: google.protobuf.Duration
+	(*v1.NetworkProfile)(nil),         // 40: panelarr.metadata.v1.NetworkProfile
+	(*timestamppb.Timestamp)(nil),     // 41: google.protobuf.Timestamp
 }
 var file_panelarr_meta_v1_integrations_proto_depIdxs = []int32{
 	0,  // 0: panelarr.meta.v1.Solver.type:type_name -> panelarr.meta.v1.SolverType
-	29, // 1: panelarr.meta.v1.Solver.session_ttl:type_name -> google.protobuf.Duration
-	29, // 2: panelarr.meta.v1.Solver.max_timeout:type_name -> google.protobuf.Duration
+	39, // 1: panelarr.meta.v1.Solver.session_ttl:type_name -> google.protobuf.Duration
+	39, // 2: panelarr.meta.v1.Solver.max_timeout:type_name -> google.protobuf.Duration
 	5,  // 3: panelarr.meta.v1.NetworkProfile.proxy:type_name -> panelarr.meta.v1.Proxy
 	6,  // 4: panelarr.meta.v1.NetworkProfile.rate_limit:type_name -> panelarr.meta.v1.RateLimit
 	1,  // 5: panelarr.meta.v1.NetworkProfile.user_agent_mode:type_name -> panelarr.meta.v1.UserAgentMode
-	28, // 6: panelarr.meta.v1.NetworkProfile.headers:type_name -> panelarr.meta.v1.NetworkProfile.HeadersEntry
-	29, // 7: panelarr.meta.v1.NetworkProfile.connect_timeout:type_name -> google.protobuf.Duration
-	29, // 8: panelarr.meta.v1.NetworkProfile.read_timeout:type_name -> google.protobuf.Duration
-	29, // 9: panelarr.meta.v1.NetworkProfile.call_timeout:type_name -> google.protobuf.Duration
-	29, // 10: panelarr.meta.v1.RateLimit.period:type_name -> google.protobuf.Duration
+	38, // 6: panelarr.meta.v1.NetworkProfile.headers:type_name -> panelarr.meta.v1.NetworkProfile.HeadersEntry
+	39, // 7: panelarr.meta.v1.NetworkProfile.connect_timeout:type_name -> google.protobuf.Duration
+	39, // 8: panelarr.meta.v1.NetworkProfile.read_timeout:type_name -> google.protobuf.Duration
+	39, // 9: panelarr.meta.v1.NetworkProfile.call_timeout:type_name -> google.protobuf.Duration
+	39, // 10: panelarr.meta.v1.RateLimit.period:type_name -> google.protobuf.Duration
 	2,  // 11: panelarr.meta.v1.Assignment.effective:type_name -> panelarr.meta.v1.ProfileOrigin
 	3,  // 12: panelarr.meta.v1.ListSolversResponse.solvers:type_name -> panelarr.meta.v1.Solver
 	3,  // 13: panelarr.meta.v1.PutSolverRequest.solver:type_name -> panelarr.meta.v1.Solver
@@ -1721,32 +2430,52 @@ var file_panelarr_meta_v1_integrations_proto_depIdxs = []int32{
 	4,  // 17: panelarr.meta.v1.PutProfileResponse.profile:type_name -> panelarr.meta.v1.NetworkProfile
 	7,  // 18: panelarr.meta.v1.ListAssignmentsResponse.assignments:type_name -> panelarr.meta.v1.Assignment
 	7,  // 19: panelarr.meta.v1.AssignProfileResponse.assignment:type_name -> panelarr.meta.v1.Assignment
-	30, // 20: panelarr.meta.v1.SetPushedProfileRequest.profile:type_name -> panelarr.metadata.v1.NetworkProfile
-	8,  // 21: panelarr.meta.v1.MetaIntegrationsService.ListSolvers:input_type -> panelarr.meta.v1.ListSolversRequest
-	10, // 22: panelarr.meta.v1.MetaIntegrationsService.PutSolver:input_type -> panelarr.meta.v1.PutSolverRequest
-	12, // 23: panelarr.meta.v1.MetaIntegrationsService.DeleteSolver:input_type -> panelarr.meta.v1.DeleteSolverRequest
-	14, // 24: panelarr.meta.v1.MetaIntegrationsService.ListProfiles:input_type -> panelarr.meta.v1.ListProfilesRequest
-	16, // 25: panelarr.meta.v1.MetaIntegrationsService.PutProfile:input_type -> panelarr.meta.v1.PutProfileRequest
-	18, // 26: panelarr.meta.v1.MetaIntegrationsService.DeleteProfile:input_type -> panelarr.meta.v1.DeleteProfileRequest
-	20, // 27: panelarr.meta.v1.MetaIntegrationsService.ListAssignments:input_type -> panelarr.meta.v1.ListAssignmentsRequest
-	22, // 28: panelarr.meta.v1.MetaIntegrationsService.AssignProfile:input_type -> panelarr.meta.v1.AssignProfileRequest
-	24, // 29: panelarr.meta.v1.MetaIntegrationsService.SetDefaultProfile:input_type -> panelarr.meta.v1.SetDefaultProfileRequest
-	26, // 30: panelarr.meta.v1.MetaIntegrationsService.SetPushedProfile:input_type -> panelarr.meta.v1.SetPushedProfileRequest
-	9,  // 31: panelarr.meta.v1.MetaIntegrationsService.ListSolvers:output_type -> panelarr.meta.v1.ListSolversResponse
-	11, // 32: panelarr.meta.v1.MetaIntegrationsService.PutSolver:output_type -> panelarr.meta.v1.PutSolverResponse
-	13, // 33: panelarr.meta.v1.MetaIntegrationsService.DeleteSolver:output_type -> panelarr.meta.v1.DeleteSolverResponse
-	15, // 34: panelarr.meta.v1.MetaIntegrationsService.ListProfiles:output_type -> panelarr.meta.v1.ListProfilesResponse
-	17, // 35: panelarr.meta.v1.MetaIntegrationsService.PutProfile:output_type -> panelarr.meta.v1.PutProfileResponse
-	19, // 36: panelarr.meta.v1.MetaIntegrationsService.DeleteProfile:output_type -> panelarr.meta.v1.DeleteProfileResponse
-	21, // 37: panelarr.meta.v1.MetaIntegrationsService.ListAssignments:output_type -> panelarr.meta.v1.ListAssignmentsResponse
-	23, // 38: panelarr.meta.v1.MetaIntegrationsService.AssignProfile:output_type -> panelarr.meta.v1.AssignProfileResponse
-	25, // 39: panelarr.meta.v1.MetaIntegrationsService.SetDefaultProfile:output_type -> panelarr.meta.v1.SetDefaultProfileResponse
-	27, // 40: panelarr.meta.v1.MetaIntegrationsService.SetPushedProfile:output_type -> panelarr.meta.v1.SetPushedProfileResponse
-	31, // [31:41] is the sub-list for method output_type
-	21, // [21:31] is the sub-list for method input_type
-	21, // [21:21] is the sub-list for extension type_name
-	21, // [21:21] is the sub-list for extension extendee
-	0,  // [0:21] is the sub-list for field type_name
+	40, // 20: panelarr.meta.v1.SetPushedProfileRequest.profile:type_name -> panelarr.metadata.v1.NetworkProfile
+	41, // 21: panelarr.meta.v1.SearchEngineStatus.error_at:type_name -> google.protobuf.Timestamp
+	41, // 22: panelarr.meta.v1.SearchEngineStatus.built_at:type_name -> google.protobuf.Timestamp
+	39, // 23: panelarr.meta.v1.SearchEngineStatus.lag:type_name -> google.protobuf.Duration
+	41, // 24: panelarr.meta.v1.SearchEngineStatus.indexer_error_at:type_name -> google.protobuf.Timestamp
+	28, // 25: panelarr.meta.v1.GetSearchEngineResponse.settings:type_name -> panelarr.meta.v1.SearchEngineSettings
+	29, // 26: panelarr.meta.v1.GetSearchEngineResponse.status:type_name -> panelarr.meta.v1.SearchEngineStatus
+	28, // 27: panelarr.meta.v1.PutSearchEngineRequest.settings:type_name -> panelarr.meta.v1.SearchEngineSettings
+	28, // 28: panelarr.meta.v1.PutSearchEngineResponse.settings:type_name -> panelarr.meta.v1.SearchEngineSettings
+	29, // 29: panelarr.meta.v1.PutSearchEngineResponse.status:type_name -> panelarr.meta.v1.SearchEngineStatus
+	28, // 30: panelarr.meta.v1.TestSearchEngineRequest.settings:type_name -> panelarr.meta.v1.SearchEngineSettings
+	28, // 31: panelarr.meta.v1.ResetSearchEngineResponse.settings:type_name -> panelarr.meta.v1.SearchEngineSettings
+	29, // 32: panelarr.meta.v1.ResetSearchEngineResponse.status:type_name -> panelarr.meta.v1.SearchEngineStatus
+	8,  // 33: panelarr.meta.v1.MetaIntegrationsService.ListSolvers:input_type -> panelarr.meta.v1.ListSolversRequest
+	10, // 34: panelarr.meta.v1.MetaIntegrationsService.PutSolver:input_type -> panelarr.meta.v1.PutSolverRequest
+	12, // 35: panelarr.meta.v1.MetaIntegrationsService.DeleteSolver:input_type -> panelarr.meta.v1.DeleteSolverRequest
+	14, // 36: panelarr.meta.v1.MetaIntegrationsService.ListProfiles:input_type -> panelarr.meta.v1.ListProfilesRequest
+	16, // 37: panelarr.meta.v1.MetaIntegrationsService.PutProfile:input_type -> panelarr.meta.v1.PutProfileRequest
+	18, // 38: panelarr.meta.v1.MetaIntegrationsService.DeleteProfile:input_type -> panelarr.meta.v1.DeleteProfileRequest
+	20, // 39: panelarr.meta.v1.MetaIntegrationsService.ListAssignments:input_type -> panelarr.meta.v1.ListAssignmentsRequest
+	22, // 40: panelarr.meta.v1.MetaIntegrationsService.AssignProfile:input_type -> panelarr.meta.v1.AssignProfileRequest
+	24, // 41: panelarr.meta.v1.MetaIntegrationsService.SetDefaultProfile:input_type -> panelarr.meta.v1.SetDefaultProfileRequest
+	26, // 42: panelarr.meta.v1.MetaIntegrationsService.SetPushedProfile:input_type -> panelarr.meta.v1.SetPushedProfileRequest
+	30, // 43: panelarr.meta.v1.MetaIntegrationsService.GetSearchEngine:input_type -> panelarr.meta.v1.GetSearchEngineRequest
+	32, // 44: panelarr.meta.v1.MetaIntegrationsService.PutSearchEngine:input_type -> panelarr.meta.v1.PutSearchEngineRequest
+	34, // 45: panelarr.meta.v1.MetaIntegrationsService.TestSearchEngine:input_type -> panelarr.meta.v1.TestSearchEngineRequest
+	36, // 46: panelarr.meta.v1.MetaIntegrationsService.ResetSearchEngine:input_type -> panelarr.meta.v1.ResetSearchEngineRequest
+	9,  // 47: panelarr.meta.v1.MetaIntegrationsService.ListSolvers:output_type -> panelarr.meta.v1.ListSolversResponse
+	11, // 48: panelarr.meta.v1.MetaIntegrationsService.PutSolver:output_type -> panelarr.meta.v1.PutSolverResponse
+	13, // 49: panelarr.meta.v1.MetaIntegrationsService.DeleteSolver:output_type -> panelarr.meta.v1.DeleteSolverResponse
+	15, // 50: panelarr.meta.v1.MetaIntegrationsService.ListProfiles:output_type -> panelarr.meta.v1.ListProfilesResponse
+	17, // 51: panelarr.meta.v1.MetaIntegrationsService.PutProfile:output_type -> panelarr.meta.v1.PutProfileResponse
+	19, // 52: panelarr.meta.v1.MetaIntegrationsService.DeleteProfile:output_type -> panelarr.meta.v1.DeleteProfileResponse
+	21, // 53: panelarr.meta.v1.MetaIntegrationsService.ListAssignments:output_type -> panelarr.meta.v1.ListAssignmentsResponse
+	23, // 54: panelarr.meta.v1.MetaIntegrationsService.AssignProfile:output_type -> panelarr.meta.v1.AssignProfileResponse
+	25, // 55: panelarr.meta.v1.MetaIntegrationsService.SetDefaultProfile:output_type -> panelarr.meta.v1.SetDefaultProfileResponse
+	27, // 56: panelarr.meta.v1.MetaIntegrationsService.SetPushedProfile:output_type -> panelarr.meta.v1.SetPushedProfileResponse
+	31, // 57: panelarr.meta.v1.MetaIntegrationsService.GetSearchEngine:output_type -> panelarr.meta.v1.GetSearchEngineResponse
+	33, // 58: panelarr.meta.v1.MetaIntegrationsService.PutSearchEngine:output_type -> panelarr.meta.v1.PutSearchEngineResponse
+	35, // 59: panelarr.meta.v1.MetaIntegrationsService.TestSearchEngine:output_type -> panelarr.meta.v1.TestSearchEngineResponse
+	37, // 60: panelarr.meta.v1.MetaIntegrationsService.ResetSearchEngine:output_type -> panelarr.meta.v1.ResetSearchEngineResponse
+	47, // [47:61] is the sub-list for method output_type
+	33, // [33:47] is the sub-list for method input_type
+	33, // [33:33] is the sub-list for extension type_name
+	33, // [33:33] is the sub-list for extension extendee
+	0,  // [0:33] is the sub-list for field type_name
 }
 
 func init() { file_panelarr_meta_v1_integrations_proto_init() }
@@ -1760,7 +2489,7 @@ func file_panelarr_meta_v1_integrations_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_panelarr_meta_v1_integrations_proto_rawDesc), len(file_panelarr_meta_v1_integrations_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   26,
+			NumMessages:   36,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -15,6 +15,7 @@ type Querier interface {
 	// The oldest rows, locked until the transaction ends; other indexers skip
 	// them.
 	ClaimSearchOutbox(ctx context.Context, lim int32) ([]ClaimSearchOutboxRow, error)
+	ClearSearchOutbox(ctx context.Context) error
 	CountActiveEntries(ctx context.Context) (int64, error)
 	CountEntries(ctx context.Context) (int64, error)
 	CountProfiles(ctx context.Context) (int64, error)
@@ -46,6 +47,7 @@ type Querier interface {
 	DeletePushedProfile(ctx context.Context, provider string) error
 	DeleteRelationsOf(ctx context.Context, ids []uuid.UUID) error
 	DeleteSearchOutbox(ctx context.Context, seqs []int64) error
+	DeleteSearchSettings(ctx context.Context) error
 	DeleteSolver(ctx context.Context, id string) (int64, error)
 	DeleteTagsOf(ctx context.Context, ids []uuid.UUID) error
 	DeleteTitlesOf(ctx context.Context, ids []uuid.UUID) error
@@ -75,6 +77,9 @@ type Querier interface {
 	FinishJobRun(ctx context.Context, arg FinishJobRunParams) error
 	FinishMaintenance(ctx context.Context, name string) error
 	FinishSyncRun(ctx context.Context, arg FinishSyncRunParams) error
+	// Indexes of engines that aren't fed any more go stale: forget them, so
+	// using one again rebuilds it.
+	ForgetSearchIndexesExcept(ctx context.Context, backend string) error
 	GetAdminToken(ctx context.Context) (AdminToken, error)
 	GetClient(ctx context.Context, id string) (Client, error)
 	GetClientByKeyHash(ctx context.Context, keyHash []byte) (Client, error)
@@ -95,6 +100,7 @@ type Querier interface {
 	GetProviderEntryStates(ctx context.Context, arg GetProviderEntryStatesParams) ([]GetProviderEntryStatesRow, error)
 	GetRedirect(ctx context.Context, fromID uuid.UUID) (uuid.UUID, error)
 	GetSearchIndex(ctx context.Context, backend string) (SearchIndex, error)
+	GetSearchSettings(ctx context.Context) (SearchSetting, error)
 	GetSolver(ctx context.Context, id string) (Solver, error)
 	GetSyncCursor(ctx context.Context, arg GetSyncCursorParams) (SyncCursor, error)
 	GetSyncRun(ctx context.Context, id uuid.UUID) (SyncRun, error)
@@ -189,6 +195,7 @@ type Querier interface {
 	// Keeps the newest @keep finished runs of a provider and kind.
 	PruneSyncRuns(ctx context.Context, arg PruneSyncRunsParams) (int64, error)
 	PutProfile(ctx context.Context, arg PutProfileParams) error
+	PutSearchSettings(ctx context.Context, arg PutSearchSettingsParams) error
 	PutSolver(ctx context.Context, arg PutSolverParams) error
 	RecountTags(ctx context.Context) error
 	// Keep redirect chains one hop long.

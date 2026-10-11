@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const claimSearchOutbox = `-- name: ClaimSearchOutbox :many
@@ -46,12 +47,30 @@ func (q *Queries) ClaimSearchOutbox(ctx context.Context, lim int32) ([]ClaimSear
 	return items, nil
 }
 
+const clearSearchOutbox = `-- name: ClearSearchOutbox :exec
+DELETE FROM search_outbox
+`
+
+func (q *Queries) ClearSearchOutbox(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, clearSearchOutbox)
+	return err
+}
+
 const deleteSearchOutbox = `-- name: DeleteSearchOutbox :exec
 DELETE FROM search_outbox WHERE seq = ANY($1::bigint[])
 `
 
 func (q *Queries) DeleteSearchOutbox(ctx context.Context, seqs []int64) error {
 	_, err := q.db.Exec(ctx, deleteSearchOutbox, seqs)
+	return err
+}
+
+const deleteSearchSettings = `-- name: DeleteSearchSettings :exec
+DELETE FROM search_settings WHERE id = 1
+`
+
+func (q *Queries) DeleteSearchSettings(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteSearchSettings)
 	return err
 }
 
@@ -64,6 +83,17 @@ SELECT unnest($1::uuid[])
 // SPDX-License-Identifier: GPL-3.0-or-later
 func (q *Queries) EnqueueSearch(ctx context.Context, ids []uuid.UUID) error {
 	_, err := q.db.Exec(ctx, enqueueSearch, ids)
+	return err
+}
+
+const forgetSearchIndexesExcept = `-- name: ForgetSearchIndexesExcept :exec
+DELETE FROM search_indexes WHERE backend <> $1
+`
+
+// Indexes of engines that aren't fed any more go stale: forget them, so
+// using one again rebuilds it.
+func (q *Queries) ForgetSearchIndexesExcept(ctx context.Context, backend string) error {
+	_, err := q.db.Exec(ctx, forgetSearchIndexesExcept, backend)
 	return err
 }
 
@@ -80,6 +110,25 @@ func (q *Queries) GetSearchIndex(ctx context.Context, backend string) (SearchInd
 		&i.SchemaVersion,
 		&i.Documents,
 		&i.BuiltAt,
+	)
+	return i, err
+}
+
+const getSearchSettings = `-- name: GetSearchSettings :one
+SELECT id, backend, url, api_key_sealed, index_prefix, browse, updated_at FROM search_settings WHERE id = 1
+`
+
+func (q *Queries) GetSearchSettings(ctx context.Context) (SearchSetting, error) {
+	row := q.db.QueryRow(ctx, getSearchSettings)
+	var i SearchSetting
+	err := row.Scan(
+		&i.ID,
+		&i.Backend,
+		&i.Url,
+		&i.ApiKeySealed,
+		&i.IndexPrefix,
+		&i.Browse,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -119,6 +168,33 @@ func (q *Queries) ListSearchOutboxAfter(ctx context.Context, arg ListSearchOutbo
 		return nil, err
 	}
 	return items, nil
+}
+
+const putSearchSettings = `-- name: PutSearchSettings :exec
+INSERT INTO search_settings (id, backend, url, api_key_sealed, index_prefix, browse, updated_at)
+VALUES (1, $1, $2, $3, $4, $5, now())
+ON CONFLICT (id) DO UPDATE
+SET backend = EXCLUDED.backend, url = EXCLUDED.url, api_key_sealed = EXCLUDED.api_key_sealed,
+    index_prefix = EXCLUDED.index_prefix, browse = EXCLUDED.browse, updated_at = now()
+`
+
+type PutSearchSettingsParams struct {
+	Backend      string
+	Url          string
+	ApiKeySealed pgtype.Text
+	IndexPrefix  string
+	Browse       string
+}
+
+func (q *Queries) PutSearchSettings(ctx context.Context, arg PutSearchSettingsParams) error {
+	_, err := q.db.Exec(ctx, putSearchSettings,
+		arg.Backend,
+		arg.Url,
+		arg.ApiKeySealed,
+		arg.IndexPrefix,
+		arg.Browse,
+	)
+	return err
 }
 
 const searchOutboxHead = `-- name: SearchOutboxHead :one

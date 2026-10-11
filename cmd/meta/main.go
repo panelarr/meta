@@ -32,7 +32,7 @@ import (
 	"github.com/panelarr/meta/internal/integrations"
 	"github.com/panelarr/meta/internal/jobs"
 	"github.com/panelarr/meta/internal/metrics"
-	"github.com/panelarr/meta/internal/search"
+	"github.com/panelarr/meta/internal/searchsvc"
 	"github.com/panelarr/meta/internal/secret"
 	"github.com/panelarr/meta/internal/store"
 )
@@ -223,6 +223,7 @@ type app struct {
 	runner  *ingest.Runner
 	integ   *integrations.Service
 	metrics *metrics.Metrics
+	search  *searchsvc.Service
 }
 
 func open(ctx context.Context, c common, logOut io.Writer) (*app, error) {
@@ -260,7 +261,8 @@ func open(ctx context.Context, c common, logOut io.Writer) (*app, error) {
 	r.SetMetrics(m)
 	// Plugins get their network profiles from the integrations, in serve
 	// and in one-off syncs alike.
-	integ := integrations.New(st, secret.NewBox(cfg.SecretKey, filepath.Join(cfg.DataDir, "secret.key")), func() []integrations.ProviderInfo {
+	box := secret.NewBox(cfg.SecretKey, filepath.Join(cfg.DataDir, "secret.key"))
+	integ := integrations.New(st, box, func() []integrations.ProviderInfo {
 		var out []integrations.ProviderInfo
 		for _, p := range h.List() {
 			out = append(out, integrations.ProviderInfo{ID: p.ID(), Supported: p.UsesNetworkProfiles()})
@@ -271,7 +273,15 @@ func open(ctx context.Context, c common, logOut io.Writer) (*app, error) {
 		np, _, err := integ.Effective(ctx, provider)
 		return np, err
 	})
-	return &app{cfg: cfg, log: log, st: st, host: h, writer: w, runner: r, integ: integ, metrics: m}, nil
+	ss := searchsvc.New(st, box, w, cfg.Search, log.With("component", "search"), m)
+	// With a search engine in use, every process records entry changes
+	// for it, one-off syncs and rebuilds included.
+	if set, err := ss.Settings(ctx); err != nil {
+		log.Warn("search settings", "err", err)
+	} else {
+		w.SetSearchOutbox(set.Backend != searchsvc.Postgres)
+	}
+	return &app{cfg: cfg, log: log, st: st, host: h, writer: w, runner: r, integ: integ, metrics: m, search: ss}, nil
 }
 
 func (a *app) close() {
@@ -317,11 +327,18 @@ func serve(ctx context.Context, args []string, out io.Writer) error {
 	// background; the API serves meanwhile.
 	a.startMaintenance(syncCtx, jm)
 
-	idx, err := search.New(a.cfg.Search.Backend, search.NewPostgres(a.st.Pool))
-	if err != nil {
+	a.search.StartRebuild = func(trigger, why string) {
+		if _, err := jm.RunJob(syncCtx, jobSearchRebuild, jobs.Request{Trigger: trigger}); err != nil {
+			log.Info("search rebuild not started", "why", why, "err", err)
+		} else {
+			log.Info("search rebuild started", "why", why)
+		}
+	}
+	if err := a.search.Start(syncCtx); err != nil {
 		return err
 	}
-	idx = search.Instrumented(idx, a.metrics)
+	defer a.search.Stop()
+	idx := a.search.Index()
 	admin := api.NewAdmin(syncCtx, a.st, a.host, a.runner, a.writer)
 	admin.SetIndex(idx)
 	apiOpts := api.Options{Auth: authn, Ready: func(ctx context.Context) error { return a.st.Pool.Ping(ctx) }, Log: log.With("component", "api"), Metrics: a.metrics}
@@ -347,6 +364,8 @@ func serve(ctx context.Context, args []string, out io.Writer) error {
 			}()
 		}
 	}
+	integAPI := api.NewIntegrations(a.integ)
+	integAPI.SetSearch(a.search)
 	srv, err := api.New(api.Services{
 		Meta: api.NewMeta(a.st, a.host, a.writer, api.MetaOptions{
 			DisplayLanguage: a.cfg.Merge.DisplayLanguage, StaleAfter: a.cfg.Ingest.StaleAfter,
@@ -354,7 +373,7 @@ func serve(ctx context.Context, args []string, out io.Writer) error {
 		}),
 		Admin:        admin,
 		Clients:      api.NewClients(a.st),
-		Integrations: api.NewIntegrations(a.integ),
+		Integrations: integAPI,
 		Jobs:         api.NewJobs(syncCtx, jm),
 	}, apiOpts)
 	if err != nil {

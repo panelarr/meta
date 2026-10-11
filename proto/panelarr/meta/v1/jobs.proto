@@ -112,6 +112,9 @@ enum JobTrigger {
   JOB_TRIGGER_SCHEDULE = 1;
   JOB_TRIGGER_MANUAL = 2;
   JOB_TRIGGER_STARTUP = 3;
+  // meta started it on its own while running, e.g. a search index rebuild
+  // after the engine settings changed or too many changes piled up.
+  JOB_TRIGGER_SYSTEM = 4;
 }
 
 message JobRunSummary {

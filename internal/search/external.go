@@ -383,6 +383,15 @@ func (x *External) Status(ctx context.Context) (Status, error) {
 	if st.Pending > 0 && !st.Oldest.IsZero() {
 		s.Lag = time.Since(st.Oldest)
 	}
+	// The engine's own count; the one of the last rebuild when it can't
+	// be reached.
+	if s.Index != "" {
+		cctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		defer cancel()
+		if n, err := x.eng.Count(cctx, s.Index); err == nil {
+			s.Documents = n
+		}
+	}
 	return s, nil
 }
 

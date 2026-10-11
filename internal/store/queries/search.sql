@@ -45,3 +45,24 @@ SET index_name = EXCLUDED.index_name, schema_version = EXCLUDED.schema_version,
 
 -- name: SetSearchIndexDocuments :exec
 UPDATE search_indexes SET documents = @documents WHERE backend = @backend;
+
+-- name: GetSearchSettings :one
+SELECT * FROM search_settings WHERE id = 1;
+
+-- name: PutSearchSettings :exec
+INSERT INTO search_settings (id, backend, url, api_key_sealed, index_prefix, browse, updated_at)
+VALUES (1, @backend, @url, @api_key_sealed, @index_prefix, @browse, now())
+ON CONFLICT (id) DO UPDATE
+SET backend = EXCLUDED.backend, url = EXCLUDED.url, api_key_sealed = EXCLUDED.api_key_sealed,
+    index_prefix = EXCLUDED.index_prefix, browse = EXCLUDED.browse, updated_at = now();
+
+-- name: DeleteSearchSettings :exec
+DELETE FROM search_settings WHERE id = 1;
+
+-- name: ForgetSearchIndexesExcept :exec
+-- Indexes of engines that aren't fed any more go stale: forget them, so
+-- using one again rebuilds it.
+DELETE FROM search_indexes WHERE backend <> @backend;
+
+-- name: ClearSearchOutbox :exec
+DELETE FROM search_outbox;

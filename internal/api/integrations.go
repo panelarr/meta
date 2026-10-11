@@ -11,12 +11,14 @@ import (
 	metav1 "github.com/panelarr/meta/gen/panelarr/meta/v1"
 	"github.com/panelarr/meta/gen/panelarr/meta/v1/metav1connect"
 	"github.com/panelarr/meta/internal/integrations"
+	"github.com/panelarr/meta/internal/searchsvc"
 )
 
 // Integrations implements MetaIntegrationsService.
 type Integrations struct {
 	metav1connect.UnimplementedMetaIntegrationsServiceHandler
-	svc *integrations.Service
+	svc    *integrations.Service
+	search *searchsvc.Service
 }
 
 // NewIntegrations returns the integrations service.

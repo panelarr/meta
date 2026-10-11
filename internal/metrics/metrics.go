@@ -115,6 +115,14 @@ func (m *Metrics) SearchFallback(backend string) {
 	m.SearchFallbacks.WithLabelValues(backend).Inc()
 }
 
+// SearchIndexDocuments records the documents of a freshly built index.
+func (m *Metrics) SearchIndexDocuments(backend string, n int64) {
+	if m == nil {
+		return
+	}
+	m.SearchDocuments.WithLabelValues(backend).Set(float64(n))
+}
+
 // SearchOutbox records the outbox backlog.
 func (m *Metrics) SearchOutbox(pending int64, lag time.Duration) {
 	if m == nil {

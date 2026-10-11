@@ -4,6 +4,7 @@ package api
 
 import (
 	"context"
+	"maps"
 	"strconv"
 	"sync"
 	"time"
@@ -61,6 +62,14 @@ func (a *Admin) GetHealth(ctx context.Context, _ *connect.Request[metav1.GetHeal
 				"typo_tolerance": strconv.FormatBool(caps.TypoTolerance),
 				"substring":      strconv.FormatBool(caps.Substring),
 				"facets":         strconv.FormatBool(caps.Facets),
+			}
+			if sw, ok := a.idx.(*search.Switch); ok {
+				if h, ok := sw.Health(ctx); ok {
+					maps.Copy(details, h.Details)
+					if h.Degraded {
+						return metadatav1.HealthStatus_HEALTH_STATUS_DEGRADED, h.Message, details
+					}
+				}
 			}
 			if _, err := a.idx.Query(ctx, search.Query{Limit: 1}); err != nil {
 				return healthDown, err.Error(), details

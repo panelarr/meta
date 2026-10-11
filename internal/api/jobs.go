@@ -192,6 +192,7 @@ var triggers = map[string]metav1.JobTrigger{
 	jobs.TriggerSchedule: metav1.JobTrigger_JOB_TRIGGER_SCHEDULE,
 	jobs.TriggerManual:   metav1.JobTrigger_JOB_TRIGGER_MANUAL,
 	jobs.TriggerStartup:  metav1.JobTrigger_JOB_TRIGGER_STARTUP,
+	jobs.TriggerSystem:   metav1.JobTrigger_JOB_TRIGGER_SYSTEM,
 }
 
 func runSummaryProto(r jobs.Summary) *metav1.JobRunSummary {

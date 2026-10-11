@@ -32,3 +32,6 @@ func (i instrumented) Query(ctx context.Context, q Query) (Result, error) {
 	i.m.Search(i.Capabilities().Name, kind, time.Since(start))
 	return res, err
 }
+
+// Unwrap returns the instrumented backend.
+func (i instrumented) Unwrap() Index { return i.Index }
