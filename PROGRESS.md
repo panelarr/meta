@@ -41,7 +41,7 @@ The plan for the first version of meta and its first plugin, [meta-mangabaka](ht
 
 | # | Slice | Repo | Branch | State |
 |---|---|---|---|---|
-| 1 | Outbox, indexer, rebuild with atomic swap, fallback, conformance suite; Typesense and Meilisearch; facets; admin settings; jobs; compose profiles; docs; benchmarks | meta | `feat/search-outbox` | in progress |
+| 1 | Outbox, indexer, rebuild with atomic swap, fallback, conformance suite; Typesense and Meilisearch; facets; admin settings; jobs; compose profiles; docs; benchmarks | meta | `feat/search-outbox` | done |
 
 ## Next
 
