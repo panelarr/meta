@@ -29,6 +29,10 @@ For contributors: how meta's tables map to the [entry schema](schema.md). The sc
 
 `maintenance_jobs` holds work a migration leaves for meta to do, such as rebuilding every entry after the merge rules change. `meta serve` runs pending jobs in the background at start (the API answers meanwhile, with the old data until each entry is rebuilt), and `meta rebuild` runs them, or a full rebuild, by hand. A rebuild works from the stored provider records and downloads nothing.
 
+## Duplicates
+
+`duplicate_candidates` holds pairs of entries (in a fixed order, once each) with their score, signals, status (`open`, `confirmed`, `dismissed`), the decision model's verdict and who decided. `duplicate_verdicts` caches verdicts by the pair's content hash and the model. `judge_settings` holds decision model settings saved in the admin, the key sealed. The function `meta_title_key(norm)` and an index on it give titles' keys ([duplicates](duplicates.md)). A confirmed pair is merged by the same mechanics as a provider merge: records move, the retired entry redirects.
+
 ## Search engines
 
 Only used with an optional search engine ([search](search.md)). `search_outbox` lists entries the engine must look at again, written in the same transaction as the change; `search_indexes` records each engine's live index, its document schema version and when it was built; `search_settings` holds settings saved in the admin, with the API key sealed by meta's secret key.

@@ -264,6 +264,20 @@ providers:
 	if sum["status"] != "JOB_RUN_STATUS_SUCCEEDED" || counts["entries"] != "2" || sum["triggeredBy"] != "api_keys setting" {
 		t.Fatalf("stale refresh: %v", sum)
 	}
+	var dups struct {
+		Run struct {
+			ID string `json:"id"`
+		} `json:"run"`
+	}
+	if code := c.do("POST", "/v1/admin/jobs/duplicates:run", map[string]any{"params": map[string]string{"full": "true"}}, &dups); code != http.StatusOK {
+		t.Fatalf("run duplicates: %d", code)
+	}
+	if sum := waitJob("/v1/admin/job-runs/" + dups.Run.ID); sum["status"] != "JOB_RUN_STATUS_SUCCEEDED" {
+		t.Fatalf("duplicates: %v", sum)
+	}
+	if code := c.do("GET", "/v1/admin/duplicates", nil, nil); code != http.StatusOK {
+		t.Fatalf("list duplicates: %d", code)
+	}
 	mres, err = http.Get("http://" + metricsAddr + "/metrics") //nolint:noctx // test
 	if err != nil {
 		t.Fatal(err)

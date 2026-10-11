@@ -24,6 +24,7 @@ import (
 	"github.com/panelarr/meta/internal/auth"
 	"github.com/panelarr/meta/internal/catalog"
 	"github.com/panelarr/meta/internal/config"
+	"github.com/panelarr/meta/internal/duplicates"
 	"github.com/panelarr/meta/internal/host"
 	"github.com/panelarr/meta/internal/ingest"
 	"github.com/panelarr/meta/internal/integrations"
@@ -48,6 +49,7 @@ type fixture struct {
 	writer  *catalog.Writer
 	jobs    *jobs.Manager
 	search  *searchsvc.Service
+	dups    *duplicates.Service
 	// release lets the "hold" test job finish.
 	release chan struct{}
 }
@@ -185,8 +187,11 @@ func setup(t *testing.T, apiKeys ...string) *fixture {
 	t.Cleanup(func() { jm.Stop(); r.Wait(); jm.Wait() })
 	integAPI := api.NewIntegrations(integ)
 	integAPI.SetSearch(ss)
+	metaAPI := api.NewMeta(st, h, w, api.MetaOptions{DisplayLanguage: "en", Log: log, Index: idx})
+	dups := duplicates.NewService(st, w, box, config.Default().Duplicates)
 	srv, err := api.New(api.Services{
-		Meta:         api.NewMeta(st, h, w, api.MetaOptions{DisplayLanguage: "en", Log: log, Index: idx}),
+		Meta:         metaAPI,
+		Duplicates:   api.NewDuplicates(st, dups, metaAPI),
 		Admin:        admin,
 		Clients:      api.NewClients(st),
 		Integrations: integAPI,
@@ -197,7 +202,7 @@ func setup(t *testing.T, apiKeys ...string) *fixture {
 	}
 	hs := httptest.NewServer(srv.Handler())
 	t.Cleanup(hs.Close)
-	return &fixture{metrics: m, integ: integ, st: st, srv: hs, meta: metav1connect.NewMetaServiceClient(hs.Client(), hs.URL), fake: fake, writer: w, jobs: jm, release: release, search: ss}
+	return &fixture{metrics: m, integ: integ, st: st, srv: hs, meta: metav1connect.NewMetaServiceClient(hs.Client(), hs.URL), fake: fake, writer: w, jobs: jm, release: release, search: ss, dups: dups}
 }
 
 func (f *fixture) entryID(t *testing.T, provider, id string) string {

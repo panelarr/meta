@@ -13,6 +13,7 @@ import { type CatalogueSearch, parseCatalogueSearch } from "./lib/catalogue";
 import { AppLayout, NotFound, RootLayout } from "./pages/AppLayout";
 import { CataloguePage } from "./pages/CataloguePage";
 import { ClientsPage } from "./pages/ClientsPage";
+import { DuplicatesPage } from "./pages/DuplicatesPage";
 import { EntryPage } from "./pages/EntryPage";
 import { HealthPage } from "./pages/HealthPage";
 import { IntegrationsPage } from "./pages/IntegrationsPage";
@@ -89,6 +90,22 @@ const providersRoute = createRoute({
   component: ProvidersPage,
 });
 
+const duplicateViews = ["confirmed", "dismissed"] as const;
+
+const duplicatesRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/duplicates",
+  validateSearch: (search: Search): { show?: (typeof duplicateViews)[number]; min?: number; judged?: boolean } => {
+    const min = Number(search.min);
+    return {
+      show: duplicateViews.find((s) => s === search.show),
+      min: min > 0 && min <= 1 ? min : undefined,
+      judged: search.judged === true || search.judged === "true" ? true : undefined,
+    };
+  },
+  component: DuplicatesPage,
+});
+
 const jobsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/jobs",
@@ -124,6 +141,7 @@ const routeTree = rootRoute.addChildren([
     catalogueRoute,
     entryRoute,
     providersRoute,
+    duplicatesRoute,
     jobsRoute,
     clientsRoute,
     integrationsRoute,

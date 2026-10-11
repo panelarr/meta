@@ -381,6 +381,20 @@ export function mockJobs(): Job[] {
       params: [],
     },
     {
+      id: "duplicates",
+      name: "Find duplicates",
+      description:
+        "Compares the entries that changed since the last run with likely partners and keeps the pairs worth a look.",
+      group: "Catalogue",
+      schedule: { cron: "30 4 * * *", enabled: true, source: "duplicates.schedule" } as Job["schedule"],
+      nextRunAt: "2026-10-12T04:30:00Z",
+      cancellable: true,
+      params: [
+        { name: "full", type: "bool", default: "false", description: "Compare every entry" },
+        { name: "judge", type: "bool", default: "true", description: "Let the decision model rate the best pairs" },
+      ],
+    },
+    {
       id: "stale-refresh",
       name: "Refresh stale entries",
       description:

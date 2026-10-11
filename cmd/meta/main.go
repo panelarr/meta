@@ -27,6 +27,7 @@ import (
 	"github.com/panelarr/meta/internal/buildinfo"
 	"github.com/panelarr/meta/internal/catalog"
 	"github.com/panelarr/meta/internal/config"
+	"github.com/panelarr/meta/internal/duplicates"
 	"github.com/panelarr/meta/internal/host"
 	"github.com/panelarr/meta/internal/ingest"
 	"github.com/panelarr/meta/internal/integrations"
@@ -224,6 +225,7 @@ type app struct {
 	integ   *integrations.Service
 	metrics *metrics.Metrics
 	search  *searchsvc.Service
+	dups    *duplicates.Service
 }
 
 func open(ctx context.Context, c common, logOut io.Writer) (*app, error) {
@@ -281,7 +283,8 @@ func open(ctx context.Context, c common, logOut io.Writer) (*app, error) {
 	} else {
 		w.SetSearchOutbox(set.Backend != searchsvc.Postgres)
 	}
-	return &app{cfg: cfg, log: log, st: st, host: h, writer: w, runner: r, integ: integ, metrics: m, search: ss}, nil
+	dups := duplicates.NewService(st, w, box, cfg.Duplicates)
+	return &app{cfg: cfg, log: log, st: st, host: h, writer: w, runner: r, integ: integ, metrics: m, search: ss, dups: dups}, nil
 }
 
 func (a *app) close() {
@@ -366,11 +369,13 @@ func serve(ctx context.Context, args []string, out io.Writer) error {
 	}
 	integAPI := api.NewIntegrations(a.integ)
 	integAPI.SetSearch(a.search)
+	metaAPI := api.NewMeta(a.st, a.host, a.writer, api.MetaOptions{
+		DisplayLanguage: a.cfg.Merge.DisplayLanguage, StaleAfter: a.cfg.Ingest.StaleAfter,
+		Index: idx, Log: log, Base: syncCtx,
+	})
 	srv, err := api.New(api.Services{
-		Meta: api.NewMeta(a.st, a.host, a.writer, api.MetaOptions{
-			DisplayLanguage: a.cfg.Merge.DisplayLanguage, StaleAfter: a.cfg.Ingest.StaleAfter,
-			Index: idx, Log: log, Base: syncCtx,
-		}),
+		Meta:         metaAPI,
+		Duplicates:   api.NewDuplicates(a.st, a.dups, metaAPI),
 		Admin:        admin,
 		Clients:      api.NewClients(a.st),
 		Integrations: integAPI,

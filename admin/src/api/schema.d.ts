@@ -107,6 +107,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/decision-judge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GetDecisionJudge
+         * @description GetDecisionJudge returns the decision model settings in force. The API
+         *      key is never returned.
+         */
+        get: operations["MetaDuplicatesService_GetDecisionJudge"];
+        /**
+         * PutDecisionJudge
+         * @description PutDecisionJudge saves decision model settings; they win over the
+         *      configuration file. An empty api_key keeps the stored one for the same
+         *      kind and URL.
+         */
+        put: operations["MetaDuplicatesService_PutDecisionJudge"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/decision-judge:reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * ResetDecisionJudge
+         * @description ResetDecisionJudge forgets the admin's settings and uses the
+         *      configuration file's.
+         */
+        post: operations["MetaDuplicatesService_ResetDecisionJudge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/decision-judge:test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * TestDecisionJudge
+         * @description TestDecisionJudge asks the model about a made-up pair without saving
+         *      the settings. It costs a few hundred tokens.
+         */
+        post: operations["MetaDuplicatesService_TestDecisionJudge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/default-profile": {
         parameters: {
             query?: never;
@@ -122,6 +191,108 @@ export interface paths {
          */
         put: operations["MetaIntegrationsService_SetDefaultProfile"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/duplicates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * ListDuplicates
+         * @description ListDuplicates lists pairs, best score first.
+         */
+        get: operations["MetaDuplicatesService_ListDuplicates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/duplicates/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GetDuplicate
+         * @description GetDuplicate returns one pair.
+         */
+        get: operations["MetaDuplicatesService_GetDuplicate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/duplicates/{id}:confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * ConfirmDuplicate
+         * @description ConfirmDuplicate merges the pair into one entry: the other entry's
+         *      records move over, and its ID redirects to the one that stays.
+         */
+        post: operations["MetaDuplicatesService_ConfirmDuplicate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/duplicates/{id}:dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * DismissDuplicate
+         * @description DismissDuplicate records that the two are different works. The pair
+         *      never comes back.
+         */
+        post: operations["MetaDuplicatesService_DismissDuplicate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/duplicates/{id}:reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * ReopenDuplicate
+         * @description ReopenDuplicate takes back a dismissal.
+         */
+        post: operations["MetaDuplicatesService_ReopenDuplicate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -936,6 +1107,31 @@ export interface components {
                 [key: string]: string;
             };
         };
+        /** ConfirmDuplicateRequest */
+        "panelarr.meta.v1.ConfirmDuplicateRequest": {
+            /**
+             * id
+             * Format: int64
+             */
+            id?: string;
+            /**
+             * keep
+             * @description The entry that stays: "a" or "b". Empty keeps the more popular one.
+             */
+            keep?: string;
+            /** note */
+            note?: string;
+        };
+        /** ConfirmDuplicateResponse */
+        "panelarr.meta.v1.ConfirmDuplicateResponse": {
+            /** pair */
+            pair?: components["schemas"]["panelarr.meta.v1.DuplicatePair"];
+            /**
+             * entry_id
+             * @description The entry the two are now.
+             */
+            entryId?: string;
+        };
         /** CreateClientRequest */
         "panelarr.meta.v1.CreateClientRequest": {
             /** name */
@@ -952,6 +1148,50 @@ export interface components {
              * @description The API key. Shown only in this response.
              */
             apiKey?: string;
+        };
+        /** DecisionJudgeSettings */
+        "panelarr.meta.v1.DecisionJudgeSettings": {
+            /**
+             * enabled
+             * @description The model rates the best pairs after each duplicates run. Off by
+             *      default: nothing is sent anywhere until it is on.
+             */
+            enabled?: boolean;
+            /**
+             * kind
+             * @description "openai", "typesafe" or "clef".
+             */
+            kind?: string;
+            /**
+             * url
+             * @description Base URL (default the provider's); for clef the model's run URL.
+             */
+            url?: string;
+            /**
+             * model
+             * @description Default: gpt-6-luna (openai), jev-latest (typesafe), clef.
+             */
+            model?: string;
+            /**
+             * api_key
+             * @description Input only: never returned. Empty keeps the stored key.
+             */
+            apiKey?: string;
+            /**
+             * has_api_key
+             * @description Output only.
+             */
+            hasApiKey?: boolean;
+            /**
+             * covers
+             * @description Send cover images to models that take them (openai, clef).
+             */
+            covers?: boolean;
+            /**
+             * origin
+             * @description Output only: "config" or "admin".
+             */
+            origin?: string;
         };
         /** DeleteClientRequest */
         "panelarr.meta.v1.DeleteClientRequest": {
@@ -974,6 +1214,160 @@ export interface components {
         };
         /** DeleteSolverResponse */
         "panelarr.meta.v1.DeleteSolverResponse": Record<string, never>;
+        /** DismissDuplicateRequest */
+        "panelarr.meta.v1.DismissDuplicateRequest": {
+            /**
+             * id
+             * Format: int64
+             */
+            id?: string;
+            /** note */
+            note?: string;
+        };
+        /** DismissDuplicateResponse */
+        "panelarr.meta.v1.DismissDuplicateResponse": {
+            /** pair */
+            pair?: components["schemas"]["panelarr.meta.v1.DuplicatePair"];
+        };
+        /** DuplicatePair */
+        "panelarr.meta.v1.DuplicatePair": {
+            /**
+             * id
+             * Format: int64
+             */
+            id?: string;
+            /** entry_a */
+            entryA?: components["schemas"]["panelarr.meta.v1.EntrySummary"];
+            /** entry_b */
+            entryB?: components["schemas"]["panelarr.meta.v1.EntrySummary"];
+            /** status */
+            status?: components["schemas"]["panelarr.meta.v1.DuplicateStatus"];
+            /**
+             * score
+             * Format: double
+             * @description 0..1: how likely meta's own comparison thinks the two are one work.
+             */
+            score?: number;
+            /** signals */
+            signals?: components["schemas"]["panelarr.meta.v1.DuplicateSignals"];
+            /**
+             * verdict
+             * @description The decision model's answer, if one was asked.
+             */
+            verdict?: components["schemas"]["panelarr.meta.v1.DuplicateVerdict"];
+            /** created_at */
+            createdAt?: components["schemas"]["google.protobuf.Timestamp"];
+            /** updated_at */
+            updatedAt?: components["schemas"]["google.protobuf.Timestamp"];
+            /** decided_at */
+            decidedAt?: components["schemas"]["google.protobuf.Timestamp"];
+            /**
+             * decided_by
+             * @description Who decided: "admin" or a client's name.
+             */
+            decidedBy?: string;
+            /** note */
+            note?: string;
+        };
+        /**
+         * DuplicateSignals
+         * @description What the score is made of.
+         */
+        "panelarr.meta.v1.DuplicateSignals": {
+            /**
+             * title
+             * Format: double
+             * @description Best title similarity (1: the same normalized title) and the titles.
+             */
+            title?: number;
+            /** title_a */
+            titleA?: string;
+            /** title_b */
+            titleB?: string;
+            /**
+             * people
+             * Format: double
+             * @description Share of credited people in common (0..1); -1 when a side has none.
+             */
+            people?: number;
+            /** shared_people */
+            sharedPeople?: string[];
+            /**
+             * year_a
+             * Format: int32
+             */
+            yearA?: number;
+            /**
+             * year_b
+             * Format: int32
+             */
+            yearB?: number;
+            /** type_a */
+            typeA?: string;
+            /** type_b */
+            typeB?: string;
+            /** language_a */
+            languageA?: string;
+            /** language_b */
+            languageB?: string;
+            /**
+             * shared_ids
+             * @description IDs at another site both report ("anilist:30013").
+             */
+            sharedIds?: string[];
+            /**
+             * same_provider
+             * @description Both come from the same provider, which keeps records apart on
+             *      purpose unless its data has duplicates.
+             */
+            sameProvider?: boolean;
+        };
+        /**
+         * DuplicateStatus
+         * @enum {string}
+         */
+        "panelarr.meta.v1.DuplicateStatus": "DUPLICATE_STATUS_UNSPECIFIED" | "DUPLICATE_STATUS_OPEN" | "DUPLICATE_STATUS_CONFIRMED" | "DUPLICATE_STATUS_DISMISSED";
+        /**
+         * DuplicateVerdict
+         * @description A decision model's answer. Models give probabilities, not reasons.
+         */
+        "panelarr.meta.v1.DuplicateVerdict": {
+            /**
+             * judge
+             * @description "openai", "typesafe" or "clef", and the model.
+             */
+            judge?: string;
+            /** model */
+            model?: string;
+            /**
+             * same
+             * Format: double
+             * @description Probability that the two are the same work.
+             */
+            same?: number;
+            /**
+             * choice
+             * @description "same_work", "related_work" or "different", with every option's
+             *      probability.
+             */
+            choice?: string;
+            /** probabilities */
+            probabilities?: {
+                [key: string]: number;
+            };
+            /**
+             * confidence
+             * Format: double
+             */
+            confidence?: number;
+            /**
+             * tokens
+             * Format: int64
+             */
+            tokens?: string;
+            /** at */
+            at?: components["schemas"]["google.protobuf.Timestamp"];
+        };
         /**
          * Entry
          * @description Entry is meta's merged record for one catalogue item. Each field comes from
@@ -1207,6 +1601,26 @@ export interface components {
              * Format: int64
              */
             count?: string;
+        };
+        /** GetDecisionJudgeRequest */
+        "panelarr.meta.v1.GetDecisionJudgeRequest": Record<string, never>;
+        /** GetDecisionJudgeResponse */
+        "panelarr.meta.v1.GetDecisionJudgeResponse": {
+            /** settings */
+            settings?: components["schemas"]["panelarr.meta.v1.DecisionJudgeSettings"];
+        };
+        /** GetDuplicateRequest */
+        "panelarr.meta.v1.GetDuplicateRequest": {
+            /**
+             * id
+             * Format: int64
+             */
+            id?: string;
+        };
+        /** GetDuplicateResponse */
+        "panelarr.meta.v1.GetDuplicateResponse": {
+            /** pair */
+            pair?: components["schemas"]["panelarr.meta.v1.DuplicatePair"];
         };
         /** GetEntryRequest */
         "panelarr.meta.v1.GetEntryRequest": {
@@ -1489,6 +1903,44 @@ export interface components {
             /** clients */
             clients?: components["schemas"]["panelarr.meta.v1.Client"][];
         };
+        /** ListDuplicatesRequest */
+        "panelarr.meta.v1.ListDuplicatesRequest": {
+            /**
+             * status
+             * @description Default: open pairs.
+             */
+            status?: components["schemas"]["panelarr.meta.v1.DuplicateStatus"];
+            /**
+             * min_score
+             * Format: double
+             */
+            minScore?: number;
+            /**
+             * judged_only
+             * @description Only pairs the decision model rated.
+             */
+            judgedOnly?: boolean;
+            /**
+             * page_size
+             * Format: int32
+             * @description 1..100, default 20.
+             */
+            pageSize?: number;
+            /** page_token */
+            pageToken?: string;
+        };
+        /** ListDuplicatesResponse */
+        "panelarr.meta.v1.ListDuplicatesResponse": {
+            /** pairs */
+            pairs?: components["schemas"]["panelarr.meta.v1.DuplicatePair"][];
+            /** next_page_token */
+            nextPageToken?: string;
+            /**
+             * total_size
+             * Format: int64
+             */
+            totalSize?: string;
+        };
         /** ListJobRunsRequest */
         "panelarr.meta.v1.ListJobRunsRequest": {
             /** job_id */
@@ -1770,6 +2222,16 @@ export interface components {
             /** has_password */
             hasPassword?: boolean;
         };
+        /** PutDecisionJudgeRequest */
+        "panelarr.meta.v1.PutDecisionJudgeRequest": {
+            /** settings */
+            settings?: components["schemas"]["panelarr.meta.v1.DecisionJudgeSettings"];
+        };
+        /** PutDecisionJudgeResponse */
+        "panelarr.meta.v1.PutDecisionJudgeResponse": {
+            /** settings */
+            settings?: components["schemas"]["panelarr.meta.v1.DecisionJudgeSettings"];
+        };
         /** PutProfileRequest */
         "panelarr.meta.v1.PutProfileRequest": {
             /** profile */
@@ -1841,6 +2303,26 @@ export interface components {
             failed?: {
                 [key: string]: string;
             };
+        };
+        /** ReopenDuplicateRequest */
+        "panelarr.meta.v1.ReopenDuplicateRequest": {
+            /**
+             * id
+             * Format: int64
+             */
+            id?: string;
+        };
+        /** ReopenDuplicateResponse */
+        "panelarr.meta.v1.ReopenDuplicateResponse": {
+            /** pair */
+            pair?: components["schemas"]["panelarr.meta.v1.DuplicatePair"];
+        };
+        /** ResetDecisionJudgeRequest */
+        "panelarr.meta.v1.ResetDecisionJudgeRequest": Record<string, never>;
+        /** ResetDecisionJudgeResponse */
+        "panelarr.meta.v1.ResetDecisionJudgeResponse": {
+            /** settings */
+            settings?: components["schemas"]["panelarr.meta.v1.DecisionJudgeSettings"];
         };
         /** ResetSearchEngineRequest */
         "panelarr.meta.v1.ResetSearchEngineRequest": Record<string, never>;
@@ -2252,6 +2734,23 @@ export interface components {
          * @enum {string}
          */
         "panelarr.meta.v1.SyncRunStatus": "SYNC_RUN_STATUS_UNSPECIFIED" | "SYNC_RUN_STATUS_RUNNING" | "SYNC_RUN_STATUS_SUCCEEDED" | "SYNC_RUN_STATUS_FAILED" | "SYNC_RUN_STATUS_CANCELLED";
+        /** TestDecisionJudgeRequest */
+        "panelarr.meta.v1.TestDecisionJudgeRequest": {
+            /** settings */
+            settings?: components["schemas"]["panelarr.meta.v1.DecisionJudgeSettings"];
+        };
+        /** TestDecisionJudgeResponse */
+        "panelarr.meta.v1.TestDecisionJudgeResponse": {
+            /** ok */
+            ok?: boolean;
+            /** error */
+            error?: string;
+            /**
+             * verdict
+             * @description The answer about the made-up pair (two listings of one work).
+             */
+            verdict?: components["schemas"]["panelarr.meta.v1.DuplicateVerdict"];
+        };
         /** TestSearchEngineRequest */
         "panelarr.meta.v1.TestSearchEngineRequest": {
             /** settings */
@@ -3465,6 +3964,98 @@ export interface operations {
             };
         };
     };
+    MetaDuplicatesService_GetDecisionJudge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["panelarr.meta.v1.GetDecisionJudgeResponse"];
+                };
+            };
+        };
+    };
+    MetaDuplicatesService_PutDecisionJudge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["panelarr.meta.v1.PutDecisionJudgeRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["panelarr.meta.v1.PutDecisionJudgeResponse"];
+                };
+            };
+        };
+    };
+    MetaDuplicatesService_ResetDecisionJudge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["panelarr.meta.v1.ResetDecisionJudgeRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["panelarr.meta.v1.ResetDecisionJudgeResponse"];
+                };
+            };
+        };
+    };
+    MetaDuplicatesService_TestDecisionJudge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["panelarr.meta.v1.TestDecisionJudgeRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["panelarr.meta.v1.TestDecisionJudgeResponse"];
+                };
+            };
+        };
+    };
     MetaIntegrationsService_SetDefaultProfile: {
         parameters: {
             query?: never;
@@ -3485,6 +4076,148 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["panelarr.meta.v1.SetDefaultProfileResponse"];
+                };
+            };
+        };
+    };
+    MetaDuplicatesService_ListDuplicates: {
+        parameters: {
+            query?: {
+                /** @description Default: open pairs. */
+                status?: components["schemas"]["panelarr.meta.v1.DuplicateStatus"];
+                /** @description The minScore query parameter. */
+                minScore?: number;
+                /** @description Only pairs the decision model rated. */
+                judgedOnly?: boolean;
+                /** @description 1..100, default 20. */
+                pageSize?: number;
+                /** @description The pageToken query parameter. */
+                pageToken?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["panelarr.meta.v1.ListDuplicatesResponse"];
+                };
+            };
+        };
+    };
+    MetaDuplicatesService_GetDuplicate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The id path parameter. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["panelarr.meta.v1.GetDuplicateResponse"];
+                };
+            };
+        };
+    };
+    MetaDuplicatesService_ConfirmDuplicate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The id path parameter. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * keep
+                     * @description The entry that stays: "a" or "b". Empty keeps the more popular one.
+                     */
+                    keep?: string;
+                    /** note */
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["panelarr.meta.v1.ConfirmDuplicateResponse"];
+                };
+            };
+        };
+    };
+    MetaDuplicatesService_DismissDuplicate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The id path parameter. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** note */
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["panelarr.meta.v1.DismissDuplicateResponse"];
+                };
+            };
+        };
+    };
+    MetaDuplicatesService_ReopenDuplicate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The id path parameter. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["panelarr.meta.v1.ReopenDuplicateResponse"];
                 };
             };
         };

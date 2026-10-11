@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	metadatav1 "github.com/panelarr/meta/gen/panelarr/metadata/v1"
@@ -33,6 +34,10 @@ type generator struct {
 	plugin.Unimplemented
 	n         int
 	mergedPct int
+	// dupPct adds, for that share of records, a near-duplicate record of
+	// the same work ("dup-<i>"): a title off by a letter or an article,
+	// the same people and year, as a provider's own duplicates look.
+	dupPct int
 	// light leaves out what search doesn't use (covers, links, relations,
 	// companies, descriptions, other IDs and the raw record), so a large
 	// search benchmark fits in less disk.
@@ -113,6 +118,11 @@ func (g generator) Sync(ctx context.Context, req *metadatav1.SyncRequest, send p
 		if err := w.Upsert(e); err != nil {
 			return err
 		}
+		if g.dupPct > 0 && i%100 < g.dupPct && e.GetState() == metadatav1.EntryState_ENTRY_STATE_ACTIVE {
+			if err := w.Upsert(g.duplicate(e)); err != nil {
+				return err
+			}
+		}
 		if e.GetState() == metadatav1.EntryState_ENTRY_STATE_MERGED {
 			if err := w.Merge(e.GetRef(), e.GetMergedInto()); err != nil {
 				return err
@@ -120,6 +130,28 @@ func (g generator) Sync(ctx context.Context, req *metadatav1.SyncRequest, send p
 		}
 	}
 	return w.Finished("gen")
+}
+
+// duplicate makes the provider's own near-duplicate of a record: another
+// ID, the main title slightly different, the same people and year, no IDs
+// at other sites (or the same ones).
+func (g generator) duplicate(e *metadatav1.ProviderEntry) *metadatav1.ProviderEntry {
+	d := proto.Clone(e).(*metadatav1.ProviderEntry)
+	id := "dup-" + e.GetRef().GetId()
+	d.Ref = &metadatav1.ExternalId{Provider: "gen", Id: id}
+	d.Titles = d.Titles[:1]
+	switch n, _ := strconv.Atoi(e.GetRef().GetId()); n % 3 {
+	case 0:
+		d.Titles[0].Text = "The " + d.Titles[0].Text
+	case 1:
+		d.Titles[0].Text += "s"
+	default:
+		d.Titles[0].Text += ": Special Edition"
+	}
+	d.ExternalIds = nil
+	d.Relations = nil
+	d.Stats = &metadatav1.Stats{PopularityRank: ptr(int64(g.n) + int64(len(id)))}
+	return d
 }
 
 func ptr[T any](v T) *T { return &v }

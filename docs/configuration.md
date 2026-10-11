@@ -39,6 +39,7 @@ meta version
 | `jobs.retention` | | `100` | Finished runs kept per job, provider syncs included |
 | `jobs.stale_refresh.schedule` | | none (manual only) | Cron expression (UTC) for the stale-entry refresh job |
 | `jobs.stale_refresh.limit` | | `100` | Most entries one stale-entry refresh looks up |
+| `duplicates.*` | `META_JUDGE_API_KEY` | see [duplicates](duplicates.md#settings) | The duplicates job and the optional decision model |
 | `metrics.enabled` | `META_METRICS_ENABLED` | `false` | Prometheus metrics (see [observability](observability.md)) |
 | `metrics.listen` | `META_METRICS_LISTEN` | `:9464` | Address of the metrics endpoint. Empty: `/metrics` on the API port for the `metrics:read` scope |
 | `log.level` | `META_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |

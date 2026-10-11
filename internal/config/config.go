@@ -47,6 +47,8 @@ type Config struct {
 	Ingest Ingest `yaml:"ingest"`
 	// Jobs tunes background jobs.
 	Jobs Jobs `yaml:"jobs"`
+	// Duplicates tunes finding entries that are probably the same work.
+	Duplicates Duplicates `yaml:"duplicates"`
 	// Providers are the metadata plugins meta uses. None by default.
 	Providers []Provider `yaml:"providers"`
 	// Log configures logging.
@@ -130,6 +132,39 @@ type Jobs struct {
 	StaleRefresh StaleRefresh `yaml:"stale_refresh"`
 }
 
+// Duplicates tunes the duplicates job.
+type Duplicates struct {
+	// Schedule is a cron expression (UTC). Empty: only run by hand.
+	Schedule string `yaml:"schedule"`
+	// MinScore keeps pairs scoring at least this (0..1). Default 0.6.
+	MinScore float64 `yaml:"min_score"`
+	// MaxPerEntry keeps the best pairs of each entry. Default 5.
+	MaxPerEntry int `yaml:"max_per_entry"`
+	// SkipSameProvider never pairs entries whose records all come from the
+	// same providers. Default false: a provider's own duplicates are what
+	// this finds most.
+	SkipSameProvider bool `yaml:"skip_same_provider"`
+	// Judge is the optional decision model. Settings saved in the admin win.
+	Judge Judge `yaml:"judge"`
+}
+
+// Judge is a decision model that rates pairs. Off by default.
+type Judge struct {
+	Enabled bool `yaml:"enabled"`
+	// Kind is "openai", "typesafe" or "clef".
+	Kind   string `yaml:"kind"`
+	URL    string `yaml:"url"`
+	Model  string `yaml:"model"`
+	APIKey string `yaml:"api_key"`
+	// Covers sends cover images to models that take them.
+	Covers bool `yaml:"covers"`
+	// MinScore: only pairs scoring at least this are sent. Default 0.7.
+	MinScore float64 `yaml:"min_score"`
+	// MaxPairs and MaxTokens cap each run. Defaults 200 and 500000.
+	MaxPairs  int   `yaml:"max_pairs"`
+	MaxTokens int64 `yaml:"max_tokens"`
+}
+
 type StaleRefresh struct {
 	// Schedule is a cron expression (UTC). Empty: only run by hand.
 	Schedule string `yaml:"schedule"`
@@ -200,7 +235,9 @@ func Default() Config {
 		Merge:  Merge{DisplayLanguage: "en"},
 		Ingest: Ingest{BatchSize: 500, StaleAfter: 7 * 24 * time.Hour},
 		Jobs:   Jobs{Retention: 100, StaleRefresh: StaleRefresh{Limit: 100}},
-		Log:    Log{Level: "info", Format: "json"},
+		Duplicates: Duplicates{MinScore: 0.6, MaxPerEntry: 5,
+			Judge: Judge{MinScore: 0.7, MaxPairs: 200, MaxTokens: 500000}},
+		Log: Log{Level: "info", Format: "json"},
 	}
 }
 
@@ -271,6 +308,7 @@ func applyEnv(cfg *Config) {
 	set(&cfg.Search.Typesense.APIKey, "META_TYPESENSE_API_KEY")
 	set(&cfg.Search.Meilisearch.URL, "META_MEILISEARCH_URL")
 	set(&cfg.Search.Meilisearch.APIKey, "META_MEILISEARCH_API_KEY")
+	set(&cfg.Duplicates.Judge.APIKey, "META_JUDGE_API_KEY")
 	if v := os.Getenv("META_METRICS_ENABLED"); v != "" {
 		cfg.Metrics.Enabled = v == "true" || v == "1"
 	}
@@ -322,6 +360,17 @@ func (c Config) Validate() error {
 	}
 	if c.Jobs.StaleRefresh.Limit <= 0 {
 		errs = append(errs, errors.New("jobs.stale_refresh.limit must be positive"))
+	}
+	if d := c.Duplicates; d.MinScore <= 0 || d.MinScore > 1 || d.MaxPerEntry <= 0 || d.Judge.MaxPairs <= 0 || d.Judge.MaxTokens <= 0 {
+		errs = append(errs, errors.New("duplicates: min_score must be in (0, 1], max_per_entry, judge.max_pairs and judge.max_tokens positive"))
+	}
+	if spec := c.Duplicates.Schedule; spec != "" {
+		if _, err := CronParser.Parse(spec); err != nil {
+			errs = append(errs, fmt.Errorf("duplicates.schedule: %w", err))
+		}
+	}
+	if k := c.Duplicates.Judge.Kind; c.Duplicates.Judge.Enabled && !slices.Contains([]string{"openai", "typesafe", "clef"}, k) {
+		errs = append(errs, fmt.Errorf("duplicates.judge.kind %q: use openai, typesafe or clef", k))
 	}
 	if spec := c.Jobs.StaleRefresh.Schedule; spec != "" {
 		if _, err := CronParser.Parse(spec); err != nil {

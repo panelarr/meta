@@ -272,6 +272,35 @@ components:
           description: Extra facts, e.g. the search backend's capabilities or a plugin's version.
       title: ComponentHealth
       additionalProperties: false
+    panelarr.meta.v1.ConfirmDuplicateRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          format: int64
+        keep:
+          type: string
+          title: keep
+          description: 'The entry that stays: "a" or "b". Empty keeps the more popular one.'
+        note:
+          type: string
+          title: note
+      title: ConfirmDuplicateRequest
+      additionalProperties: false
+    panelarr.meta.v1.ConfirmDuplicateResponse:
+      type: object
+      properties:
+        pair:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.DuplicatePair'
+          title: pair
+        entryId:
+          type: string
+          title: entry_id
+          description: The entry the two are now.
+      title: ConfirmDuplicateResponse
+      additionalProperties: false
     panelarr.meta.v1.CreateClientRequest:
       type: object
       properties:
@@ -297,6 +326,45 @@ components:
           title: api_key
           description: The API key. Shown only in this response.
       title: CreateClientResponse
+      additionalProperties: false
+    panelarr.meta.v1.DecisionJudgeSettings:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          title: enabled
+          description: |-
+            The model rates the best pairs after each duplicates run. Off by
+             default: nothing is sent anywhere until it is on.
+        kind:
+          type: string
+          title: kind
+          description: '"openai", "typesafe" or "clef".'
+        url:
+          type: string
+          title: url
+          description: Base URL (default the provider's); for clef the model's run URL.
+        model:
+          type: string
+          title: model
+          description: 'Default: gpt-6-luna (openai), jev-latest (typesafe), clef.'
+        apiKey:
+          type: string
+          title: api_key
+          description: 'Input only: never returned. Empty keeps the stored key.'
+        hasApiKey:
+          type: boolean
+          title: has_api_key
+          description: Output only.
+        covers:
+          type: boolean
+          title: covers
+          description: Send cover images to models that take them (openai, clef).
+        origin:
+          type: string
+          title: origin
+          description: 'Output only: "config" or "admin".'
+      title: DecisionJudgeSettings
       additionalProperties: false
     panelarr.meta.v1.DeleteClientRequest:
       type: object
@@ -334,6 +402,191 @@ components:
       type: object
       title: DeleteSolverResponse
       additionalProperties: false
+    panelarr.meta.v1.DismissDuplicateRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          format: int64
+        note:
+          type: string
+          title: note
+      title: DismissDuplicateRequest
+      additionalProperties: false
+    panelarr.meta.v1.DismissDuplicateResponse:
+      type: object
+      properties:
+        pair:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.DuplicatePair'
+          title: pair
+      title: DismissDuplicateResponse
+      additionalProperties: false
+    panelarr.meta.v1.DuplicatePair:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          format: int64
+        entryA:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.EntrySummary'
+          title: entry_a
+        entryB:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.EntrySummary'
+          title: entry_b
+        status:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.DuplicateStatus'
+          title: status
+        score:
+          type: number
+          title: score
+          format: double
+          description: '0..1: how likely meta''s own comparison thinks the two are one work.'
+        signals:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.DuplicateSignals'
+          title: signals
+        verdict:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.DuplicateVerdict'
+          title: verdict
+          description: The decision model's answer, if one was asked.
+        createdAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: created_at
+        updatedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: updated_at
+        decidedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: decided_at
+        decidedBy:
+          type: string
+          title: decided_by
+          description: 'Who decided: "admin" or a client''s name.'
+        note:
+          type: string
+          title: note
+      title: DuplicatePair
+      additionalProperties: false
+    panelarr.meta.v1.DuplicateSignals:
+      type: object
+      properties:
+        title:
+          type: number
+          title: title
+          format: double
+          description: 'Best title similarity (1: the same normalized title) and the titles.'
+        titleA:
+          type: string
+          title: title_a
+        titleB:
+          type: string
+          title: title_b
+        people:
+          type: number
+          title: people
+          format: double
+          description: Share of credited people in common (0..1); -1 when a side has none.
+        sharedPeople:
+          type: array
+          items:
+            type: string
+          title: shared_people
+        yearA:
+          type: integer
+          title: year_a
+          format: int32
+        yearB:
+          type: integer
+          title: year_b
+          format: int32
+        typeA:
+          type: string
+          title: type_a
+        typeB:
+          type: string
+          title: type_b
+        languageA:
+          type: string
+          title: language_a
+        languageB:
+          type: string
+          title: language_b
+        sharedIds:
+          type: array
+          items:
+            type: string
+          title: shared_ids
+          description: IDs at another site both report ("anilist:30013").
+        sameProvider:
+          type: boolean
+          title: same_provider
+          description: |-
+            Both come from the same provider, which keeps records apart on
+             purpose unless its data has duplicates.
+      title: DuplicateSignals
+      additionalProperties: false
+      description: What the score is made of.
+    panelarr.meta.v1.DuplicateStatus:
+      type: string
+      title: DuplicateStatus
+      enum:
+        - DUPLICATE_STATUS_UNSPECIFIED
+        - DUPLICATE_STATUS_OPEN
+        - DUPLICATE_STATUS_CONFIRMED
+        - DUPLICATE_STATUS_DISMISSED
+    panelarr.meta.v1.DuplicateVerdict:
+      type: object
+      properties:
+        judge:
+          type: string
+          title: judge
+          description: '"openai", "typesafe" or "clef", and the model.'
+        model:
+          type: string
+          title: model
+        same:
+          type: number
+          title: same
+          format: double
+          description: Probability that the two are the same work.
+        choice:
+          type: string
+          title: choice
+          description: |-
+            "same_work", "related_work" or "different", with every option's
+             probability.
+        probabilities:
+          type: object
+          title: probabilities
+          additionalProperties:
+            type: number
+            title: value
+            format: double
+        confidence:
+          type: number
+          title: confidence
+          format: double
+        tokens:
+          type: string
+          title: tokens
+          format: int64
+        at:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: at
+      title: DuplicateVerdict
+      additionalProperties: false
+      description: A decision model's answer. Models give probabilities, not reasons.
     panelarr.meta.v1.Entry:
       type: object
       properties:
@@ -663,6 +916,37 @@ components:
           title: count
           format: int64
       title: FacetValue
+      additionalProperties: false
+    panelarr.meta.v1.GetDecisionJudgeRequest:
+      type: object
+      title: GetDecisionJudgeRequest
+      additionalProperties: false
+    panelarr.meta.v1.GetDecisionJudgeResponse:
+      type: object
+      properties:
+        settings:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.DecisionJudgeSettings'
+          title: settings
+      title: GetDecisionJudgeResponse
+      additionalProperties: false
+    panelarr.meta.v1.GetDuplicateRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          format: int64
+      title: GetDuplicateRequest
+      additionalProperties: false
+    panelarr.meta.v1.GetDuplicateResponse:
+      type: object
+      properties:
+        pair:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.DuplicatePair'
+          title: pair
+      title: GetDuplicateResponse
       additionalProperties: false
     panelarr.meta.v1.GetEntryRequest:
       type: object
@@ -1039,6 +1323,49 @@ components:
           title: clients
       title: ListClientsResponse
       additionalProperties: false
+    panelarr.meta.v1.ListDuplicatesRequest:
+      type: object
+      properties:
+        status:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.DuplicateStatus'
+          title: status
+          description: 'Default: open pairs.'
+        minScore:
+          type: number
+          title: min_score
+          format: double
+        judgedOnly:
+          type: boolean
+          title: judged_only
+          description: Only pairs the decision model rated.
+        pageSize:
+          type: integer
+          title: page_size
+          format: int32
+          description: 1..100, default 20.
+        pageToken:
+          type: string
+          title: page_token
+      title: ListDuplicatesRequest
+      additionalProperties: false
+    panelarr.meta.v1.ListDuplicatesResponse:
+      type: object
+      properties:
+        pairs:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.meta.v1.DuplicatePair'
+          title: pairs
+        nextPageToken:
+          type: string
+          title: next_page_token
+        totalSize:
+          type: string
+          title: total_size
+          format: int64
+      title: ListDuplicatesResponse
+      additionalProperties: false
     panelarr.meta.v1.ListJobRunsRequest:
       type: object
       properties:
@@ -1404,6 +1731,24 @@ components:
           title: has_password
       title: Proxy
       additionalProperties: false
+    panelarr.meta.v1.PutDecisionJudgeRequest:
+      type: object
+      properties:
+        settings:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.DecisionJudgeSettings'
+          title: settings
+      title: PutDecisionJudgeRequest
+      additionalProperties: false
+    panelarr.meta.v1.PutDecisionJudgeResponse:
+      type: object
+      properties:
+        settings:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.DecisionJudgeSettings'
+          title: settings
+      title: PutDecisionJudgeResponse
+      additionalProperties: false
     panelarr.meta.v1.PutProfileRequest:
       type: object
       properties:
@@ -1508,6 +1853,37 @@ components:
             title: value
           description: Providers that failed, with the reason.
       title: RefreshEntryResponse
+      additionalProperties: false
+    panelarr.meta.v1.ReopenDuplicateRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          format: int64
+      title: ReopenDuplicateRequest
+      additionalProperties: false
+    panelarr.meta.v1.ReopenDuplicateResponse:
+      type: object
+      properties:
+        pair:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.DuplicatePair'
+          title: pair
+      title: ReopenDuplicateResponse
+      additionalProperties: false
+    panelarr.meta.v1.ResetDecisionJudgeRequest:
+      type: object
+      title: ResetDecisionJudgeRequest
+      additionalProperties: false
+    panelarr.meta.v1.ResetDecisionJudgeResponse:
+      type: object
+      properties:
+        settings:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.DecisionJudgeSettings'
+          title: settings
+      title: ResetDecisionJudgeResponse
       additionalProperties: false
     panelarr.meta.v1.ResetSearchEngineRequest:
       type: object
@@ -2027,6 +2403,31 @@ components:
         - SYNC_RUN_STATUS_SUCCEEDED
         - SYNC_RUN_STATUS_FAILED
         - SYNC_RUN_STATUS_CANCELLED
+    panelarr.meta.v1.TestDecisionJudgeRequest:
+      type: object
+      properties:
+        settings:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.DecisionJudgeSettings'
+          title: settings
+      title: TestDecisionJudgeRequest
+      additionalProperties: false
+    panelarr.meta.v1.TestDecisionJudgeResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          title: ok
+        error:
+          type: string
+          title: error
+        verdict:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.DuplicateVerdict'
+          title: verdict
+          description: The answer about the made-up pair (two listings of one work).
+      title: TestDecisionJudgeResponse
+      additionalProperties: false
     panelarr.meta.v1.TestSearchEngineRequest:
       type: object
       properties:
@@ -3734,6 +4135,88 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/panelarr.meta.v1.RotateClientKeyResponse'
+  /v1/admin/decision-judge:
+    get:
+      tags:
+        - MetaDuplicatesService
+      summary: GetDecisionJudge
+      description: |-
+        GetDecisionJudge returns the decision model settings in force. The API
+         key is never returned.
+      operationId: MetaDuplicatesService_GetDecisionJudge
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.GetDecisionJudgeResponse'
+    put:
+      tags:
+        - MetaDuplicatesService
+      summary: PutDecisionJudge
+      description: |-
+        PutDecisionJudge saves decision model settings; they win over the
+         configuration file. An empty api_key keeps the stored one for the same
+         kind and URL.
+      operationId: MetaDuplicatesService_PutDecisionJudge
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/panelarr.meta.v1.PutDecisionJudgeRequest'
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.PutDecisionJudgeResponse'
+  /v1/admin/decision-judge:reset:
+    post:
+      tags:
+        - MetaDuplicatesService
+      summary: ResetDecisionJudge
+      description: |-
+        ResetDecisionJudge forgets the admin's settings and uses the
+         configuration file's.
+      operationId: MetaDuplicatesService_ResetDecisionJudge
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/panelarr.meta.v1.ResetDecisionJudgeRequest'
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.ResetDecisionJudgeResponse'
+  /v1/admin/decision-judge:test:
+    post:
+      tags:
+        - MetaDuplicatesService
+      summary: TestDecisionJudge
+      description: |-
+        TestDecisionJudge asks the model about a made-up pair without saving
+         the settings. It costs a few hundred tokens.
+      operationId: MetaDuplicatesService_TestDecisionJudge
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/panelarr.meta.v1.TestDecisionJudgeRequest'
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.TestDecisionJudgeResponse'
   /v1/admin/default-profile:
     put:
       tags:
@@ -3756,6 +4239,178 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/panelarr.meta.v1.SetDefaultProfileResponse'
+  /v1/admin/duplicates:
+    get:
+      tags:
+        - MetaDuplicatesService
+      summary: ListDuplicates
+      description: ListDuplicates lists pairs, best score first.
+      operationId: MetaDuplicatesService_ListDuplicates
+      parameters:
+        - name: status
+          in: query
+          description: 'Default: open pairs.'
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/panelarr.meta.v1.DuplicateStatus'
+            title: status
+        - name: minScore
+          in: query
+          description: The minScore query parameter.
+          schema:
+            type: number
+            title: min_score
+            format: double
+        - name: judgedOnly
+          in: query
+          description: Only pairs the decision model rated.
+          schema:
+            type: boolean
+            title: judged_only
+        - name: pageSize
+          in: query
+          description: 1..100, default 20.
+          schema:
+            type: integer
+            title: page_size
+            format: int32
+        - name: pageToken
+          in: query
+          description: The pageToken query parameter.
+          schema:
+            type: string
+            title: page_token
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.ListDuplicatesResponse'
+  /v1/admin/duplicates/{id}:
+    get:
+      tags:
+        - MetaDuplicatesService
+      summary: GetDuplicate
+      description: GetDuplicate returns one pair.
+      operationId: MetaDuplicatesService_GetDuplicate
+      parameters:
+        - name: id
+          in: path
+          description: The id path parameter.
+          required: true
+          schema:
+            type: string
+            title: id
+            format: int64
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.GetDuplicateResponse'
+  /v1/admin/duplicates/{id}:confirm:
+    post:
+      tags:
+        - MetaDuplicatesService
+      summary: ConfirmDuplicate
+      description: |-
+        ConfirmDuplicate merges the pair into one entry: the other entry's
+         records move over, and its ID redirects to the one that stays.
+      operationId: MetaDuplicatesService_ConfirmDuplicate
+      parameters:
+        - name: id
+          in: path
+          description: The id path parameter.
+          required: true
+          schema:
+            type: string
+            title: id
+            format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                keep:
+                  type: string
+                  title: keep
+                  description: 'The entry that stays: "a" or "b". Empty keeps the more popular one.'
+                note:
+                  type: string
+                  title: note
+              title: ConfirmDuplicateRequest
+              additionalProperties: false
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.ConfirmDuplicateResponse'
+  /v1/admin/duplicates/{id}:dismiss:
+    post:
+      tags:
+        - MetaDuplicatesService
+      summary: DismissDuplicate
+      description: |-
+        DismissDuplicate records that the two are different works. The pair
+         never comes back.
+      operationId: MetaDuplicatesService_DismissDuplicate
+      parameters:
+        - name: id
+          in: path
+          description: The id path parameter.
+          required: true
+          schema:
+            type: string
+            title: id
+            format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+                  title: note
+              title: DismissDuplicateRequest
+              additionalProperties: false
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.DismissDuplicateResponse'
+  /v1/admin/duplicates/{id}:reopen:
+    post:
+      tags:
+        - MetaDuplicatesService
+      summary: ReopenDuplicate
+      description: ReopenDuplicate takes back a dismissal.
+      operationId: MetaDuplicatesService_ReopenDuplicate
+      parameters:
+        - name: id
+          in: path
+          description: The id path parameter.
+          required: true
+          schema:
+            type: string
+            title: id
+            format: int64
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.ReopenDuplicateResponse'
   /v1/admin/entries/{id}/refresh:
     post:
       tags:
@@ -4802,6 +5457,19 @@ tags:
        Keys are shown once, when created or rotated, and stored only as hashes.
        Every method needs the `admin` scope except WhoAmI, which any valid key may
        call.
+  - name: MetaService
+    description: |-
+      MetaService serves meta's catalogue: discovery (browse), search and
+       details over every entry meta knows, not only those in a library.
+
+       Every RPC is available over gRPC, Connect and plain HTTP/JSON (the paths
+       in the annotations below).
+  - name: MetaDuplicatesService
+    description: |-
+      MetaDuplicatesService lists entries that are probably the same work but
+       aren't linked, and lets a curator confirm (merge) or dismiss each pair.
+       Pairs are found by the "duplicates" job (MetaJobsService) and optionally
+       rated by a decision model. Nothing merges without a curator. Admin scope.
   - name: MetaIntegrationsService
     description: |-
       MetaIntegrationsService manages the network settings metadata plugins use:
@@ -4822,10 +5490,3 @@ tags:
        and cancels them. Every Panelarr admin has the same messages and REST
        paths (the shared jobs contract), so a common package can be extracted
        later. Admin scope only.
-  - name: MetaService
-    description: |-
-      MetaService serves meta's catalogue: discovery (browse), search and
-       details over every entry meta knows, not only those in a library.
-
-       Every RPC is available over gRPC, Connect and plain HTTP/JSON (the paths
-       in the annotations below).
