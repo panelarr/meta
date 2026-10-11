@@ -49,6 +49,8 @@ dockers_v2:
       - "{{ .Version }}"
       - "{{ .Major }}.{{ .Minor }}"
       - latest
+    extra_files:
+      - packaging/data
     platforms:
       - linux/amd64
       - linux/arm64

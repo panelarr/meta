@@ -1,0 +1,3 @@
+meta's data directory (META_DATA_DIR). It holds secret.key, the key that
+encrypts stored secrets such as proxy passwords, when META_SECRET_KEY isn't
+set. Keep it with your database backups.

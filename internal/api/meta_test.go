@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"path/filepath"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -24,6 +25,8 @@ import (
 	"github.com/panelarr/meta/internal/config"
 	"github.com/panelarr/meta/internal/host"
 	"github.com/panelarr/meta/internal/ingest"
+	"github.com/panelarr/meta/internal/integrations"
+	"github.com/panelarr/meta/internal/secret"
 	"github.com/panelarr/meta/internal/store"
 	"github.com/panelarr/meta/internal/store/db"
 	"github.com/panelarr/meta/internal/store/storetest"
@@ -32,6 +35,7 @@ import (
 )
 
 type fixture struct {
+	integ  *integrations.Service
 	st     *store.Store
 	srv    *httptest.Server
 	meta   metav1connect.MetaServiceClient
@@ -137,17 +141,21 @@ func setup(t *testing.T, apiKeys ...string) *fixture {
 			t.Fatal(err)
 		}
 	}
+	integ := integrations.New(st, secret.NewBox("", filepath.Join(t.TempDir(), "secret.key")), func() []integrations.ProviderInfo {
+		return []integrations.ProviderInfo{{ID: "fake"}}
+	})
 	srv, err := api.New(api.Services{
-		Meta:    api.NewMeta(st, h, w, api.MetaOptions{DisplayLanguage: "en", Log: log}),
-		Admin:   api.NewAdmin(ctx, st, h, r, w),
-		Clients: api.NewClients(st),
+		Meta:         api.NewMeta(st, h, w, api.MetaOptions{DisplayLanguage: "en", Log: log}),
+		Admin:        api.NewAdmin(ctx, st, h, r, w),
+		Clients:      api.NewClients(st),
+		Integrations: api.NewIntegrations(integ),
 	}, api.Options{Auth: authn, Log: log})
 	if err != nil {
 		t.Fatal(err)
 	}
 	hs := httptest.NewServer(srv.Handler())
 	t.Cleanup(hs.Close)
-	return &fixture{st: st, srv: hs, meta: metav1connect.NewMetaServiceClient(hs.Client(), hs.URL), fake: fake, writer: w}
+	return &fixture{integ: integ, st: st, srv: hs, meta: metav1connect.NewMetaServiceClient(hs.Client(), hs.URL), fake: fake, writer: w}
 }
 
 func (f *fixture) entryID(t *testing.T, provider, id string) string {

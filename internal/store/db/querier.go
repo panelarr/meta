@@ -8,13 +8,16 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
 	CountEntries(ctx context.Context) (int64, error)
+	CountProfiles(ctx context.Context) (int64, error)
 	CountProviderEntries(ctx context.Context) ([]CountProviderEntriesRow, error)
 	// SPDX-License-Identifier: GPL-3.0-or-later
 	CreateSyncRun(ctx context.Context, arg CreateSyncRunParams) (SyncRun, error)
+	DeleteAssignment(ctx context.Context, provider string) error
 	DeleteClient(ctx context.Context, id string) (int64, error)
 	DeleteCompaniesOf(ctx context.Context, ids []uuid.UUID) error
 	DeleteCreditsOf(ctx context.Context, ids []uuid.UUID) error
@@ -33,7 +36,10 @@ type Querier interface {
 	DeleteFieldLock(ctx context.Context, arg DeleteFieldLockParams) error
 	DeleteImagesOf(ctx context.Context, ids []uuid.UUID) error
 	DeleteLinksOf(ctx context.Context, ids []uuid.UUID) error
+	DeleteProfile(ctx context.Context, id string) (int64, error)
+	DeletePushedProfile(ctx context.Context, provider string) error
 	DeleteRelationsOf(ctx context.Context, ids []uuid.UUID) error
+	DeleteSolver(ctx context.Context, id string) (int64, error)
 	DeleteTagsOf(ctx context.Context, ids []uuid.UUID) error
 	DeleteTitlesOf(ctx context.Context, ids []uuid.UUID) error
 	// Whether the entry already holds an active record of the provider (other
@@ -56,6 +62,7 @@ type Querier interface {
 	GetAdminToken(ctx context.Context) (AdminToken, error)
 	GetClient(ctx context.Context, id string) (Client, error)
 	GetClientByKeyHash(ctx context.Context, keyHash []byte) (Client, error)
+	GetDefaultProfileID(ctx context.Context) (pgtype.Text, error)
 	// SPDX-License-Identifier: GPL-3.0-or-later
 	//
 	// Set-based variants used by the catalog writer, so a batch of records
@@ -63,12 +70,14 @@ type Querier interface {
 	GetEntries(ctx context.Context, ids []uuid.UUID) ([]Entry, error)
 	GetEntry(ctx context.Context, id uuid.UUID) (Entry, error)
 	GetEntryHash(ctx context.Context, id uuid.UUID) ([]byte, error)
+	GetProfile(ctx context.Context, id string) (NetworkProfile, error)
 	GetProvider(ctx context.Context, id string) (Provider, error)
 	GetProviderEntry(ctx context.Context, arg GetProviderEntryParams) (ProviderEntry, error)
 	// SPDX-License-Identifier: GPL-3.0-or-later
 	// What meta has for a batch of a provider's records, to skip unchanged ones.
 	GetProviderEntryStates(ctx context.Context, arg GetProviderEntryStatesParams) ([]GetProviderEntryStatesRow, error)
 	GetRedirect(ctx context.Context, fromID uuid.UUID) (uuid.UUID, error)
+	GetSolver(ctx context.Context, id string) (Solver, error)
 	GetSyncCursor(ctx context.Context, arg GetSyncCursorParams) (SyncCursor, error)
 	GetSyncRun(ctx context.Context, id uuid.UUID) (SyncRun, error)
 	GetTagIDByKey(ctx context.Context, nameKey string) (uuid.UUID, error)
@@ -96,6 +105,7 @@ type Querier interface {
 	// point at their target's entry. One statement for the whole provider;
 	// repeat to follow chains.
 	LinkMergedRecords(ctx context.Context, provider string) (int64, error)
+	ListAssignments(ctx context.Context) ([]ProfileAssignment, error)
 	ListAttributionsForEntries(ctx context.Context, ids []uuid.UUID) ([]ListAttributionsForEntriesRow, error)
 	// SPDX-License-Identifier: GPL-3.0-or-later
 	ListClients(ctx context.Context) ([]Client, error)
@@ -115,9 +125,13 @@ type Querier interface {
 	// Provider merges whose records still sit in different entries. With
 	// external_ids empty, checks every merged record of the provider.
 	ListMergeTargets(ctx context.Context, arg ListMergeTargetsParams) ([]ListMergeTargetsRow, error)
+	ListProfiles(ctx context.Context) ([]NetworkProfile, error)
 	ListProviderEntriesForEntries(ctx context.Context, ids []uuid.UUID) ([]ProviderEntry, error)
 	ListProviderEntriesForEntry(ctx context.Context, entryID uuid.NullUUID) ([]ProviderEntry, error)
 	ListProviders(ctx context.Context) ([]Provider, error)
+	ListPushedProfiles(ctx context.Context) ([]PushedProfile, error)
+	// SPDX-License-Identifier: GPL-3.0-or-later
+	ListSolvers(ctx context.Context) ([]Solver, error)
 	ListSourcesForEntry(ctx context.Context, entryID uuid.NullUUID) ([]ListSourcesForEntryRow, error)
 	ListSyncRuns(ctx context.Context, arg ListSyncRunsParams) ([]SyncRun, error)
 	ListTags(ctx context.Context, arg ListTagsParams) ([]Tag, error)
@@ -138,12 +152,17 @@ type Querier interface {
 	// that entry has its own lock for the field.
 	MoveFieldLocks(ctx context.Context, arg MoveFieldLocksParams) error
 	MoveProviderEntries(ctx context.Context, arg MoveProviderEntriesParams) error
+	ProfilesUsingSolver(ctx context.Context, solverID pgtype.Text) ([]string, error)
+	PutProfile(ctx context.Context, arg PutProfileParams) error
+	PutSolver(ctx context.Context, arg PutSolverParams) error
 	RecountTags(ctx context.Context) error
 	// Keep redirect chains one hop long.
 	RepointRedirects(ctx context.Context, arg RepointRedirectsParams) error
 	RotateClientKey(ctx context.Context, arg RotateClientKeyParams) (Client, error)
 	RunningSyncRun(ctx context.Context, provider string) (SyncRun, error)
 	SetAdminToken(ctx context.Context, tokenHash []byte) error
+	SetAssignment(ctx context.Context, arg SetAssignmentParams) error
+	SetDefaultProfileID(ctx context.Context, profileID pgtype.Text) error
 	SetEntryState(ctx context.Context, arg SetEntryStateParams) error
 	SetFieldLock(ctx context.Context, arg SetFieldLockParams) error
 	SetProviderEntryEntry(ctx context.Context, arg SetProviderEntryEntryParams) error
@@ -151,6 +170,7 @@ type Querier interface {
 	// record belongs to, if any.
 	SetProviderEntryMerged(ctx context.Context, arg SetProviderEntryMergedParams) (uuid.NullUUID, error)
 	SetProviderEntryRemoved(ctx context.Context, arg SetProviderEntryRemovedParams) (uuid.NullUUID, error)
+	SetPushedProfile(ctx context.Context, arg SetPushedProfileParams) error
 	StartSyncRun(ctx context.Context, arg StartSyncRunParams) error
 	TouchClient(ctx context.Context, arg TouchClientParams) error
 	// Records seen unchanged in a run.

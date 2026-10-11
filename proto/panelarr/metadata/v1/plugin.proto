@@ -295,3 +295,81 @@ enum HealthStatus {
   // Can't do its work, e.g. required settings are missing.
   HEALTH_STATUS_DOWN = 3;
 }
+
+// NetworkProfile is everything a plugin needs to make requests for a
+// provider: which proxy to go through, which challenge solver to ask, how
+// fast to go and what to send. A host hands it to plugins that declare the
+// `network_profile` common service.
+message NetworkProfile {
+  // Name of the profile on the host, for display and logs.
+  string name = 1;
+  // Unset means a direct connection.
+  Proxy proxy = 2;
+  // Unset means no challenge solver.
+  Solver solver = 3;
+  // Unset means the plugin's default.
+  NetworkRateLimit rate_limit = 4;
+  // Maximum parallel requests. 0 means the plugin's default.
+  uint32 concurrency = 5;
+  // Unset means the plugin's default user agent.
+  UserAgent user_agent = 6;
+  // Extra headers added to every request.
+  map<string, string> headers = 7;
+  Timeouts timeouts = 8;
+}
+
+message Proxy {
+  // http://, https:// or socks5:// URL without credentials.
+  string url = 1;
+  string username = 2;
+  string password = 3;
+}
+
+message Solver {
+  SolverType type = 1;
+  // Base URL, e.g. http://flaresolverr:8191.
+  string url = 2;
+  // How long clearance cookies from one solve are reused.
+  google.protobuf.Duration session_ttl = 3;
+  // Upper bound for one solve.
+  google.protobuf.Duration max_timeout = 4;
+  // Use the solver's own response body when a fresh request still fails.
+  bool as_response_fallback = 5;
+}
+
+enum SolverType {
+  SOLVER_TYPE_UNSPECIFIED = 0;
+  // FlareSolverr's API (/v1, cmd request.get).
+  SOLVER_TYPE_FLARESOLVERR = 1;
+  // Byparr, which speaks the same API.
+  SOLVER_TYPE_BYPARR = 2;
+}
+
+message NetworkRateLimit {
+  // Requests allowed per period.
+  uint32 requests = 1;
+  google.protobuf.Duration period = 2;
+  // Extra requests allowed in a burst. 0 means none.
+  uint32 burst = 3;
+  // Count requests per target host instead of for the whole provider.
+  bool per_host = 4;
+}
+
+message UserAgent {
+  oneof mode {
+    // Always send this user agent.
+    string fixed = 1;
+    // A desktop browser's user agent, stable per provider.
+    bool random_desktop = 2;
+    // The user agent the solver reports, so it matches its clearance cookies.
+    bool from_solver = 3;
+  }
+}
+
+message Timeouts {
+  google.protobuf.Duration connect = 1;
+  // Time to wait for response data.
+  google.protobuf.Duration read = 2;
+  // The whole call, including redirects and retries.
+  google.protobuf.Duration call = 3;
+}

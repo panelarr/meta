@@ -38,6 +38,8 @@ type Services struct {
 	Meta    metav1connect.MetaServiceHandler
 	Admin   metav1connect.MetaAdminServiceHandler
 	Clients metav1connect.MetaClientsServiceHandler
+	// Integrations is optional; nil leaves the service unimplemented.
+	Integrations metav1connect.MetaIntegrationsServiceHandler
 }
 
 // Options configure the server.
@@ -64,13 +66,18 @@ func New(svc Services, opts Options) (*Server, error) {
 	add(metav1connect.NewMetaServiceHandler(svc.Meta, hopts...))
 	add(metav1connect.NewMetaAdminServiceHandler(svc.Admin, hopts...))
 	add(metav1connect.NewMetaClientsServiceHandler(svc.Clients, hopts...))
+	if svc.Integrations == nil {
+		svc.Integrations = metav1connect.UnimplementedMetaIntegrationsServiceHandler{}
+	}
+	add(metav1connect.NewMetaIntegrationsServiceHandler(svc.Integrations, hopts...))
 	transcoder, err := vanguard.NewTranscoder(services)
 	if err != nil {
 		return nil, err
 	}
 
 	mux := http.NewServeMux()
-	reflector := grpcreflect.NewStaticReflector(metav1connect.MetaServiceName, metav1connect.MetaAdminServiceName, metav1connect.MetaClientsServiceName)
+	reflector := grpcreflect.NewStaticReflector(metav1connect.MetaServiceName, metav1connect.MetaAdminServiceName,
+		metav1connect.MetaClientsServiceName, metav1connect.MetaIntegrationsServiceName)
 	rpath, rhandler := grpcreflect.NewHandlerV1(reflector)
 	mux.Handle(rpath, s.authn(requireScope(auth.ScopeAdmin, rhandler)))
 	rpathA, rhandlerA := grpcreflect.NewHandlerV1Alpha(reflector)

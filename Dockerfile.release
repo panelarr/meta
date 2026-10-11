@@ -3,7 +3,10 @@
 FROM gcr.io/distroless/static-debian12:nonroot
 ARG TARGETPLATFORM
 COPY $TARGETPLATFORM/meta /meta
-ENV META_LISTEN=:8901
+COPY --chown=65532:65532 packaging/data /data
+ENV META_LISTEN=:8901 \
+    META_DATA_DIR=/data
+VOLUME ["/data"]
 EXPOSE 8901
 USER 65532:65532
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

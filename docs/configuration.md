@@ -21,6 +21,8 @@ meta version
 |---|---|---|---|
 | `listen` | `META_LISTEN` | `:8901` | API address. gRPC, gRPC-Web, Connect and REST/JSON share it |
 | `admin_token` | `META_ADMIN_TOKEN` | generated | The admin's bearer token (see [Admin token](#admin-token)) |
+| `data_dir` | `META_DATA_DIR` | your config directory + `/panelarr-meta` (`/data` in the image) | Files meta keeps outside the database: the generated encryption key |
+| `secret_key` | `META_SECRET_KEY` | generated | Base64 of 32 bytes (`openssl rand -base64 32`). Encrypts stored secrets such as proxy passwords. Without it, meta generates `secret.key` in `data_dir` the first time it stores a secret. **Keep it with your database backups** |
 | `api_keys` | `META_API_KEYS` (comma-separated) | none | **Deprecated.** Keys with full access, kept so older setups keep working. Create [clients](api.md#clients-and-scopes-metaclientsservice) with scoped keys instead |
 | `database_url` | `META_DATABASE_URL` | required | PostgreSQL URL |
 | `search.backend` | `META_SEARCH_BACKEND` | `postgres` | Search backend. Only `postgres` exists today; others plug in behind the same interface later |

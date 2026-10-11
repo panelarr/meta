@@ -1,0 +1,271 @@
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package panelarr.meta.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/duration.proto";
+import "panelarr/metadata/v1/plugin.proto";
+
+option go_package = "github.com/panelarr/meta/gen/panelarr/meta/v1;metav1";
+
+// MetaIntegrationsService manages the network settings metadata plugins use:
+// challenge solvers, network profiles and which profile each provider uses.
+// Needs the `admin` scope.
+//
+// The chain: a solver is used by a profile (solver_id), and a profile applies
+// to the providers it's assigned to, or to every other provider when it's the
+// default profile. meta hands the profile in effect to each plugin that
+// declares the `network_profile` common service.
+//
+// A provider uses, in order: a profile pushed by a host (SetPushedProfile), the
+// profile assigned to it here, the default profile, or a direct connection
+// when there is none.
+service MetaIntegrationsService {
+  rpc ListSolvers(ListSolversRequest) returns (ListSolversResponse) {
+    option (google.api.http) = {get: "/v1/admin/solvers"};
+  }
+
+  // PutSolver creates or replaces a solver. A solver is only used through a
+  // network profile. As a convenience, adding a solver while no profiles exist
+  // at all also creates a profile "default" that uses it and makes it the
+  // default profile, so every provider starts using the solver right away.
+  rpc PutSolver(PutSolverRequest) returns (PutSolverResponse) {
+    option (google.api.http) = {
+      put: "/v1/admin/solvers/{solver.id}"
+      body: "solver"
+    };
+  }
+
+  // DeleteSolver fails while a profile still uses the solver.
+  rpc DeleteSolver(DeleteSolverRequest) returns (DeleteSolverResponse) {
+    option (google.api.http) = {delete: "/v1/admin/solvers/{solver_id}"};
+  }
+
+  rpc ListProfiles(ListProfilesRequest) returns (ListProfilesResponse) {
+    option (google.api.http) = {get: "/v1/admin/profiles"};
+  }
+
+  // PutProfile creates or replaces a profile. A proxy password left empty
+  // keeps the stored one.
+  rpc PutProfile(PutProfileRequest) returns (PutProfileResponse) {
+    option (google.api.http) = {
+      put: "/v1/admin/profiles/{profile.id}"
+      body: "profile"
+    };
+  }
+
+  // DeleteProfile also removes the profile's assignments, and clears the
+  // default when it was the default.
+  rpc DeleteProfile(DeleteProfileRequest) returns (DeleteProfileResponse) {
+    option (google.api.http) = {delete: "/v1/admin/profiles/{profile_id}"};
+  }
+
+  // ListAssignments lists which profile each configured provider uses and why.
+  rpc ListAssignments(ListAssignmentsRequest) returns (ListAssignmentsResponse) {
+    option (google.api.http) = {get: "/v1/admin/assignments"};
+  }
+
+  // AssignProfile sets the profile of one provider. An empty profile_id
+  // removes the assignment, so the provider falls back to the default profile.
+  rpc AssignProfile(AssignProfileRequest) returns (AssignProfileResponse) {
+    option (google.api.http) = {
+      put: "/v1/admin/assignments/{provider_id}"
+      body: "*"
+    };
+  }
+
+  // SetDefaultProfile sets the profile used by providers without an
+  // assignment. An empty profile_id means a direct connection.
+  rpc SetDefaultProfile(SetDefaultProfileRequest) returns (SetDefaultProfileResponse) {
+    option (google.api.http) = {
+      put: "/v1/admin/default-profile"
+      body: "*"
+    };
+  }
+
+  // SetPushedProfile is how a host that owns network settings (a Panelarr
+  // server) gives a provider its profile. A pushed profile wins over the local
+  // assignment and default. Leaving `profile` unset removes the override.
+  rpc SetPushedProfile(SetPushedProfileRequest) returns (SetPushedProfileResponse) {
+    option (google.api.http) = {
+      put: "/v1/admin/pushed-profiles/{provider_id}"
+      body: "*"
+    };
+  }
+}
+
+message Solver {
+  // Identifier chosen by the admin: lowercase letters, digits and dashes.
+  string id = 1;
+  string name = 2;
+  SolverType type = 3;
+  // Base URL, e.g. http://flaresolverr:8191.
+  string url = 4;
+  // How long clearance cookies from one solve are reused.
+  google.protobuf.Duration session_ttl = 5;
+  // Upper bound for one solve.
+  google.protobuf.Duration max_timeout = 6;
+  // Use the solver's own response body when a fresh request still fails.
+  bool as_response_fallback = 7;
+  // Output only: the profiles that use this solver. Empty means no provider
+  // uses it.
+  repeated string used_by = 8;
+}
+
+enum SolverType {
+  SOLVER_TYPE_UNSPECIFIED = 0;
+  SOLVER_TYPE_FLARESOLVERR = 1;
+  SOLVER_TYPE_BYPARR = 2;
+}
+
+message NetworkProfile {
+  // Identifier chosen by the admin: lowercase letters, digits and dashes.
+  string id = 1;
+  string name = 2;
+  // Unset means a direct connection.
+  Proxy proxy = 3;
+  // Solver to use. Empty means none.
+  string solver_id = 4;
+  // Unset means no rate limit.
+  RateLimit rate_limit = 5;
+  // Maximum parallel requests per provider. 0 means no limit.
+  uint32 concurrency = 6;
+  UserAgentMode user_agent_mode = 7;
+  // Used when user_agent_mode is FIXED.
+  string user_agent = 8;
+  // Extra headers added to every request.
+  map<string, string> headers = 9;
+  google.protobuf.Duration connect_timeout = 10;
+  google.protobuf.Duration read_timeout = 11;
+  google.protobuf.Duration call_timeout = 12;
+}
+
+message Proxy {
+  // http://, https:// or socks5:// URL without credentials.
+  string url = 1;
+  string username = 2;
+  // Write-only. Never returned; has_password says whether one is stored.
+  string password = 3;
+  bool has_password = 4;
+}
+
+message RateLimit {
+  // Requests allowed per period.
+  uint32 requests = 1;
+  google.protobuf.Duration period = 2;
+  // Count requests per target host instead of per provider.
+  bool per_host = 3;
+}
+
+enum UserAgentMode {
+  // The plugin's default user agent.
+  USER_AGENT_MODE_UNSPECIFIED = 0;
+  USER_AGENT_MODE_FIXED = 1;
+  USER_AGENT_MODE_RANDOM_DESKTOP = 2;
+  // The user agent reported by the solver, so it matches its clearance
+  // cookies.
+  USER_AGENT_MODE_FROM_SOLVER = 3;
+}
+
+message Assignment {
+  string provider_id = 1;
+  // Profile assigned here. Empty when none.
+  string profile_id = 2;
+  // Name of the profile pushed by a host, when there is one. It wins over
+  // profile_id.
+  string pushed_profile_name = 3;
+  // Where the effective settings come from.
+  ProfileOrigin effective = 4;
+  // The profile in effect when it's a local one (assigned or default).
+  string effective_profile_id = 5;
+  // Whether the provider's plugin applies network profiles (it declares the
+  // `network_profile` common service). Profiles have no effect on others.
+  bool supported = 6;
+}
+
+enum ProfileOrigin {
+  PROFILE_ORIGIN_UNSPECIFIED = 0;
+  // No profile: direct connection with the plugin's defaults.
+  PROFILE_ORIGIN_NONE = 1;
+  PROFILE_ORIGIN_DEFAULT = 2;
+  PROFILE_ORIGIN_ASSIGNED = 3;
+  PROFILE_ORIGIN_PUSHED = 4;
+}
+
+message ListSolversRequest {}
+
+message ListSolversResponse {
+  repeated Solver solvers = 1;
+}
+
+message PutSolverRequest {
+  Solver solver = 1;
+}
+
+message PutSolverResponse {
+  Solver solver = 1;
+  // Set when PutSolver also created a default profile for the solver.
+  string created_default_profile_id = 2;
+}
+
+message DeleteSolverRequest {
+  string solver_id = 1;
+}
+
+message DeleteSolverResponse {}
+
+message ListProfilesRequest {}
+
+message ListProfilesResponse {
+  repeated NetworkProfile profiles = 1;
+  // Profile used by providers without an assignment. Empty means none.
+  string default_profile_id = 2;
+}
+
+message PutProfileRequest {
+  NetworkProfile profile = 1;
+}
+
+message PutProfileResponse {
+  NetworkProfile profile = 1;
+}
+
+message DeleteProfileRequest {
+  string profile_id = 1;
+}
+
+message DeleteProfileResponse {}
+
+message ListAssignmentsRequest {}
+
+message ListAssignmentsResponse {
+  // One entry per configured provider.
+  repeated Assignment assignments = 1;
+  string default_profile_id = 2;
+}
+
+message AssignProfileRequest {
+  string provider_id = 1;
+  string profile_id = 2;
+}
+
+message AssignProfileResponse {
+  Assignment assignment = 1;
+}
+
+message SetDefaultProfileRequest {
+  string profile_id = 1;
+}
+
+message SetDefaultProfileResponse {}
+
+message SetPushedProfileRequest {
+  string provider_id = 1;
+  // The profile, in the shape plugins receive it (solver inline). Unset
+  // removes the pushed profile.
+  panelarr.metadata.v1.NetworkProfile profile = 2;
+}
+
+message SetPushedProfileResponse {}

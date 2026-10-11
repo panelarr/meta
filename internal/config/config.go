@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -26,6 +27,13 @@ type Config struct {
 	// AdminToken is the admin's bearer token. Empty: meta generates one on
 	// first start, prints it once and stores only its hash.
 	AdminToken string `yaml:"admin_token"`
+	// DataDir holds files meta keeps outside the database: the generated
+	// encryption key for stored secrets. Default: the user's config
+	// directory ("…/panelarr-meta"); the image uses /data.
+	DataDir string `yaml:"data_dir"`
+	// SecretKey encrypts stored secrets such as proxy passwords: base64 of
+	// 32 bytes. Empty: a key file in DataDir, generated on first use.
+	SecretKey string `yaml:"secret_key"`
 	// APIKeys is deprecated: create clients with scoped keys instead. Keys
 	// listed here keep full access.
 	APIKeys []string `yaml:"api_keys"`
@@ -115,12 +123,17 @@ func (p Provider) Mode() string {
 
 // Default returns the configuration with defaults and no providers.
 func Default() Config {
+	dataDir := "data"
+	if dir, err := os.UserConfigDir(); err == nil {
+		dataDir = filepath.Join(dir, "panelarr-meta")
+	}
 	return Config{
-		Listen: ":8901",
-		Search: Search{Backend: "postgres"},
-		Merge:  Merge{DisplayLanguage: "en"},
-		Ingest: Ingest{BatchSize: 500, StaleAfter: 7 * 24 * time.Hour},
-		Log:    Log{Level: "info", Format: "json"},
+		DataDir: dataDir,
+		Listen:  ":8901",
+		Search:  Search{Backend: "postgres"},
+		Merge:   Merge{DisplayLanguage: "en"},
+		Ingest:  Ingest{BatchSize: 500, StaleAfter: 7 * 24 * time.Hour},
+		Log:     Log{Level: "info", Format: "json"},
 	}
 }
 
@@ -141,7 +154,7 @@ func expand(b []byte) []byte {
 // variables and checks the result.
 //
 // Environment variables: META_CONFIG (file path, when path is empty),
-// META_LISTEN, META_ADMIN_TOKEN, META_DATABASE_URL, META_API_KEYS (comma-separated),
+// META_LISTEN, META_ADMIN_TOKEN, META_DATA_DIR, META_SECRET_KEY, META_DATABASE_URL, META_API_KEYS (comma-separated),
 // META_LOG_LEVEL, META_LOG_FORMAT, META_SEARCH_BACKEND.
 func Load(path string) (Config, error) {
 	return LoadWith(path, nil)
@@ -180,6 +193,8 @@ func applyEnv(cfg *Config) {
 	}
 	set(&cfg.Listen, "META_LISTEN")
 	set(&cfg.AdminToken, "META_ADMIN_TOKEN")
+	set(&cfg.DataDir, "META_DATA_DIR")
+	set(&cfg.SecretKey, "META_SECRET_KEY")
 	set(&cfg.DatabaseURL, "META_DATABASE_URL")
 	set(&cfg.Log.Level, "META_LOG_LEVEL")
 	set(&cfg.Log.Format, "META_LOG_FORMAT")

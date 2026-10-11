@@ -67,6 +67,59 @@ components:
         - type: object
           additionalProperties: true
       description: 'Any JSON value: `null`, number, string, boolean, array, or object.'
+    panelarr.meta.v1.AssignProfileRequest:
+      type: object
+      properties:
+        providerId:
+          type: string
+          title: provider_id
+        profileId:
+          type: string
+          title: profile_id
+      title: AssignProfileRequest
+      additionalProperties: false
+    panelarr.meta.v1.AssignProfileResponse:
+      type: object
+      properties:
+        assignment:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.Assignment'
+          title: assignment
+      title: AssignProfileResponse
+      additionalProperties: false
+    panelarr.meta.v1.Assignment:
+      type: object
+      properties:
+        providerId:
+          type: string
+          title: provider_id
+        profileId:
+          type: string
+          title: profile_id
+          description: Profile assigned here. Empty when none.
+        pushedProfileName:
+          type: string
+          title: pushed_profile_name
+          description: |-
+            Name of the profile pushed by a host, when there is one. It wins over
+             profile_id.
+        effective:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.ProfileOrigin'
+          title: effective
+          description: Where the effective settings come from.
+        effectiveProfileId:
+          type: string
+          title: effective_profile_id
+          description: The profile in effect when it's a local one (assigned or default).
+        supported:
+          type: boolean
+          title: supported
+          description: |-
+            Whether the provider's plugin applies network profiles (it declares the
+             `network_profile` common service). Profiles have no effect on others.
+      title: Assignment
+      additionalProperties: false
     panelarr.meta.v1.BrowseRequest:
       type: object
       properties:
@@ -189,6 +242,30 @@ components:
     panelarr.meta.v1.DeleteClientResponse:
       type: object
       title: DeleteClientResponse
+      additionalProperties: false
+    panelarr.meta.v1.DeleteProfileRequest:
+      type: object
+      properties:
+        profileId:
+          type: string
+          title: profile_id
+      title: DeleteProfileRequest
+      additionalProperties: false
+    panelarr.meta.v1.DeleteProfileResponse:
+      type: object
+      title: DeleteProfileResponse
+      additionalProperties: false
+    panelarr.meta.v1.DeleteSolverRequest:
+      type: object
+      properties:
+        solverId:
+          type: string
+          title: solver_id
+      title: DeleteSolverRequest
+      additionalProperties: false
+    panelarr.meta.v1.DeleteSolverResponse:
+      type: object
+      title: DeleteSolverResponse
       additionalProperties: false
     panelarr.meta.v1.Entry:
       type: object
@@ -529,6 +606,24 @@ components:
           title: run
       title: GetSyncRunResponse
       additionalProperties: false
+    panelarr.meta.v1.ListAssignmentsRequest:
+      type: object
+      title: ListAssignmentsRequest
+      additionalProperties: false
+    panelarr.meta.v1.ListAssignmentsResponse:
+      type: object
+      properties:
+        assignments:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.meta.v1.Assignment'
+          title: assignments
+          description: One entry per configured provider.
+        defaultProfileId:
+          type: string
+          title: default_profile_id
+      title: ListAssignmentsResponse
+      additionalProperties: false
     panelarr.meta.v1.ListClientsRequest:
       type: object
       title: ListClientsRequest
@@ -543,6 +638,24 @@ components:
           title: clients
       title: ListClientsResponse
       additionalProperties: false
+    panelarr.meta.v1.ListProfilesRequest:
+      type: object
+      title: ListProfilesRequest
+      additionalProperties: false
+    panelarr.meta.v1.ListProfilesResponse:
+      type: object
+      properties:
+        profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.meta.v1.NetworkProfile'
+          title: profiles
+        defaultProfileId:
+          type: string
+          title: default_profile_id
+          description: Profile used by providers without an assignment. Empty means none.
+      title: ListProfilesResponse
+      additionalProperties: false
     panelarr.meta.v1.ListProvidersRequest:
       type: object
       title: ListProvidersRequest
@@ -556,6 +669,20 @@ components:
             $ref: '#/components/schemas/panelarr.meta.v1.Provider'
           title: providers
       title: ListProvidersResponse
+      additionalProperties: false
+    panelarr.meta.v1.ListSolversRequest:
+      type: object
+      title: ListSolversRequest
+      additionalProperties: false
+    panelarr.meta.v1.ListSolversResponse:
+      type: object
+      properties:
+        solvers:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.meta.v1.Solver'
+          title: solvers
+      title: ListSolversResponse
       additionalProperties: false
     panelarr.meta.v1.ListSyncRunsRequest:
       type: object
@@ -649,6 +776,63 @@ components:
           title: entry
       title: LookupExternalResponse
       additionalProperties: false
+    panelarr.meta.v1.NetworkProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          description: 'Identifier chosen by the admin: lowercase letters, digits and dashes.'
+        name:
+          type: string
+          title: name
+        proxy:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.Proxy'
+          title: proxy
+          description: Unset means a direct connection.
+        solverId:
+          type: string
+          title: solver_id
+          description: Solver to use. Empty means none.
+        rateLimit:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.RateLimit'
+          title: rate_limit
+          description: Unset means no rate limit.
+        concurrency:
+          type: integer
+          title: concurrency
+          description: Maximum parallel requests per provider. 0 means no limit.
+        userAgentMode:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.UserAgentMode'
+          title: user_agent_mode
+        userAgent:
+          type: string
+          title: user_agent
+          description: Used when user_agent_mode is FIXED.
+        headers:
+          type: object
+          title: headers
+          additionalProperties:
+            type: string
+            title: value
+          description: Extra headers added to every request.
+        connectTimeout:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Duration'
+          title: connect_timeout
+        readTimeout:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Duration'
+          title: read_timeout
+        callTimeout:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Duration'
+          title: call_timeout
+      title: NetworkProfile
+      additionalProperties: false
     panelarr.meta.v1.PrincipalKind:
       type: string
       title: PrincipalKind
@@ -657,6 +841,15 @@ components:
         - PRINCIPAL_KIND_ADMIN
         - PRINCIPAL_KIND_CLIENT
         - PRINCIPAL_KIND_CONFIG_KEY
+    panelarr.meta.v1.ProfileOrigin:
+      type: string
+      title: ProfileOrigin
+      enum:
+        - PROFILE_ORIGIN_UNSPECIFIED
+        - PROFILE_ORIGIN_NONE
+        - PROFILE_ORIGIN_DEFAULT
+        - PROFILE_ORIGIN_ASSIGNED
+        - PROFILE_ORIGIN_PUSHED
     panelarr.meta.v1.Provider:
       type: object
       properties:
@@ -711,6 +904,82 @@ components:
             - $ref: '#/components/schemas/panelarr.metadata.v1.Stats'
           title: stats
       title: ProviderStats
+      additionalProperties: false
+    panelarr.meta.v1.Proxy:
+      type: object
+      properties:
+        url:
+          type: string
+          title: url
+          description: http://, https:// or socks5:// URL without credentials.
+        username:
+          type: string
+          title: username
+        password:
+          type: string
+          title: password
+          description: Write-only. Never returned; has_password says whether one is stored.
+        hasPassword:
+          type: boolean
+          title: has_password
+      title: Proxy
+      additionalProperties: false
+    panelarr.meta.v1.PutProfileRequest:
+      type: object
+      properties:
+        profile:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.NetworkProfile'
+          title: profile
+      title: PutProfileRequest
+      additionalProperties: false
+    panelarr.meta.v1.PutProfileResponse:
+      type: object
+      properties:
+        profile:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.NetworkProfile'
+          title: profile
+      title: PutProfileResponse
+      additionalProperties: false
+    panelarr.meta.v1.PutSolverRequest:
+      type: object
+      properties:
+        solver:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.Solver'
+          title: solver
+      title: PutSolverRequest
+      additionalProperties: false
+    panelarr.meta.v1.PutSolverResponse:
+      type: object
+      properties:
+        solver:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.Solver'
+          title: solver
+        createdDefaultProfileId:
+          type: string
+          title: created_default_profile_id
+          description: Set when PutSolver also created a default profile for the solver.
+      title: PutSolverResponse
+      additionalProperties: false
+    panelarr.meta.v1.RateLimit:
+      type: object
+      properties:
+        requests:
+          type: integer
+          title: requests
+          description: Requests allowed per period.
+        period:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Duration'
+          title: period
+        perHost:
+          type: boolean
+          title: per_host
+          description: Count requests per target host instead of per provider.
+      title: RateLimit
       additionalProperties: false
     panelarr.meta.v1.RefreshEntryRequest:
       type: object
@@ -856,6 +1125,86 @@ components:
           title: no_providers
       title: SearchResponse
       additionalProperties: false
+    panelarr.meta.v1.SetDefaultProfileRequest:
+      type: object
+      properties:
+        profileId:
+          type: string
+          title: profile_id
+      title: SetDefaultProfileRequest
+      additionalProperties: false
+    panelarr.meta.v1.SetDefaultProfileResponse:
+      type: object
+      title: SetDefaultProfileResponse
+      additionalProperties: false
+    panelarr.meta.v1.SetPushedProfileRequest:
+      type: object
+      properties:
+        providerId:
+          type: string
+          title: provider_id
+        profile:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.NetworkProfile'
+          title: profile
+          description: |-
+            The profile, in the shape plugins receive it (solver inline). Unset
+             removes the pushed profile.
+      title: SetPushedProfileRequest
+      additionalProperties: false
+    panelarr.meta.v1.SetPushedProfileResponse:
+      type: object
+      title: SetPushedProfileResponse
+      additionalProperties: false
+    panelarr.meta.v1.Solver:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          description: 'Identifier chosen by the admin: lowercase letters, digits and dashes.'
+        name:
+          type: string
+          title: name
+        type:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.meta.v1.SolverType'
+          title: type
+        url:
+          type: string
+          title: url
+          description: Base URL, e.g. http://flaresolverr:8191.
+        sessionTtl:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Duration'
+          title: session_ttl
+          description: How long clearance cookies from one solve are reused.
+        maxTimeout:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Duration'
+          title: max_timeout
+          description: Upper bound for one solve.
+        asResponseFallback:
+          type: boolean
+          title: as_response_fallback
+          description: Use the solver's own response body when a fresh request still fails.
+        usedBy:
+          type: array
+          items:
+            type: string
+          title: used_by
+          description: |-
+            Output only: the profiles that use this solver. Empty means no provider
+             uses it.
+      title: Solver
+      additionalProperties: false
+    panelarr.meta.v1.SolverType:
+      type: string
+      title: SolverType
+      enum:
+        - SOLVER_TYPE_UNSPECIFIED
+        - SOLVER_TYPE_FLARESOLVERR
+        - SOLVER_TYPE_BYPARR
     panelarr.meta.v1.SortField:
       type: string
       title: SortField
@@ -1004,6 +1353,14 @@ components:
           title: client
       title: UpdateClientResponse
       additionalProperties: false
+    panelarr.meta.v1.UserAgentMode:
+      type: string
+      title: UserAgentMode
+      enum:
+        - USER_AGENT_MODE_UNSPECIFIED
+        - USER_AGENT_MODE_FIXED
+        - USER_AGENT_MODE_RANDOM_DESKTOP
+        - USER_AGENT_MODE_FROM_SOLVER
     panelarr.meta.v1.WhoAmIRequest:
       type: object
       title: WhoAmIRequest
@@ -1735,6 +2092,76 @@ components:
         - LINK_TYPE_EMAIL
         - LINK_TYPE_OTHER
         - LINK_TYPE_UNKNOWN
+    panelarr.metadata.v1.NetworkProfile:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+          description: Name of the profile on the host, for display and logs.
+        proxy:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.Proxy'
+          title: proxy
+          description: Unset means a direct connection.
+        solver:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.Solver'
+          title: solver
+          description: Unset means no challenge solver.
+        rateLimit:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.NetworkRateLimit'
+          title: rate_limit
+          description: Unset means the plugin's default.
+        concurrency:
+          type: integer
+          title: concurrency
+          description: Maximum parallel requests. 0 means the plugin's default.
+        userAgent:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.UserAgent'
+          title: user_agent
+          description: Unset means the plugin's default user agent.
+        headers:
+          type: object
+          title: headers
+          additionalProperties:
+            type: string
+            title: value
+          description: Extra headers added to every request.
+        timeouts:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.Timeouts'
+          title: timeouts
+      title: NetworkProfile
+      additionalProperties: false
+      description: |-
+        NetworkProfile is everything a plugin needs to make requests for a
+         provider: which proxy to go through, which challenge solver to ask, how
+         fast to go and what to send. A host hands it to plugins that declare the
+         `network_profile` common service.
+    panelarr.metadata.v1.NetworkRateLimit:
+      type: object
+      properties:
+        requests:
+          type: integer
+          title: requests
+          description: Requests allowed per period.
+        period:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Duration'
+          title: period
+        burst:
+          type: integer
+          title: burst
+          description: Extra requests allowed in a burst. 0 means none.
+        perHost:
+          type: boolean
+          title: per_host
+          description: Count requests per target host instead of for the whole provider.
+      title: NetworkRateLimit
+      additionalProperties: false
     panelarr.metadata.v1.NoticeLevel:
       type: string
       title: NoticeLevel
@@ -1945,6 +2372,21 @@ components:
           title: final
       title: Progress
       additionalProperties: false
+    panelarr.metadata.v1.Proxy:
+      type: object
+      properties:
+        url:
+          type: string
+          title: url
+          description: http://, https:// or socks5:// URL without credentials.
+        username:
+          type: string
+          title: username
+        password:
+          type: string
+          title: password
+      title: Proxy
+      additionalProperties: false
     panelarr.metadata.v1.RateLimit:
       type: object
       properties:
@@ -2108,6 +2550,40 @@ components:
         - RELATION_TYPE_SUMMARY
         - RELATION_TYPE_UNCOLLECTED
         - RELATION_TYPE_OTHER
+    panelarr.metadata.v1.Solver:
+      type: object
+      properties:
+        type:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.SolverType'
+          title: type
+        url:
+          type: string
+          title: url
+          description: Base URL, e.g. http://flaresolverr:8191.
+        sessionTtl:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Duration'
+          title: session_ttl
+          description: How long clearance cookies from one solve are reused.
+        maxTimeout:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Duration'
+          title: max_timeout
+          description: Upper bound for one solve.
+        asResponseFallback:
+          type: boolean
+          title: as_response_fallback
+          description: Use the solver's own response body when a fresh request still fails.
+      title: Solver
+      additionalProperties: false
+    panelarr.metadata.v1.SolverType:
+      type: string
+      title: SolverType
+      enum:
+        - SOLVER_TYPE_UNSPECIFIED
+        - SOLVER_TYPE_FLARESOLVERR
+        - SOLVER_TYPE_BYPARR
     panelarr.metadata.v1.Stats:
       type: object
       properties:
@@ -2247,6 +2723,25 @@ components:
         - TAG_WEIGHT_RECURRENT
         - TAG_WEIGHT_INCIDENTAL
         - TAG_WEIGHT_UNWEIGHTED
+    panelarr.metadata.v1.Timeouts:
+      type: object
+      properties:
+        connect:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Duration'
+          title: connect
+        read:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Duration'
+          title: read
+          description: Time to wait for response data.
+        call:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Duration'
+          title: call
+          description: The whole call, including redirects and retries.
+      title: Timeouts
+      additionalProperties: false
     panelarr.metadata.v1.Title:
       type: object
       properties:
@@ -2286,7 +2781,100 @@ components:
         - TITLE_KIND_ALTERNATIVE
         - TITLE_KIND_UNOFFICIAL
         - TITLE_KIND_UNKNOWN
+    panelarr.metadata.v1.UserAgent:
+      type: object
+      anyOf:
+        - type: object
+          properties:
+            fixed:
+              type: string
+              title: fixed
+              description: Always send this user agent.
+          title: fixed
+        - type: object
+          properties:
+            fromSolver:
+              type: boolean
+              title: from_solver
+              description: The user agent the solver reports, so it matches its clearance cookies.
+          title: from_solver
+        - type: object
+          properties:
+            randomDesktop:
+              type: boolean
+              title: random_desktop
+              description: A desktop browser's user agent, stable per provider.
+          title: random_desktop
+      unevaluatedProperties: false
+      not:
+        allOf:
+          - anyOf:
+              - required:
+                  - fixed
+              - required:
+                  - fromSolver
+              - required:
+                  - randomDesktop
+          - not:
+              oneOf:
+                - required:
+                    - fixed
+                - required:
+                    - fromSolver
+                - required:
+                    - randomDesktop
+      title: UserAgent
 paths:
+  /v1/admin/assignments:
+    get:
+      tags:
+        - MetaIntegrationsService
+      summary: ListAssignments
+      description: ListAssignments lists which profile each configured provider uses and why.
+      operationId: MetaIntegrationsService_ListAssignments
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.ListAssignmentsResponse'
+  /v1/admin/assignments/{providerId}:
+    put:
+      tags:
+        - MetaIntegrationsService
+      summary: AssignProfile
+      description: |-
+        AssignProfile sets the profile of one provider. An empty profile_id
+         removes the assignment, so the provider falls back to the default profile.
+      operationId: MetaIntegrationsService_AssignProfile
+      parameters:
+        - name: providerId
+          in: path
+          description: The providerId path parameter.
+          required: true
+          schema:
+            type: string
+            title: provider_id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                profileId:
+                  type: string
+                  title: profile_id
+              title: AssignProfileRequest
+              additionalProperties: false
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.AssignProfileResponse'
   /v1/admin/clients:
     get:
       tags:
@@ -2406,6 +2994,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/panelarr.meta.v1.RotateClientKeyResponse'
+  /v1/admin/default-profile:
+    put:
+      tags:
+        - MetaIntegrationsService
+      summary: SetDefaultProfile
+      description: |-
+        SetDefaultProfile sets the profile used by providers without an
+         assignment. An empty profile_id means a direct connection.
+      operationId: MetaIntegrationsService_SetDefaultProfile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/panelarr.meta.v1.SetDefaultProfileRequest'
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.SetDefaultProfileResponse'
   /v1/admin/entries/{id}/refresh:
     post:
       tags:
@@ -2430,6 +3040,74 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/panelarr.meta.v1.RefreshEntryResponse'
+  /v1/admin/profiles:
+    get:
+      tags:
+        - MetaIntegrationsService
+      summary: ListProfiles
+      operationId: MetaIntegrationsService_ListProfiles
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.ListProfilesResponse'
+  /v1/admin/profiles/{profile.id}:
+    put:
+      tags:
+        - MetaIntegrationsService
+      summary: PutProfile
+      description: |-
+        PutProfile creates or replaces a profile. A proxy password left empty
+         keeps the stored one.
+      operationId: MetaIntegrationsService_PutProfile
+      parameters:
+        - name: profile.id
+          in: path
+          description: 'Identifier chosen by the admin: lowercase letters, digits and dashes.'
+          required: true
+          schema:
+            type: string
+            title: id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/panelarr.meta.v1.NetworkProfile'
+              title: profile
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.PutProfileResponse'
+  /v1/admin/profiles/{profileId}:
+    delete:
+      tags:
+        - MetaIntegrationsService
+      summary: DeleteProfile
+      description: |-
+        DeleteProfile also removes the profile's assignments, and clears the
+         default when it was the default.
+      operationId: MetaIntegrationsService_DeleteProfile
+      parameters:
+        - name: profileId
+          in: path
+          description: The profileId path parameter.
+          required: true
+          schema:
+            type: string
+            title: profile_id
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.DeleteProfileResponse'
   /v1/admin/providers:
     get:
       tags:
@@ -2487,6 +3165,115 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/panelarr.meta.v1.RunSyncResponse'
+  /v1/admin/pushed-profiles/{providerId}:
+    put:
+      tags:
+        - MetaIntegrationsService
+      summary: SetPushedProfile
+      description: |-
+        SetPushedProfile is how a host that owns network settings (a Panelarr
+         server) gives a provider its profile. A pushed profile wins over the local
+         assignment and default. Leaving `profile` unset removes the override.
+      operationId: MetaIntegrationsService_SetPushedProfile
+      parameters:
+        - name: providerId
+          in: path
+          description: The providerId path parameter.
+          required: true
+          schema:
+            type: string
+            title: provider_id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                profile:
+                  allOf:
+                    - $ref: '#/components/schemas/panelarr.metadata.v1.NetworkProfile'
+                  title: profile
+                  description: |-
+                    The profile, in the shape plugins receive it (solver inline). Unset
+                     removes the pushed profile.
+              title: SetPushedProfileRequest
+              additionalProperties: false
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.SetPushedProfileResponse'
+  /v1/admin/solvers:
+    get:
+      tags:
+        - MetaIntegrationsService
+      summary: ListSolvers
+      operationId: MetaIntegrationsService_ListSolvers
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.ListSolversResponse'
+  /v1/admin/solvers/{solver.id}:
+    put:
+      tags:
+        - MetaIntegrationsService
+      summary: PutSolver
+      description: |-
+        PutSolver creates or replaces a solver. A solver is only used through a
+         network profile. As a convenience, adding a solver while no profiles exist
+         at all also creates a profile "default" that uses it and makes it the
+         default profile, so every provider starts using the solver right away.
+      operationId: MetaIntegrationsService_PutSolver
+      parameters:
+        - name: solver.id
+          in: path
+          description: 'Identifier chosen by the admin: lowercase letters, digits and dashes.'
+          required: true
+          schema:
+            type: string
+            title: id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/panelarr.meta.v1.Solver'
+              title: solver
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.PutSolverResponse'
+  /v1/admin/solvers/{solverId}:
+    delete:
+      tags:
+        - MetaIntegrationsService
+      summary: DeleteSolver
+      description: DeleteSolver fails while a profile still uses the solver.
+      operationId: MetaIntegrationsService_DeleteSolver
+      parameters:
+        - name: solverId
+          in: path
+          description: The solverId path parameter.
+          required: true
+          schema:
+            type: string
+            title: solver_id
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.DeleteSolverResponse'
   /v1/admin/sync-runs:
     get:
       tags:
@@ -2960,6 +3747,20 @@ tags:
        Keys are shown once, when created or rotated, and stored only as hashes.
        Every method needs the `admin` scope except WhoAmI, which any valid key may
        call.
+  - name: MetaIntegrationsService
+    description: |-
+      MetaIntegrationsService manages the network settings metadata plugins use:
+       challenge solvers, network profiles and which profile each provider uses.
+       Needs the `admin` scope.
+
+       The chain: a solver is used by a profile (solver_id), and a profile applies
+       to the providers it's assigned to, or to every other provider when it's the
+       default profile. meta hands the profile in effect to each plugin that
+       declares the `network_profile` common service.
+
+       A provider uses, in order: a profile pushed by a host (SetPushedProfile), the
+       profile assigned to it here, the default profile, or a direct connection
+       when there is none.
   - name: MetaService
     description: |-
       MetaService serves meta's catalogue: discovery (browse), search and

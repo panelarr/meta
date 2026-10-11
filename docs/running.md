@@ -31,6 +31,7 @@ Other commands run in the same image: `docker exec meta /meta sync mangabaka`, `
 ## In production
 
 - **Database:** give meta its own database on your PostgreSQL server. Its role needs to own that database and nothing more: no superuser, no server-wide settings. Point `META_DATABASE_URL` at it. See [configuration](configuration.md#database).
+- **Data directory:** mount `/data` (it holds the generated `secret.key`), or set `META_SECRET_KEY`. Back the key up with the database: stored proxy passwords can't be read without it.
 - **Keys:** keep the admin token for yourself and give every caller a client with only the scopes it needs. The deprecated `api_keys` setting still works but grants full access.
 - **Plugins:** run them as their own containers (standalone, ports 8903 and up) or let meta start them (managed). Give standalone plugins an API key.
 - **Several replicas** can share one database: migrations take a lock, and so does each provider's sync, so a provider never syncs twice at the same time.

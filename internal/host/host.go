@@ -144,6 +144,21 @@ func (p *Provider) Health() (metadatav1.HealthStatus, string) {
 	return p.health, p.message
 }
 
+// CommonServiceNetworkProfile is the common service plugins declare to
+// receive network profiles.
+const CommonServiceNetworkProfile = "network_profile"
+
+// UsesNetworkProfiles reports whether the plugin declares the
+// network_profile common service.
+func (p *Provider) UsesNetworkProfiles() bool {
+	for _, cs := range p.Info().GetCommonServices() {
+		if cs.GetName() == CommonServiceNetworkProfile {
+			return true
+		}
+	}
+	return false
+}
+
 // Supports reports whether the plugin declares an ingestion kind.
 func (p *Provider) Supports(kind string) bool {
 	return p.ingestion(kind) != nil

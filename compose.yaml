@@ -42,6 +42,8 @@ services:
       MANGABAKA_PLUGIN_KEY: ${MANGABAKA_PLUGIN_KEY:?set MANGABAKA_PLUGIN_KEY}
     volumes:
       - ./compose/meta.yaml:/etc/meta/meta.yaml:ro
+      # Holds the key that encrypts stored proxy passwords.
+      - meta:/data
     ports:
       - "${META_PORT:-8901}:8901"
     restart: unless-stopped
@@ -61,5 +63,6 @@ services:
     restart: unless-stopped
 
 volumes:
+  meta: {}
   postgres: {}
   mangabaka: {}

@@ -183,6 +183,20 @@ type FieldLock struct {
 	CreatedAt time.Time
 }
 
+type IntegrationSetting struct {
+	ID               int32
+	DefaultProfileID pgtype.Text
+}
+
+type NetworkProfile struct {
+	ID                  string
+	SolverID            pgtype.Text
+	Settings            []byte
+	ProxyPasswordSealed pgtype.Text
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+}
+
 type Person struct {
 	ID        uuid.UUID
 	Name      string
@@ -197,6 +211,11 @@ type PersonExternalID struct {
 	Provider   string
 	ExternalID string
 	PersonID   uuid.UUID
+}
+
+type ProfileAssignment struct {
+	Provider  string
+	ProfileID string
 }
 
 type Provider struct {
@@ -225,6 +244,20 @@ type ProviderEntry struct {
 	RemovedAt         *time.Time
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
+}
+
+type PushedProfile struct {
+	Provider            string
+	Profile             []byte
+	ProxyPasswordSealed pgtype.Text
+	UpdatedAt           time.Time
+}
+
+type Solver struct {
+	ID        string
+	Settings  []byte
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 type SyncCursor struct {

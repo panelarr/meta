@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -25,7 +26,9 @@ import (
 	"github.com/panelarr/meta/internal/config"
 	"github.com/panelarr/meta/internal/host"
 	"github.com/panelarr/meta/internal/ingest"
+	"github.com/panelarr/meta/internal/integrations"
 	"github.com/panelarr/meta/internal/search"
+	"github.com/panelarr/meta/internal/secret"
 	"github.com/panelarr/meta/internal/store"
 )
 
@@ -268,6 +271,16 @@ func serve(ctx context.Context, args []string, out io.Writer) error {
 	if a.host.Empty() {
 		log.Warn("no providers configured: the catalogue stays empty until you add a metadata plugin")
 	}
+	integ := integrations.New(a.st, secret.NewBox(a.cfg.SecretKey, filepath.Join(a.cfg.DataDir, "secret.key")), func() []integrations.ProviderInfo {
+		var out []integrations.ProviderInfo
+		for _, p := range a.host.List() {
+			out = append(out, integrations.ProviderInfo{ID: p.ID(), Supported: p.UsesNetworkProfiles()})
+		}
+		return out
+	})
+	if unused, err := integ.UnusedSolvers(ctx); err == nil && len(unused) > 0 {
+		log.Warn("solvers not used by any network profile, so no provider uses them; add them to a profile", "solvers", unused)
+	}
 	authn, err := auth.New(ctx, a.st, auth.Options{AdminToken: a.cfg.AdminToken, ConfigKeys: a.cfg.APIKeys, Out: out, Log: log})
 	if err != nil {
 		return err
@@ -291,8 +304,9 @@ func serve(ctx context.Context, args []string, out io.Writer) error {
 			DisplayLanguage: a.cfg.Merge.DisplayLanguage, StaleAfter: a.cfg.Ingest.StaleAfter,
 			Index: idx, Log: log, Base: syncCtx,
 		}),
-		Admin:   api.NewAdmin(syncCtx, a.st, a.host, a.runner, a.writer),
-		Clients: api.NewClients(a.st),
+		Admin:        api.NewAdmin(syncCtx, a.st, a.host, a.runner, a.writer),
+		Clients:      api.NewClients(a.st),
+		Integrations: api.NewIntegrations(integ),
 	}, api.Options{Auth: authn, Ready: func(ctx context.Context) error { return a.st.Pool.Ping(ctx) }, Log: log})
 	if err != nil {
 		return err

@@ -35,18 +35,20 @@ func (b bearer) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.
 }
 
 type clientsFor struct {
-	meta    metav1connect.MetaServiceClient
-	admin   metav1connect.MetaAdminServiceClient
-	clients metav1connect.MetaClientsServiceClient
+	integrations metav1connect.MetaIntegrationsServiceClient
+	meta         metav1connect.MetaServiceClient
+	admin        metav1connect.MetaAdminServiceClient
+	clients      metav1connect.MetaClientsServiceClient
 }
 
 func (f *fixture) as(token string) clientsFor {
 	opt := connect.WithInterceptors(bearer(token))
 	hc := f.srv.Client()
 	return clientsFor{
-		meta:    metav1connect.NewMetaServiceClient(hc, f.srv.URL, opt),
-		admin:   metav1connect.NewMetaAdminServiceClient(hc, f.srv.URL, opt),
-		clients: metav1connect.NewMetaClientsServiceClient(hc, f.srv.URL, opt),
+		integrations: metav1connect.NewMetaIntegrationsServiceClient(hc, f.srv.URL, opt),
+		meta:         metav1connect.NewMetaServiceClient(hc, f.srv.URL, opt),
+		admin:        metav1connect.NewMetaAdminServiceClient(hc, f.srv.URL, opt),
+		clients:      metav1connect.NewMetaClientsServiceClient(hc, f.srv.URL, opt),
 	}
 }
 

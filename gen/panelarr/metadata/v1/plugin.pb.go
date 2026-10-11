@@ -133,6 +133,57 @@ func (HealthStatus) EnumDescriptor() ([]byte, []int) {
 	return file_panelarr_metadata_v1_plugin_proto_rawDescGZIP(), []int{1}
 }
 
+type SolverType int32
+
+const (
+	SolverType_SOLVER_TYPE_UNSPECIFIED SolverType = 0
+	// FlareSolverr's API (/v1, cmd request.get).
+	SolverType_SOLVER_TYPE_FLARESOLVERR SolverType = 1
+	// Byparr, which speaks the same API.
+	SolverType_SOLVER_TYPE_BYPARR SolverType = 2
+)
+
+// Enum value maps for SolverType.
+var (
+	SolverType_name = map[int32]string{
+		0: "SOLVER_TYPE_UNSPECIFIED",
+		1: "SOLVER_TYPE_FLARESOLVERR",
+		2: "SOLVER_TYPE_BYPARR",
+	}
+	SolverType_value = map[string]int32{
+		"SOLVER_TYPE_UNSPECIFIED":  0,
+		"SOLVER_TYPE_FLARESOLVERR": 1,
+		"SOLVER_TYPE_BYPARR":       2,
+	}
+)
+
+func (x SolverType) Enum() *SolverType {
+	p := new(SolverType)
+	*p = x
+	return p
+}
+
+func (x SolverType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SolverType) Descriptor() protoreflect.EnumDescriptor {
+	return file_panelarr_metadata_v1_plugin_proto_enumTypes[2].Descriptor()
+}
+
+func (SolverType) Type() protoreflect.EnumType {
+	return &file_panelarr_metadata_v1_plugin_proto_enumTypes[2]
+}
+
+func (x SolverType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SolverType.Descriptor instead.
+func (SolverType) EnumDescriptor() ([]byte, []int) {
+	return file_panelarr_metadata_v1_plugin_proto_rawDescGZIP(), []int{2}
+}
+
 type GetInfoRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -1893,6 +1944,492 @@ func (x *HealthResponse) GetMessage() string {
 	return ""
 }
 
+// NetworkProfile is everything a plugin needs to make requests for a
+// provider: which proxy to go through, which challenge solver to ask, how
+// fast to go and what to send. A host hands it to plugins that declare the
+// `network_profile` common service.
+type NetworkProfile struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Name of the profile on the host, for display and logs.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Unset means a direct connection.
+	Proxy *Proxy `protobuf:"bytes,2,opt,name=proxy,proto3" json:"proxy,omitempty"`
+	// Unset means no challenge solver.
+	Solver *Solver `protobuf:"bytes,3,opt,name=solver,proto3" json:"solver,omitempty"`
+	// Unset means the plugin's default.
+	RateLimit *NetworkRateLimit `protobuf:"bytes,4,opt,name=rate_limit,json=rateLimit,proto3" json:"rate_limit,omitempty"`
+	// Maximum parallel requests. 0 means the plugin's default.
+	Concurrency uint32 `protobuf:"varint,5,opt,name=concurrency,proto3" json:"concurrency,omitempty"`
+	// Unset means the plugin's default user agent.
+	UserAgent *UserAgent `protobuf:"bytes,6,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
+	// Extra headers added to every request.
+	Headers       map[string]string `protobuf:"bytes,7,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Timeouts      *Timeouts         `protobuf:"bytes,8,opt,name=timeouts,proto3" json:"timeouts,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NetworkProfile) Reset() {
+	*x = NetworkProfile{}
+	mi := &file_panelarr_metadata_v1_plugin_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NetworkProfile) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NetworkProfile) ProtoMessage() {}
+
+func (x *NetworkProfile) ProtoReflect() protoreflect.Message {
+	mi := &file_panelarr_metadata_v1_plugin_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NetworkProfile.ProtoReflect.Descriptor instead.
+func (*NetworkProfile) Descriptor() ([]byte, []int) {
+	return file_panelarr_metadata_v1_plugin_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *NetworkProfile) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *NetworkProfile) GetProxy() *Proxy {
+	if x != nil {
+		return x.Proxy
+	}
+	return nil
+}
+
+func (x *NetworkProfile) GetSolver() *Solver {
+	if x != nil {
+		return x.Solver
+	}
+	return nil
+}
+
+func (x *NetworkProfile) GetRateLimit() *NetworkRateLimit {
+	if x != nil {
+		return x.RateLimit
+	}
+	return nil
+}
+
+func (x *NetworkProfile) GetConcurrency() uint32 {
+	if x != nil {
+		return x.Concurrency
+	}
+	return 0
+}
+
+func (x *NetworkProfile) GetUserAgent() *UserAgent {
+	if x != nil {
+		return x.UserAgent
+	}
+	return nil
+}
+
+func (x *NetworkProfile) GetHeaders() map[string]string {
+	if x != nil {
+		return x.Headers
+	}
+	return nil
+}
+
+func (x *NetworkProfile) GetTimeouts() *Timeouts {
+	if x != nil {
+		return x.Timeouts
+	}
+	return nil
+}
+
+type Proxy struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// http://, https:// or socks5:// URL without credentials.
+	Url           string `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
+	Username      string `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
+	Password      string `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Proxy) Reset() {
+	*x = Proxy{}
+	mi := &file_panelarr_metadata_v1_plugin_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Proxy) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Proxy) ProtoMessage() {}
+
+func (x *Proxy) ProtoReflect() protoreflect.Message {
+	mi := &file_panelarr_metadata_v1_plugin_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Proxy.ProtoReflect.Descriptor instead.
+func (*Proxy) Descriptor() ([]byte, []int) {
+	return file_panelarr_metadata_v1_plugin_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *Proxy) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+func (x *Proxy) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+func (x *Proxy) GetPassword() string {
+	if x != nil {
+		return x.Password
+	}
+	return ""
+}
+
+type Solver struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Type  SolverType             `protobuf:"varint,1,opt,name=type,proto3,enum=panelarr.metadata.v1.SolverType" json:"type,omitempty"`
+	// Base URL, e.g. http://flaresolverr:8191.
+	Url string `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`
+	// How long clearance cookies from one solve are reused.
+	SessionTtl *durationpb.Duration `protobuf:"bytes,3,opt,name=session_ttl,json=sessionTtl,proto3" json:"session_ttl,omitempty"`
+	// Upper bound for one solve.
+	MaxTimeout *durationpb.Duration `protobuf:"bytes,4,opt,name=max_timeout,json=maxTimeout,proto3" json:"max_timeout,omitempty"`
+	// Use the solver's own response body when a fresh request still fails.
+	AsResponseFallback bool `protobuf:"varint,5,opt,name=as_response_fallback,json=asResponseFallback,proto3" json:"as_response_fallback,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *Solver) Reset() {
+	*x = Solver{}
+	mi := &file_panelarr_metadata_v1_plugin_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Solver) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Solver) ProtoMessage() {}
+
+func (x *Solver) ProtoReflect() protoreflect.Message {
+	mi := &file_panelarr_metadata_v1_plugin_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Solver.ProtoReflect.Descriptor instead.
+func (*Solver) Descriptor() ([]byte, []int) {
+	return file_panelarr_metadata_v1_plugin_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *Solver) GetType() SolverType {
+	if x != nil {
+		return x.Type
+	}
+	return SolverType_SOLVER_TYPE_UNSPECIFIED
+}
+
+func (x *Solver) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+func (x *Solver) GetSessionTtl() *durationpb.Duration {
+	if x != nil {
+		return x.SessionTtl
+	}
+	return nil
+}
+
+func (x *Solver) GetMaxTimeout() *durationpb.Duration {
+	if x != nil {
+		return x.MaxTimeout
+	}
+	return nil
+}
+
+func (x *Solver) GetAsResponseFallback() bool {
+	if x != nil {
+		return x.AsResponseFallback
+	}
+	return false
+}
+
+type NetworkRateLimit struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Requests allowed per period.
+	Requests uint32               `protobuf:"varint,1,opt,name=requests,proto3" json:"requests,omitempty"`
+	Period   *durationpb.Duration `protobuf:"bytes,2,opt,name=period,proto3" json:"period,omitempty"`
+	// Extra requests allowed in a burst. 0 means none.
+	Burst uint32 `protobuf:"varint,3,opt,name=burst,proto3" json:"burst,omitempty"`
+	// Count requests per target host instead of for the whole provider.
+	PerHost       bool `protobuf:"varint,4,opt,name=per_host,json=perHost,proto3" json:"per_host,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NetworkRateLimit) Reset() {
+	*x = NetworkRateLimit{}
+	mi := &file_panelarr_metadata_v1_plugin_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NetworkRateLimit) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NetworkRateLimit) ProtoMessage() {}
+
+func (x *NetworkRateLimit) ProtoReflect() protoreflect.Message {
+	mi := &file_panelarr_metadata_v1_plugin_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NetworkRateLimit.ProtoReflect.Descriptor instead.
+func (*NetworkRateLimit) Descriptor() ([]byte, []int) {
+	return file_panelarr_metadata_v1_plugin_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *NetworkRateLimit) GetRequests() uint32 {
+	if x != nil {
+		return x.Requests
+	}
+	return 0
+}
+
+func (x *NetworkRateLimit) GetPeriod() *durationpb.Duration {
+	if x != nil {
+		return x.Period
+	}
+	return nil
+}
+
+func (x *NetworkRateLimit) GetBurst() uint32 {
+	if x != nil {
+		return x.Burst
+	}
+	return 0
+}
+
+func (x *NetworkRateLimit) GetPerHost() bool {
+	if x != nil {
+		return x.PerHost
+	}
+	return false
+}
+
+type UserAgent struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Mode:
+	//
+	//	*UserAgent_Fixed
+	//	*UserAgent_RandomDesktop
+	//	*UserAgent_FromSolver
+	Mode          isUserAgent_Mode `protobuf_oneof:"mode"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UserAgent) Reset() {
+	*x = UserAgent{}
+	mi := &file_panelarr_metadata_v1_plugin_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UserAgent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UserAgent) ProtoMessage() {}
+
+func (x *UserAgent) ProtoReflect() protoreflect.Message {
+	mi := &file_panelarr_metadata_v1_plugin_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UserAgent.ProtoReflect.Descriptor instead.
+func (*UserAgent) Descriptor() ([]byte, []int) {
+	return file_panelarr_metadata_v1_plugin_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *UserAgent) GetMode() isUserAgent_Mode {
+	if x != nil {
+		return x.Mode
+	}
+	return nil
+}
+
+func (x *UserAgent) GetFixed() string {
+	if x != nil {
+		if x, ok := x.Mode.(*UserAgent_Fixed); ok {
+			return x.Fixed
+		}
+	}
+	return ""
+}
+
+func (x *UserAgent) GetRandomDesktop() bool {
+	if x != nil {
+		if x, ok := x.Mode.(*UserAgent_RandomDesktop); ok {
+			return x.RandomDesktop
+		}
+	}
+	return false
+}
+
+func (x *UserAgent) GetFromSolver() bool {
+	if x != nil {
+		if x, ok := x.Mode.(*UserAgent_FromSolver); ok {
+			return x.FromSolver
+		}
+	}
+	return false
+}
+
+type isUserAgent_Mode interface {
+	isUserAgent_Mode()
+}
+
+type UserAgent_Fixed struct {
+	// Always send this user agent.
+	Fixed string `protobuf:"bytes,1,opt,name=fixed,proto3,oneof"`
+}
+
+type UserAgent_RandomDesktop struct {
+	// A desktop browser's user agent, stable per provider.
+	RandomDesktop bool `protobuf:"varint,2,opt,name=random_desktop,json=randomDesktop,proto3,oneof"`
+}
+
+type UserAgent_FromSolver struct {
+	// The user agent the solver reports, so it matches its clearance cookies.
+	FromSolver bool `protobuf:"varint,3,opt,name=from_solver,json=fromSolver,proto3,oneof"`
+}
+
+func (*UserAgent_Fixed) isUserAgent_Mode() {}
+
+func (*UserAgent_RandomDesktop) isUserAgent_Mode() {}
+
+func (*UserAgent_FromSolver) isUserAgent_Mode() {}
+
+type Timeouts struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Connect *durationpb.Duration   `protobuf:"bytes,1,opt,name=connect,proto3" json:"connect,omitempty"`
+	// Time to wait for response data.
+	Read *durationpb.Duration `protobuf:"bytes,2,opt,name=read,proto3" json:"read,omitempty"`
+	// The whole call, including redirects and retries.
+	Call          *durationpb.Duration `protobuf:"bytes,3,opt,name=call,proto3" json:"call,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Timeouts) Reset() {
+	*x = Timeouts{}
+	mi := &file_panelarr_metadata_v1_plugin_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Timeouts) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Timeouts) ProtoMessage() {}
+
+func (x *Timeouts) ProtoReflect() protoreflect.Message {
+	mi := &file_panelarr_metadata_v1_plugin_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Timeouts.ProtoReflect.Descriptor instead.
+func (*Timeouts) Descriptor() ([]byte, []int) {
+	return file_panelarr_metadata_v1_plugin_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *Timeouts) GetConnect() *durationpb.Duration {
+	if x != nil {
+		return x.Connect
+	}
+	return nil
+}
+
+func (x *Timeouts) GetRead() *durationpb.Duration {
+	if x != nil {
+		return x.Read
+	}
+	return nil
+}
+
+func (x *Timeouts) GetCall() *durationpb.Duration {
+	if x != nil {
+		return x.Call
+	}
+	return nil
+}
+
 var File_panelarr_metadata_v1_plugin_proto protoreflect.FileDescriptor
 
 const file_panelarr_metadata_v1_plugin_proto_rawDesc = "" +
@@ -2013,7 +2550,48 @@ const file_panelarr_metadata_v1_plugin_proto_rawDesc = "" +
 	"\rHealthRequest\"f\n" +
 	"\x0eHealthResponse\x12:\n" +
 	"\x06status\x18\x01 \x01(\x0e2\".panelarr.metadata.v1.HealthStatusR\x06status\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage*t\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\xfb\x03\n" +
+	"\x0eNetworkProfile\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x121\n" +
+	"\x05proxy\x18\x02 \x01(\v2\x1b.panelarr.metadata.v1.ProxyR\x05proxy\x124\n" +
+	"\x06solver\x18\x03 \x01(\v2\x1c.panelarr.metadata.v1.SolverR\x06solver\x12E\n" +
+	"\n" +
+	"rate_limit\x18\x04 \x01(\v2&.panelarr.metadata.v1.NetworkRateLimitR\trateLimit\x12 \n" +
+	"\vconcurrency\x18\x05 \x01(\rR\vconcurrency\x12>\n" +
+	"\n" +
+	"user_agent\x18\x06 \x01(\v2\x1f.panelarr.metadata.v1.UserAgentR\tuserAgent\x12K\n" +
+	"\aheaders\x18\a \x03(\v21.panelarr.metadata.v1.NetworkProfile.HeadersEntryR\aheaders\x12:\n" +
+	"\btimeouts\x18\b \x01(\v2\x1e.panelarr.metadata.v1.TimeoutsR\btimeouts\x1a:\n" +
+	"\fHeadersEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"Q\n" +
+	"\x05Proxy\x12\x10\n" +
+	"\x03url\x18\x01 \x01(\tR\x03url\x12\x1a\n" +
+	"\busername\x18\x02 \x01(\tR\busername\x12\x1a\n" +
+	"\bpassword\x18\x03 \x01(\tR\bpassword\"\xfa\x01\n" +
+	"\x06Solver\x124\n" +
+	"\x04type\x18\x01 \x01(\x0e2 .panelarr.metadata.v1.SolverTypeR\x04type\x12\x10\n" +
+	"\x03url\x18\x02 \x01(\tR\x03url\x12:\n" +
+	"\vsession_ttl\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\n" +
+	"sessionTtl\x12:\n" +
+	"\vmax_timeout\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\n" +
+	"maxTimeout\x120\n" +
+	"\x14as_response_fallback\x18\x05 \x01(\bR\x12asResponseFallback\"\x92\x01\n" +
+	"\x10NetworkRateLimit\x12\x1a\n" +
+	"\brequests\x18\x01 \x01(\rR\brequests\x121\n" +
+	"\x06period\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\x06period\x12\x14\n" +
+	"\x05burst\x18\x03 \x01(\rR\x05burst\x12\x19\n" +
+	"\bper_host\x18\x04 \x01(\bR\aperHost\"w\n" +
+	"\tUserAgent\x12\x16\n" +
+	"\x05fixed\x18\x01 \x01(\tH\x00R\x05fixed\x12'\n" +
+	"\x0erandom_desktop\x18\x02 \x01(\bH\x00R\rrandomDesktop\x12!\n" +
+	"\vfrom_solver\x18\x03 \x01(\bH\x00R\n" +
+	"fromSolverB\x06\n" +
+	"\x04mode\"\x9d\x01\n" +
+	"\bTimeouts\x123\n" +
+	"\aconnect\x18\x01 \x01(\v2\x19.google.protobuf.DurationR\aconnect\x12-\n" +
+	"\x04read\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\x04read\x12-\n" +
+	"\x04call\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\x04call*t\n" +
 	"\vNoticeLevel\x12\x1c\n" +
 	"\x18NOTICE_LEVEL_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11NOTICE_LEVEL_INFO\x10\x01\x12\x18\n" +
@@ -2023,7 +2601,12 @@ const file_panelarr_metadata_v1_plugin_proto_rawDesc = "" +
 	"\x19HEALTH_STATUS_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10HEALTH_STATUS_OK\x10\x01\x12\x1a\n" +
 	"\x16HEALTH_STATUS_DEGRADED\x10\x02\x12\x16\n" +
-	"\x12HEALTH_STATUS_DOWN\x10\x032\xf4\x05\n" +
+	"\x12HEALTH_STATUS_DOWN\x10\x03*_\n" +
+	"\n" +
+	"SolverType\x12\x1b\n" +
+	"\x17SOLVER_TYPE_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18SOLVER_TYPE_FLARESOLVERR\x10\x01\x12\x16\n" +
+	"\x12SOLVER_TYPE_BYPARR\x10\x022\xf4\x05\n" +
 	"\x15MetadataPluginService\x12V\n" +
 	"\aGetInfo\x12$.panelarr.metadata.v1.GetInfoRequest\x1a%.panelarr.metadata.v1.GetInfoResponse\x12S\n" +
 	"\x06Search\x12#.panelarr.metadata.v1.SearchRequest\x1a$.panelarr.metadata.v1.SearchResponse\x12J\n" +
@@ -2047,101 +2630,122 @@ func file_panelarr_metadata_v1_plugin_proto_rawDescGZIP() []byte {
 	return file_panelarr_metadata_v1_plugin_proto_rawDescData
 }
 
-var file_panelarr_metadata_v1_plugin_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_panelarr_metadata_v1_plugin_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
+var file_panelarr_metadata_v1_plugin_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_panelarr_metadata_v1_plugin_proto_msgTypes = make([]protoimpl.MessageInfo, 35)
 var file_panelarr_metadata_v1_plugin_proto_goTypes = []any{
 	(NoticeLevel)(0),                  // 0: panelarr.metadata.v1.NoticeLevel
 	(HealthStatus)(0),                 // 1: panelarr.metadata.v1.HealthStatus
-	(*GetInfoRequest)(nil),            // 2: panelarr.metadata.v1.GetInfoRequest
-	(*GetInfoResponse)(nil),           // 3: panelarr.metadata.v1.GetInfoResponse
-	(*PluginInfo)(nil),                // 4: panelarr.metadata.v1.PluginInfo
-	(*Ingestion)(nil),                 // 5: panelarr.metadata.v1.Ingestion
-	(*Limits)(nil),                    // 6: panelarr.metadata.v1.Limits
-	(*RateLimit)(nil),                 // 7: panelarr.metadata.v1.RateLimit
-	(*CommonService)(nil),             // 8: panelarr.metadata.v1.CommonService
-	(*SearchRequest)(nil),             // 9: panelarr.metadata.v1.SearchRequest
-	(*SearchResponse)(nil),            // 10: panelarr.metadata.v1.SearchResponse
-	(*GetRequest)(nil),                // 11: panelarr.metadata.v1.GetRequest
-	(*GetResponse)(nil),               // 12: panelarr.metadata.v1.GetResponse
-	(*SyncRequest)(nil),               // 13: panelarr.metadata.v1.SyncRequest
-	(*SyncResponse)(nil),              // 14: panelarr.metadata.v1.SyncResponse
-	(*SyncStarted)(nil),               // 15: panelarr.metadata.v1.SyncStarted
-	(*SyncRemoved)(nil),               // 16: panelarr.metadata.v1.SyncRemoved
-	(*SyncMerge)(nil),                 // 17: panelarr.metadata.v1.SyncMerge
-	(*SyncCheckpoint)(nil),            // 18: panelarr.metadata.v1.SyncCheckpoint
-	(*SyncFinished)(nil),              // 19: panelarr.metadata.v1.SyncFinished
-	(*SyncNotice)(nil),                // 20: panelarr.metadata.v1.SyncNotice
-	(*SyncProgress)(nil),              // 21: panelarr.metadata.v1.SyncProgress
-	(*GetSettingsSchemaRequest)(nil),  // 22: panelarr.metadata.v1.GetSettingsSchemaRequest
-	(*GetSettingsSchemaResponse)(nil), // 23: panelarr.metadata.v1.GetSettingsSchemaResponse
-	(*GetSettingsRequest)(nil),        // 24: panelarr.metadata.v1.GetSettingsRequest
-	(*GetSettingsResponse)(nil),       // 25: panelarr.metadata.v1.GetSettingsResponse
-	(*SetSettingsRequest)(nil),        // 26: panelarr.metadata.v1.SetSettingsRequest
-	(*SetSettingsResponse)(nil),       // 27: panelarr.metadata.v1.SetSettingsResponse
-	(*HealthRequest)(nil),             // 28: panelarr.metadata.v1.HealthRequest
-	(*HealthResponse)(nil),            // 29: panelarr.metadata.v1.HealthResponse
-	(*Attribution)(nil),               // 30: panelarr.metadata.v1.Attribution
-	(*durationpb.Duration)(nil),       // 31: google.protobuf.Duration
-	(EntryType)(0),                    // 32: panelarr.metadata.v1.EntryType
-	(ContentRating)(0),                // 33: panelarr.metadata.v1.ContentRating
-	(*ProviderEntry)(nil),             // 34: panelarr.metadata.v1.ProviderEntry
-	(*ExternalId)(nil),                // 35: panelarr.metadata.v1.ExternalId
-	(*timestamppb.Timestamp)(nil),     // 36: google.protobuf.Timestamp
-	(*structpb.Struct)(nil),           // 37: google.protobuf.Struct
+	(SolverType)(0),                   // 2: panelarr.metadata.v1.SolverType
+	(*GetInfoRequest)(nil),            // 3: panelarr.metadata.v1.GetInfoRequest
+	(*GetInfoResponse)(nil),           // 4: panelarr.metadata.v1.GetInfoResponse
+	(*PluginInfo)(nil),                // 5: panelarr.metadata.v1.PluginInfo
+	(*Ingestion)(nil),                 // 6: panelarr.metadata.v1.Ingestion
+	(*Limits)(nil),                    // 7: panelarr.metadata.v1.Limits
+	(*RateLimit)(nil),                 // 8: panelarr.metadata.v1.RateLimit
+	(*CommonService)(nil),             // 9: panelarr.metadata.v1.CommonService
+	(*SearchRequest)(nil),             // 10: panelarr.metadata.v1.SearchRequest
+	(*SearchResponse)(nil),            // 11: panelarr.metadata.v1.SearchResponse
+	(*GetRequest)(nil),                // 12: panelarr.metadata.v1.GetRequest
+	(*GetResponse)(nil),               // 13: panelarr.metadata.v1.GetResponse
+	(*SyncRequest)(nil),               // 14: panelarr.metadata.v1.SyncRequest
+	(*SyncResponse)(nil),              // 15: panelarr.metadata.v1.SyncResponse
+	(*SyncStarted)(nil),               // 16: panelarr.metadata.v1.SyncStarted
+	(*SyncRemoved)(nil),               // 17: panelarr.metadata.v1.SyncRemoved
+	(*SyncMerge)(nil),                 // 18: panelarr.metadata.v1.SyncMerge
+	(*SyncCheckpoint)(nil),            // 19: panelarr.metadata.v1.SyncCheckpoint
+	(*SyncFinished)(nil),              // 20: panelarr.metadata.v1.SyncFinished
+	(*SyncNotice)(nil),                // 21: panelarr.metadata.v1.SyncNotice
+	(*SyncProgress)(nil),              // 22: panelarr.metadata.v1.SyncProgress
+	(*GetSettingsSchemaRequest)(nil),  // 23: panelarr.metadata.v1.GetSettingsSchemaRequest
+	(*GetSettingsSchemaResponse)(nil), // 24: panelarr.metadata.v1.GetSettingsSchemaResponse
+	(*GetSettingsRequest)(nil),        // 25: panelarr.metadata.v1.GetSettingsRequest
+	(*GetSettingsResponse)(nil),       // 26: panelarr.metadata.v1.GetSettingsResponse
+	(*SetSettingsRequest)(nil),        // 27: panelarr.metadata.v1.SetSettingsRequest
+	(*SetSettingsResponse)(nil),       // 28: panelarr.metadata.v1.SetSettingsResponse
+	(*HealthRequest)(nil),             // 29: panelarr.metadata.v1.HealthRequest
+	(*HealthResponse)(nil),            // 30: panelarr.metadata.v1.HealthResponse
+	(*NetworkProfile)(nil),            // 31: panelarr.metadata.v1.NetworkProfile
+	(*Proxy)(nil),                     // 32: panelarr.metadata.v1.Proxy
+	(*Solver)(nil),                    // 33: panelarr.metadata.v1.Solver
+	(*NetworkRateLimit)(nil),          // 34: panelarr.metadata.v1.NetworkRateLimit
+	(*UserAgent)(nil),                 // 35: panelarr.metadata.v1.UserAgent
+	(*Timeouts)(nil),                  // 36: panelarr.metadata.v1.Timeouts
+	nil,                               // 37: panelarr.metadata.v1.NetworkProfile.HeadersEntry
+	(*Attribution)(nil),               // 38: panelarr.metadata.v1.Attribution
+	(*durationpb.Duration)(nil),       // 39: google.protobuf.Duration
+	(EntryType)(0),                    // 40: panelarr.metadata.v1.EntryType
+	(ContentRating)(0),                // 41: panelarr.metadata.v1.ContentRating
+	(*ProviderEntry)(nil),             // 42: panelarr.metadata.v1.ProviderEntry
+	(*ExternalId)(nil),                // 43: panelarr.metadata.v1.ExternalId
+	(*timestamppb.Timestamp)(nil),     // 44: google.protobuf.Timestamp
+	(*structpb.Struct)(nil),           // 45: google.protobuf.Struct
 }
 var file_panelarr_metadata_v1_plugin_proto_depIdxs = []int32{
-	4,  // 0: panelarr.metadata.v1.GetInfoResponse.info:type_name -> panelarr.metadata.v1.PluginInfo
-	5,  // 1: panelarr.metadata.v1.PluginInfo.ingestions:type_name -> panelarr.metadata.v1.Ingestion
-	8,  // 2: panelarr.metadata.v1.PluginInfo.common_services:type_name -> panelarr.metadata.v1.CommonService
-	30, // 3: panelarr.metadata.v1.PluginInfo.attribution:type_name -> panelarr.metadata.v1.Attribution
-	6,  // 4: panelarr.metadata.v1.Ingestion.limits:type_name -> panelarr.metadata.v1.Limits
-	7,  // 5: panelarr.metadata.v1.Limits.rate_limits:type_name -> panelarr.metadata.v1.RateLimit
-	31, // 6: panelarr.metadata.v1.RateLimit.per:type_name -> google.protobuf.Duration
-	32, // 7: panelarr.metadata.v1.SearchRequest.types:type_name -> panelarr.metadata.v1.EntryType
-	33, // 8: panelarr.metadata.v1.SearchRequest.content_ratings:type_name -> panelarr.metadata.v1.ContentRating
-	34, // 9: panelarr.metadata.v1.SearchResponse.entries:type_name -> panelarr.metadata.v1.ProviderEntry
-	35, // 10: panelarr.metadata.v1.GetRequest.ref:type_name -> panelarr.metadata.v1.ExternalId
-	34, // 11: panelarr.metadata.v1.GetResponse.entry:type_name -> panelarr.metadata.v1.ProviderEntry
-	15, // 12: panelarr.metadata.v1.SyncResponse.started:type_name -> panelarr.metadata.v1.SyncStarted
-	34, // 13: panelarr.metadata.v1.SyncResponse.upsert:type_name -> panelarr.metadata.v1.ProviderEntry
-	16, // 14: panelarr.metadata.v1.SyncResponse.removed:type_name -> panelarr.metadata.v1.SyncRemoved
-	17, // 15: panelarr.metadata.v1.SyncResponse.merge:type_name -> panelarr.metadata.v1.SyncMerge
-	18, // 16: panelarr.metadata.v1.SyncResponse.checkpoint:type_name -> panelarr.metadata.v1.SyncCheckpoint
-	19, // 17: panelarr.metadata.v1.SyncResponse.finished:type_name -> panelarr.metadata.v1.SyncFinished
-	20, // 18: panelarr.metadata.v1.SyncResponse.notice:type_name -> panelarr.metadata.v1.SyncNotice
-	21, // 19: panelarr.metadata.v1.SyncResponse.progress:type_name -> panelarr.metadata.v1.SyncProgress
-	36, // 20: panelarr.metadata.v1.SyncStarted.snapshot_time:type_name -> google.protobuf.Timestamp
-	35, // 21: panelarr.metadata.v1.SyncRemoved.ref:type_name -> panelarr.metadata.v1.ExternalId
-	35, // 22: panelarr.metadata.v1.SyncMerge.merged:type_name -> panelarr.metadata.v1.ExternalId
-	35, // 23: panelarr.metadata.v1.SyncMerge.into:type_name -> panelarr.metadata.v1.ExternalId
+	5,  // 0: panelarr.metadata.v1.GetInfoResponse.info:type_name -> panelarr.metadata.v1.PluginInfo
+	6,  // 1: panelarr.metadata.v1.PluginInfo.ingestions:type_name -> panelarr.metadata.v1.Ingestion
+	9,  // 2: panelarr.metadata.v1.PluginInfo.common_services:type_name -> panelarr.metadata.v1.CommonService
+	38, // 3: panelarr.metadata.v1.PluginInfo.attribution:type_name -> panelarr.metadata.v1.Attribution
+	7,  // 4: panelarr.metadata.v1.Ingestion.limits:type_name -> panelarr.metadata.v1.Limits
+	8,  // 5: panelarr.metadata.v1.Limits.rate_limits:type_name -> panelarr.metadata.v1.RateLimit
+	39, // 6: panelarr.metadata.v1.RateLimit.per:type_name -> google.protobuf.Duration
+	40, // 7: panelarr.metadata.v1.SearchRequest.types:type_name -> panelarr.metadata.v1.EntryType
+	41, // 8: panelarr.metadata.v1.SearchRequest.content_ratings:type_name -> panelarr.metadata.v1.ContentRating
+	42, // 9: panelarr.metadata.v1.SearchResponse.entries:type_name -> panelarr.metadata.v1.ProviderEntry
+	43, // 10: panelarr.metadata.v1.GetRequest.ref:type_name -> panelarr.metadata.v1.ExternalId
+	42, // 11: panelarr.metadata.v1.GetResponse.entry:type_name -> panelarr.metadata.v1.ProviderEntry
+	16, // 12: panelarr.metadata.v1.SyncResponse.started:type_name -> panelarr.metadata.v1.SyncStarted
+	42, // 13: panelarr.metadata.v1.SyncResponse.upsert:type_name -> panelarr.metadata.v1.ProviderEntry
+	17, // 14: panelarr.metadata.v1.SyncResponse.removed:type_name -> panelarr.metadata.v1.SyncRemoved
+	18, // 15: panelarr.metadata.v1.SyncResponse.merge:type_name -> panelarr.metadata.v1.SyncMerge
+	19, // 16: panelarr.metadata.v1.SyncResponse.checkpoint:type_name -> panelarr.metadata.v1.SyncCheckpoint
+	20, // 17: panelarr.metadata.v1.SyncResponse.finished:type_name -> panelarr.metadata.v1.SyncFinished
+	21, // 18: panelarr.metadata.v1.SyncResponse.notice:type_name -> panelarr.metadata.v1.SyncNotice
+	22, // 19: panelarr.metadata.v1.SyncResponse.progress:type_name -> panelarr.metadata.v1.SyncProgress
+	44, // 20: panelarr.metadata.v1.SyncStarted.snapshot_time:type_name -> google.protobuf.Timestamp
+	43, // 21: panelarr.metadata.v1.SyncRemoved.ref:type_name -> panelarr.metadata.v1.ExternalId
+	43, // 22: panelarr.metadata.v1.SyncMerge.merged:type_name -> panelarr.metadata.v1.ExternalId
+	43, // 23: panelarr.metadata.v1.SyncMerge.into:type_name -> panelarr.metadata.v1.ExternalId
 	0,  // 24: panelarr.metadata.v1.SyncNotice.level:type_name -> panelarr.metadata.v1.NoticeLevel
-	35, // 25: panelarr.metadata.v1.SyncNotice.ref:type_name -> panelarr.metadata.v1.ExternalId
-	37, // 26: panelarr.metadata.v1.GetSettingsSchemaResponse.schema:type_name -> google.protobuf.Struct
-	37, // 27: panelarr.metadata.v1.GetSettingsResponse.settings:type_name -> google.protobuf.Struct
-	37, // 28: panelarr.metadata.v1.SetSettingsRequest.settings:type_name -> google.protobuf.Struct
-	37, // 29: panelarr.metadata.v1.SetSettingsResponse.settings:type_name -> google.protobuf.Struct
+	43, // 25: panelarr.metadata.v1.SyncNotice.ref:type_name -> panelarr.metadata.v1.ExternalId
+	45, // 26: panelarr.metadata.v1.GetSettingsSchemaResponse.schema:type_name -> google.protobuf.Struct
+	45, // 27: panelarr.metadata.v1.GetSettingsResponse.settings:type_name -> google.protobuf.Struct
+	45, // 28: panelarr.metadata.v1.SetSettingsRequest.settings:type_name -> google.protobuf.Struct
+	45, // 29: panelarr.metadata.v1.SetSettingsResponse.settings:type_name -> google.protobuf.Struct
 	1,  // 30: panelarr.metadata.v1.HealthResponse.status:type_name -> panelarr.metadata.v1.HealthStatus
-	2,  // 31: panelarr.metadata.v1.MetadataPluginService.GetInfo:input_type -> panelarr.metadata.v1.GetInfoRequest
-	9,  // 32: panelarr.metadata.v1.MetadataPluginService.Search:input_type -> panelarr.metadata.v1.SearchRequest
-	11, // 33: panelarr.metadata.v1.MetadataPluginService.Get:input_type -> panelarr.metadata.v1.GetRequest
-	13, // 34: panelarr.metadata.v1.MetadataPluginService.Sync:input_type -> panelarr.metadata.v1.SyncRequest
-	22, // 35: panelarr.metadata.v1.MetadataPluginService.GetSettingsSchema:input_type -> panelarr.metadata.v1.GetSettingsSchemaRequest
-	24, // 36: panelarr.metadata.v1.MetadataPluginService.GetSettings:input_type -> panelarr.metadata.v1.GetSettingsRequest
-	26, // 37: panelarr.metadata.v1.MetadataPluginService.SetSettings:input_type -> panelarr.metadata.v1.SetSettingsRequest
-	28, // 38: panelarr.metadata.v1.MetadataPluginService.Health:input_type -> panelarr.metadata.v1.HealthRequest
-	3,  // 39: panelarr.metadata.v1.MetadataPluginService.GetInfo:output_type -> panelarr.metadata.v1.GetInfoResponse
-	10, // 40: panelarr.metadata.v1.MetadataPluginService.Search:output_type -> panelarr.metadata.v1.SearchResponse
-	12, // 41: panelarr.metadata.v1.MetadataPluginService.Get:output_type -> panelarr.metadata.v1.GetResponse
-	14, // 42: panelarr.metadata.v1.MetadataPluginService.Sync:output_type -> panelarr.metadata.v1.SyncResponse
-	23, // 43: panelarr.metadata.v1.MetadataPluginService.GetSettingsSchema:output_type -> panelarr.metadata.v1.GetSettingsSchemaResponse
-	25, // 44: panelarr.metadata.v1.MetadataPluginService.GetSettings:output_type -> panelarr.metadata.v1.GetSettingsResponse
-	27, // 45: panelarr.metadata.v1.MetadataPluginService.SetSettings:output_type -> panelarr.metadata.v1.SetSettingsResponse
-	29, // 46: panelarr.metadata.v1.MetadataPluginService.Health:output_type -> panelarr.metadata.v1.HealthResponse
-	39, // [39:47] is the sub-list for method output_type
-	31, // [31:39] is the sub-list for method input_type
-	31, // [31:31] is the sub-list for extension type_name
-	31, // [31:31] is the sub-list for extension extendee
-	0,  // [0:31] is the sub-list for field type_name
+	32, // 31: panelarr.metadata.v1.NetworkProfile.proxy:type_name -> panelarr.metadata.v1.Proxy
+	33, // 32: panelarr.metadata.v1.NetworkProfile.solver:type_name -> panelarr.metadata.v1.Solver
+	34, // 33: panelarr.metadata.v1.NetworkProfile.rate_limit:type_name -> panelarr.metadata.v1.NetworkRateLimit
+	35, // 34: panelarr.metadata.v1.NetworkProfile.user_agent:type_name -> panelarr.metadata.v1.UserAgent
+	37, // 35: panelarr.metadata.v1.NetworkProfile.headers:type_name -> panelarr.metadata.v1.NetworkProfile.HeadersEntry
+	36, // 36: panelarr.metadata.v1.NetworkProfile.timeouts:type_name -> panelarr.metadata.v1.Timeouts
+	2,  // 37: panelarr.metadata.v1.Solver.type:type_name -> panelarr.metadata.v1.SolverType
+	39, // 38: panelarr.metadata.v1.Solver.session_ttl:type_name -> google.protobuf.Duration
+	39, // 39: panelarr.metadata.v1.Solver.max_timeout:type_name -> google.protobuf.Duration
+	39, // 40: panelarr.metadata.v1.NetworkRateLimit.period:type_name -> google.protobuf.Duration
+	39, // 41: panelarr.metadata.v1.Timeouts.connect:type_name -> google.protobuf.Duration
+	39, // 42: panelarr.metadata.v1.Timeouts.read:type_name -> google.protobuf.Duration
+	39, // 43: panelarr.metadata.v1.Timeouts.call:type_name -> google.protobuf.Duration
+	3,  // 44: panelarr.metadata.v1.MetadataPluginService.GetInfo:input_type -> panelarr.metadata.v1.GetInfoRequest
+	10, // 45: panelarr.metadata.v1.MetadataPluginService.Search:input_type -> panelarr.metadata.v1.SearchRequest
+	12, // 46: panelarr.metadata.v1.MetadataPluginService.Get:input_type -> panelarr.metadata.v1.GetRequest
+	14, // 47: panelarr.metadata.v1.MetadataPluginService.Sync:input_type -> panelarr.metadata.v1.SyncRequest
+	23, // 48: panelarr.metadata.v1.MetadataPluginService.GetSettingsSchema:input_type -> panelarr.metadata.v1.GetSettingsSchemaRequest
+	25, // 49: panelarr.metadata.v1.MetadataPluginService.GetSettings:input_type -> panelarr.metadata.v1.GetSettingsRequest
+	27, // 50: panelarr.metadata.v1.MetadataPluginService.SetSettings:input_type -> panelarr.metadata.v1.SetSettingsRequest
+	29, // 51: panelarr.metadata.v1.MetadataPluginService.Health:input_type -> panelarr.metadata.v1.HealthRequest
+	4,  // 52: panelarr.metadata.v1.MetadataPluginService.GetInfo:output_type -> panelarr.metadata.v1.GetInfoResponse
+	11, // 53: panelarr.metadata.v1.MetadataPluginService.Search:output_type -> panelarr.metadata.v1.SearchResponse
+	13, // 54: panelarr.metadata.v1.MetadataPluginService.Get:output_type -> panelarr.metadata.v1.GetResponse
+	15, // 55: panelarr.metadata.v1.MetadataPluginService.Sync:output_type -> panelarr.metadata.v1.SyncResponse
+	24, // 56: panelarr.metadata.v1.MetadataPluginService.GetSettingsSchema:output_type -> panelarr.metadata.v1.GetSettingsSchemaResponse
+	26, // 57: panelarr.metadata.v1.MetadataPluginService.GetSettings:output_type -> panelarr.metadata.v1.GetSettingsResponse
+	28, // 58: panelarr.metadata.v1.MetadataPluginService.SetSettings:output_type -> panelarr.metadata.v1.SetSettingsResponse
+	30, // 59: panelarr.metadata.v1.MetadataPluginService.Health:output_type -> panelarr.metadata.v1.HealthResponse
+	52, // [52:60] is the sub-list for method output_type
+	44, // [44:52] is the sub-list for method input_type
+	44, // [44:44] is the sub-list for extension type_name
+	44, // [44:44] is the sub-list for extension extendee
+	0,  // [0:44] is the sub-list for field type_name
 }
 
 func init() { file_panelarr_metadata_v1_plugin_proto_init() }
@@ -2160,13 +2764,18 @@ func file_panelarr_metadata_v1_plugin_proto_init() {
 		(*SyncResponse_Notice)(nil),
 		(*SyncResponse_Progress)(nil),
 	}
+	file_panelarr_metadata_v1_plugin_proto_msgTypes[32].OneofWrappers = []any{
+		(*UserAgent_Fixed)(nil),
+		(*UserAgent_RandomDesktop)(nil),
+		(*UserAgent_FromSolver)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_panelarr_metadata_v1_plugin_proto_rawDesc), len(file_panelarr_metadata_v1_plugin_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   28,
+			NumEnums:      3,
+			NumMessages:   35,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
