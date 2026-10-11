@@ -13,6 +13,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -56,6 +57,9 @@ type Param struct {
 	Description string
 	Required    bool
 	Default     string
+	// Choices fix the values allowed: one for ParamString, any for
+	// ParamStringList.
+	Choices []string
 }
 
 // Schedule is when a job runs on its own. With neither Cron nor Interval
@@ -223,6 +227,17 @@ func check(p Param, v string) error {
 	}
 	if err != nil {
 		return fmt.Errorf("%w: %q must be a %s, not %q", ErrInvalidParam, p.Name, p.Type, v)
+	}
+	if len(p.Choices) > 0 {
+		vals := []string{v}
+		if p.Type == ParamStringList {
+			vals = List(map[string]string{p.Name: v}, p.Name)
+		}
+		for _, x := range vals {
+			if !slices.Contains(p.Choices, x) {
+				return fmt.Errorf("%w: %q takes %s, not %q", ErrInvalidParam, p.Name, strings.Join(p.Choices, ", "), x)
+			}
+		}
 	}
 	return nil
 }

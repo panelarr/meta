@@ -2,7 +2,7 @@
 
 // The catalogue page's filters live in the URL (so a view can be shared and the back
 // button works) and turn into the query of GET /v1/entries or GET /v1/search.
-import type { ContentRating, EntryStatus, EntryType, Image, SortField } from "../api/types";
+import type { ContentRating, EntryStatus, EntryType, Facet, Image, SortField } from "../api/types";
 
 export type CatalogueSearch = {
   q?: string;
@@ -127,6 +127,7 @@ export function catalogueQuery(search: CatalogueSearch, pageToken?: string) {
     reverse?: boolean;
     pageSize: number;
     pageToken?: string;
+    facets?: boolean;
   } = { pageSize: 24 };
   if (search.q) query.query = search.q;
   if (search.type) query["filter.types"] = [search.type];
@@ -142,6 +143,8 @@ export function catalogueQuery(search: CatalogueSearch, pageToken?: string) {
   if (search.sort) query.sort = search.sort;
   if (search.reverse) query.reverse = true;
   if (pageToken) query.pageToken = pageToken;
+  // Counts per filter value (a search engine has them), once per query.
+  else query.facets = true;
   return query;
 }
 
@@ -178,4 +181,15 @@ export function languageName(code: string): string {
   } catch {
     return code;
   }
+}
+
+/** Counts per value of one facet field ("type", "genres", ...); empty without facets. */
+export function facetCounts(facets: Facet[] | undefined, field: string): Map<string, number> {
+  const f = (facets ?? []).find((x) => x.field === field);
+  return new Map((f?.values ?? []).map((v) => [v.value ?? "", Number(v.count ?? 0)]));
+}
+
+/** "ENTRY_TYPE_MANGA" → "manga", the short name facets use. */
+export function shortName(value: string, prefix: string): string {
+  return value.replace(prefix, "").toLowerCase();
 }

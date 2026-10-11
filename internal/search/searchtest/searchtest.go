@@ -263,7 +263,7 @@ func Run(t *testing.T, f *Fixture, idx search.Index, backend string) {
 			{"pinyin", "feicui", jade, "title"},
 			{"typos", "lantenr keepr", lantern, "title"},
 			{"person", "hajime fictional", attack, "person"},
-			{"person typo", "lin imaginery", jade, "person"},
+			{"person typo", "lin imaginery", jade, "person"}, //nolint:misspell // the typo is the test
 		}
 		for _, c := range cases {
 			t.Run(c.name, func(t *testing.T) {

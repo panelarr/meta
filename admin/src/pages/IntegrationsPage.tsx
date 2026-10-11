@@ -1,13 +1,22 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { type FormEvent, useMemo, useState } from "react";
 import { api, unwrap } from "../api/client";
-import type { Assignment, NetworkProfile, ProfileOrigin, Solver, SolverType, UserAgentMode } from "../api/types";
+import type {
+  Assignment,
+  NetworkProfile,
+  ProfileOrigin,
+  SearchEngineSettings,
+  Solver,
+  SolverType,
+  UserAgentMode,
+} from "../api/types";
 import { ConfirmDialog, Dialog } from "../components/Dialog";
 import { Badge, Empty, ErrorBox, Field, Loading, Mono, PageHeader, type Tone } from "../components/ui";
 import { durationInput, formatDuration, secondsToDuration } from "../lib/duration";
-import { enumLabel } from "../lib/format";
+import { enumLabel, formatDate } from "../lib/format";
 import { formToProfile, idPattern, type ProfileForm, profileToForm } from "../lib/profileForm";
 
 const solversQuery = () =>
@@ -49,7 +58,8 @@ export function IntegrationsPage() {
       <PageHeader title="Integrations" />
       <p className="muted">
         Plugins that support network profiles send their requests through one. A provider uses, in order: a profile
-        pushed by a host, the profile assigned to it here, the default profile, or a direct connection.
+        pushed by a host, the profile assigned to it here, the default profile, or a direct connection. Below them, the
+        search engine meta answers searches with.
       </p>
       <SolversSection />
       <ProfilesSection />
@@ -752,16 +762,277 @@ function AssignmentRow({
 // Search engine
 // ---------------------------------------------------------------------------
 
+const searchEngineQuery = () =>
+  queryOptions({
+    queryKey: ["search-engine"],
+    queryFn: () => unwrap(api.GET("/v1/admin/search-engine")),
+    // Follow a build or a backlog; otherwise check now and then.
+    refetchInterval: (query) => {
+      const st = query.state.data?.status;
+      return st && st.backend !== "postgres" && (!st.ready || Number(st.pending ?? 0) > 0) ? 2000 : 15_000;
+    },
+  });
+
+const backendNames: Record<string, string> = {
+  postgres: "PostgreSQL",
+  typesense: "Typesense",
+  meilisearch: "Meilisearch",
+};
+
+const browseLabels: Record<string, string> = {
+  facets: "the engine when facets are asked for",
+  engine: "the engine",
+  postgres: "PostgreSQL",
+};
+
 function SearchEngineSection() {
+  const engine = useQuery(searchEngineQuery());
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [editing, setEditing] = useState(false);
+  const rebuild = useMutation({
+    mutationFn: () =>
+      unwrap(api.POST("/v1/admin/jobs/{jobId}:run", { params: { path: { jobId: "search-rebuild" } }, body: {} })),
+    onSuccess: (res) => void navigate({ to: "/jobs", search: { job: "search-rebuild", run: res.run?.id } }),
+  });
+  const reset = useMutation({
+    mutationFn: () => unwrap(api.POST("/v1/admin/search-engine:reset", { body: {} })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["search-engine"] }),
+  });
+  const set = engine.data?.settings;
+  const st = engine.data?.status;
+  const isEngine = set?.backend !== undefined && set.backend !== "postgres";
   return (
-    <section className="section">
+    <section className="section" aria-label="Search engine">
       <header className="section-header">
         <h2>Search engine</h2>
+        <div className="actions">
+          <button type="button" onClick={() => setEditing(true)} disabled={!engine.data}>
+            Change
+          </button>
+        </div>
       </header>
       <p className="muted">
-        meta searches with PostgreSQL's built-in full-text and trigram matching: nothing to set up. External search
-        engines (Typesense, then Meilisearch) are planned as optional integrations; they will be configured here.
+        PostgreSQL searches the catalogue with nothing to set up. A Typesense or Meilisearch server adds typo-tolerant,
+        multilingual search with facet counts. meta talks to it; browsers never do. PostgreSQL stays the source of truth
+        and answers whenever the engine can't.
       </p>
+      {engine.isPending ? <Loading /> : null}
+      <ErrorBox error={engine.error} onRetry={() => engine.refetch()} />
+      {set && st ? (
+        <article className="card" aria-label={`Search backend ${backendNames[set.backend ?? ""] ?? set.backend}`}>
+          <header className="card-header">
+            <div>
+              <h3>{backendNames[set.backend ?? ""] ?? set.backend}</h3>
+              <span className="muted small">{set.origin === "admin" ? "Set here" : "From the configuration file"}</span>
+            </div>
+            <div className="badges">
+              {isEngine ? (
+                <>
+                  <Badge tone={st.reachable ? "good" : "bad"}>{st.reachable ? "Reachable" : "Unreachable"}</Badge>
+                  <Badge tone={st.ready ? "good" : "warn"}>{st.ready ? "Index ready" : "No index yet"}</Badge>
+                  {st.degraded ? <Badge tone="warn">Falling back</Badge> : null}
+                </>
+              ) : (
+                <Badge tone="good">Built in</Badge>
+              )}
+            </div>
+          </header>
+          <dl className="details">
+            <dt>Can do</dt>
+            <dd>
+              <div className="badges">
+                {st.typoTolerance ? <Badge>typos</Badge> : null}
+                {st.substring ? <Badge>substrings</Badge> : null}
+                {st.facets ? <Badge tone="info">facet counts</Badge> : <Badge>no facet counts</Badge>}
+              </div>
+            </dd>
+            {isEngine ? (
+              <>
+                <dt>URL</dt>
+                <dd>
+                  <Mono>{set.url}</Mono> {set.hasApiKey ? <span className="muted small">key stored</span> : null}
+                </dd>
+                <dt>Index</dt>
+                <dd>
+                  {st.index ? <Mono>{st.index}</Mono> : <span className="muted">not built</span>}{" "}
+                  <span className="muted small">
+                    {Number(st.documents ?? 0).toLocaleString()} documents
+                    {st.builtAt ? ` · built ${formatDate(st.builtAt)}` : ""}
+                  </span>
+                </dd>
+                <dt>Changes waiting</dt>
+                <dd>
+                  {Number(st.pending ?? 0).toLocaleString()}
+                  {Number(st.pending ?? 0) > 0 ? (
+                    <span className="muted small"> · oldest {formatDuration(st.lag)} ago</span>
+                  ) : null}
+                  <span className="muted small"> · {Number(st.applied ?? 0).toLocaleString()} applied since start</span>
+                </dd>
+                <dt>Browsing</dt>
+                <dd>{browseLabels[set.browse ?? "facets"]}</dd>
+              </>
+            ) : null}
+          </dl>
+          {st.error ? (
+            <div className="error-box" role="alert">
+              {st.error}
+            </div>
+          ) : null}
+          {st.indexerError ? (
+            <div className="error-box" role="alert">
+              Indexer: {st.indexerError}
+            </div>
+          ) : null}
+          <ErrorBox error={rebuild.error ?? reset.error} />
+          <div className="actions">
+            {isEngine ? (
+              <button type="button" disabled={rebuild.isPending} onClick={() => rebuild.mutate()}>
+                {rebuild.isPending ? "Starting…" : "Rebuild index"}
+              </button>
+            ) : null}
+            {set.origin === "admin" ? (
+              <button type="button" disabled={reset.isPending} onClick={() => reset.mutate()}>
+                Use the configuration file
+              </button>
+            ) : null}
+          </div>
+        </article>
+      ) : null}
+      {editing && set ? <SearchEngineDialog current={set} onClose={() => setEditing(false)} /> : null}
     </section>
+  );
+}
+
+const defaultURLs: Record<string, string> = {
+  typesense: "http://typesense:8108",
+  meilisearch: "http://meilisearch:7700",
+};
+
+function SearchEngineDialog({ current, onClose }: { current: SearchEngineSettings; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [backend, setBackend] = useState(current.backend ?? "postgres");
+  const [url, setUrl] = useState(current.url ?? "");
+  const [apiKey, setApiKey] = useState("");
+  const [prefix, setPrefix] = useState(current.indexPrefix || "meta");
+  const [browse, setBrowse] = useState(current.browse || "facets");
+  const [tested, setTested] = useState<{ ok: boolean; error?: string } | null>(null);
+  const settings = (): SearchEngineSettings => ({
+    backend,
+    url: url.trim(),
+    apiKey,
+    indexPrefix: prefix.trim(),
+    browse,
+  });
+  const sameEngine = backend === current.backend && url.trim() === current.url;
+  const test = useMutation({
+    mutationFn: () => unwrap(api.POST("/v1/admin/search-engine:test", { body: { settings: settings() } })),
+    onSuccess: (res) => setTested({ ok: !!res.ok, error: res.error }),
+  });
+  const save = useMutation({
+    mutationFn: () => unwrap(api.PUT("/v1/admin/search-engine", { body: { settings: settings() } })),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["search-engine"] });
+      onClose();
+    },
+  });
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    save.mutate();
+  };
+  const isEngine = backend !== "postgres";
+  return (
+    <Dialog title="Search engine" onClose={onClose}>
+      <form className="form-grid two" onSubmit={submit}>
+        <Field label="Backend" className="span-2">
+          <select
+            value={backend}
+            onChange={(e) => {
+              setBackend(e.target.value);
+              setTested(null);
+              if (!url || Object.values(defaultURLs).includes(url)) setUrl(defaultURLs[e.target.value] ?? "");
+            }}
+          >
+            {Object.entries(backendNames).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </Field>
+        {isEngine ? (
+          <>
+            <Field label="URL" hint="Where meta reaches the engine, e.g. its service in your compose file.">
+              <input type="url" required value={url} onChange={(e) => setUrl(e.target.value)} />
+            </Field>
+            <Field
+              label="API key"
+              hint={
+                current.hasApiKey && sameEngine
+                  ? "Leave empty to keep the stored key. Stored encrypted; never shown again."
+                  : "A key that may manage indexes. Stored encrypted; never shown again."
+              }
+            >
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={apiKey}
+                placeholder={current.hasApiKey && sameEngine ? "(stored)" : ""}
+                onChange={(e) => setApiKey(e.target.value)}
+              />
+            </Field>
+            <Field label="Index prefix" hint="meta's index names start with it.">
+              <input
+                type="text"
+                required
+                pattern="[a-z0-9][a-z0-9_\-]{0,30}"
+                value={prefix}
+                onChange={(e) => setPrefix(e.target.value)}
+              />
+            </Field>
+            <Field label="Browsing" hint="Who lists entries without search text.">
+              <select value={browse} onChange={(e) => setBrowse(e.target.value)}>
+                {Object.entries(browseLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label.charAt(0).toUpperCase() + label.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <p className="muted small span-2">
+              Saving switches at once. A new index is built in the background (see Jobs); PostgreSQL answers until it is
+              ready.
+            </p>
+          </>
+        ) : (
+          <p className="muted span-2">PostgreSQL needs no settings. Saving stops feeding any engine.</p>
+        )}
+        <div className="span-2">
+          {tested ? (
+            tested.ok ? (
+              <p className="notice-box" role="status">
+                Connected.
+              </p>
+            ) : (
+              <div className="error-box" role="alert">
+                {tested.error}
+              </div>
+            )
+          ) : null}
+          <ErrorBox error={test.error ?? save.error} />
+        </div>
+        <div className="actions span-2">
+          <button type="submit" className="primary" disabled={save.isPending}>
+            {save.isPending ? "Saving…" : "Save"}
+          </button>
+          <button type="button" disabled={test.isPending} onClick={() => test.mutate()}>
+            {test.isPending ? "Testing…" : "Test connection"}
+          </button>
+          <button type="button" onClick={onClose}>
+            Cancel
+          </button>
+        </div>
+      </form>
+    </Dialog>
   );
 }

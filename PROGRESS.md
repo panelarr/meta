@@ -24,9 +24,28 @@ The plan for the first version of meta and its first plugin, [meta-mangabaka](ht
 | 5 | Observability: Prometheus metrics (syncs, plugin calls, search latency, API requests), off the public port by default; detailed health for the admin | meta | `feat/observability` | done |
 | 6 | Image and docs | meta | `feat/image-and-docs` | done |
 
+## Fixes after GOAL-0003
+
+| # | Slice | Repo | Branch | State |
+|---|---|---|---|---|
+| 1 | Tag identity by kind and path, tag filters, filter layout, Panelarr branding | meta, meta-mangabaka | `fix/tag-identity` | done |
+| 2 | A full database disk fails a sync with a clear message | meta | `fix/db-size` | done |
+
+## Jobs page (GOAL-0008)
+
+| # | Slice | Repo | Branch | State |
+|---|---|---|---|---|
+| 1 | Jobs API (shared contract), job runs, syncs as jobs, rebuild and stale-refresh jobs, admin Jobs page | meta | `feat/jobs-page` | done |
+
+## Search engines (GOAL-0006)
+
+| # | Slice | Repo | Branch | State |
+|---|---|---|---|---|
+| 1 | Outbox, indexer, rebuild with atomic swap, fallback, conformance suite; Typesense and Meilisearch; facets; admin settings; jobs; compose profiles; docs; benchmarks | meta | `feat/search-outbox` | in progress |
+
 ## Next
 
-GOAL-0003 is done; waiting for verification. Queued: GOAL-0004 (duplicates), then GOAL-0006 (search engines).
+GOAL-0006, then GOAL-0004 (duplicates; its WIP branch `feat/duplicates-candidates` waits).
 
 ## Notes
 

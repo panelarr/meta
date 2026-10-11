@@ -375,3 +375,21 @@ func TestSchemaChangeNeedsARebuild(t *testing.T) {
 		t.Fatalf("an index of an older schema was used: %v %v", ok, err)
 	}
 }
+
+func TestEngineBackLaterStartsTheFirstBuild(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	f := searchtest.Seed(t, false) // nothing waits in the outbox
+	eng := newMem()
+	eng.fail.Store(true)
+	x := search.NewExternal(eng, search.NewPostgres(f.Store.Pool), f.Store.Pool, search.ExternalOptions{})
+	var floods atomic.Int32
+	ix := search.NewIndexer(x, search.IndexerOptions{OnFlood: func() { floods.Add(1) }})
+	if _, err := ix.Round(ctx); err == nil || floods.Load() != 0 {
+		t.Fatalf("round with the engine down: %v, floods %d", err, floods.Load())
+	}
+	eng.fail.Store(false)
+	if _, err := ix.Round(ctx); err == nil || floods.Load() != 1 {
+		t.Fatalf("round with the engine back: %v, floods %d", err, floods.Load())
+	}
+}

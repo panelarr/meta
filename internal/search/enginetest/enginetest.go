@@ -4,7 +4,8 @@
 // binary. Engine tests are opt-in: they run with META_TEST_ENGINES=1
 // (containers via testcontainers) or with the URL of a running engine in
 // META_TEST_TYPESENSE_URL / META_TEST_MEILISEARCH_URL (CI service
-// containers), and skip otherwise.
+// containers, with their keys in META_TEST_TYPESENSE_KEY /
+// META_TEST_MEILISEARCH_KEY), and skip otherwise.
 package enginetest
 
 import (
@@ -13,6 +14,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -41,7 +43,7 @@ var typesense, meilisearch engine
 func (e *engine) get(t testing.TB, env string, start func() (string, error)) (string, string) {
 	t.Helper()
 	if u := os.Getenv(env); u != "" {
-		return u, envOr(env+"_KEY", Key)
+		return u, envOr(strings.TrimSuffix(env, "_URL")+"_KEY", Key)
 	}
 	if os.Getenv("META_TEST_ENGINES") != "1" {
 		t.Skipf("search engine tests are opt-in: set META_TEST_ENGINES=1 or %s", env)

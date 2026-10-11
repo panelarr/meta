@@ -1344,6 +1344,12 @@ export interface components {
              * @description Used when the parameter is left out.
              */
             default?: string;
+            /**
+             * choices
+             * @description The values allowed, when the set is fixed: a "string" takes one (the UI
+             *      shows a select), a "string_list" any of them (checkboxes).
+             */
+            choices?: string[];
         };
         /** JobProgress */
         "panelarr.meta.v1.JobProgress": {

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"connectrpc.com/connect"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -149,7 +150,9 @@ func (s *Jobs) job(ctx context.Context, j jobs.Job, last map[string]jobs.Summary
 		pj.Schedule.Kind = &metav1.Schedule_Interval{Interval: durationpb.New(def.Schedule.Interval)}
 	}
 	for _, p := range def.Params {
-		pj.Params = append(pj.Params, &metav1.JobParam{Name: p.Name, Type: p.Type, Description: p.Description, Required: p.Required, Default: p.Default})
+		pj.Params = append(pj.Params, &metav1.JobParam{
+			Name: p.Name, Type: p.Type, Description: p.Description, Required: p.Required, Default: p.Default, Choices: p.Choices,
+		})
 	}
 	if l, ok := last[def.ID]; ok {
 		pj.LastRun = runSummaryProto(l)
@@ -167,6 +170,10 @@ func jobError(err error) error {
 	case errors.As(err, &busy):
 		cerr := connect.NewError(connect.CodeAlreadyExists, err)
 		if d, derr := connect.NewErrorDetail(&metav1.JobAlreadyRunning{CurrentRunId: busy.RunID}); derr == nil {
+			cerr.AddDetail(d)
+		}
+		info := &errdetails.ErrorInfo{Reason: "ALREADY_RUNNING", Domain: "panelarr.meta", Metadata: map[string]string{"current_run_id": busy.RunID}}
+		if d, derr := connect.NewErrorDetail(info); derr == nil {
 			cerr.AddDetail(d)
 		}
 		return cerr

@@ -381,7 +381,10 @@ type JobParam struct {
 	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
 	Required    bool   `protobuf:"varint,4,opt,name=required,proto3" json:"required,omitempty"`
 	// Used when the parameter is left out.
-	Default       string `protobuf:"bytes,5,opt,name=default,proto3" json:"default,omitempty"`
+	Default string `protobuf:"bytes,5,opt,name=default,proto3" json:"default,omitempty"`
+	// The values allowed, when the set is fixed: a "string" takes one (the UI
+	// shows a select), a "string_list" any of them (checkboxes).
+	Choices       []string `protobuf:"bytes,6,rep,name=choices,proto3" json:"choices,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -449,6 +452,13 @@ func (x *JobParam) GetDefault() string {
 		return x.Default
 	}
 	return ""
+}
+
+func (x *JobParam) GetChoices() []string {
+	if x != nil {
+		return x.Choices
+	}
+	return nil
 }
 
 type JobRunSummary struct {
@@ -774,7 +784,9 @@ func (x *JobProgress) GetUnit() string {
 	return ""
 }
 
-// The error detail of RunJob's ALREADY_EXISTS.
+// The error detail of RunJob's ALREADY_EXISTS. The error also carries a
+// google.rpc.ErrorInfo with reason "ALREADY_RUNNING" and the run in
+// metadata["current_run_id"].
 type JobAlreadyRunning struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	CurrentRunId  string                 `protobuf:"bytes,1,opt,name=current_run_id,json=currentRunId,proto3" json:"current_run_id,omitempty"`
@@ -1405,13 +1417,14 @@ const file_panelarr_meta_v1_jobs_proto_rawDesc = "" +
 	"\binterval\x18\x02 \x01(\v2\x19.google.protobuf.DurationH\x00R\binterval\x12\x18\n" +
 	"\aenabled\x18\x03 \x01(\bR\aenabled\x12\x16\n" +
 	"\x06source\x18\x04 \x01(\tR\x06sourceB\x06\n" +
-	"\x04kind\"\x8a\x01\n" +
+	"\x04kind\"\xa4\x01\n" +
 	"\bJobParam\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12 \n" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x1a\n" +
 	"\brequired\x18\x04 \x01(\bR\brequired\x12\x18\n" +
-	"\adefault\x18\x05 \x01(\tR\adefault\"\xdb\x03\n" +
+	"\adefault\x18\x05 \x01(\tR\adefault\x12\x18\n" +
+	"\achoices\x18\x06 \x03(\tR\achoices\"\xdb\x03\n" +
 	"\rJobRunSummary\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x15\n" +
 	"\x06job_id\x18\x02 \x01(\tR\x05jobId\x126\n" +

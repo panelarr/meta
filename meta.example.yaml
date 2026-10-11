@@ -14,7 +14,15 @@ admin_token: ${META_ADMIN_TOKEN:-}
 database_url: ${META_DATABASE_URL:-postgres://meta:meta@localhost:5432/meta?sslmode=disable}
 
 search:
-  backend: postgres   # the only backend today
+  # postgres (built in), or an optional engine: typesense, meilisearch.
+  # See docs/search.md; the admin can change it.
+  backend: postgres
+  # typesense:
+  #   url: http://typesense:8108
+  #   api_key: ${TYPESENSE_API_KEY}
+  # meilisearch:
+  #   url: http://meilisearch:7700
+  #   api_key: ${MEILI_MASTER_KEY}
 
 merge:
   # Preferred provider per field of the entry schema; "*" is the default.

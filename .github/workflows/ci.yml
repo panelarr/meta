@@ -71,6 +71,63 @@ jobs:
       - name: Build
         run: make build
 
+  search-engines:
+    name: Search engine conformance
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      typesense:
+        image: typesense/typesense:30.2
+        env:
+          TYPESENSE_API_KEY: ci-typesense-key
+          TYPESENSE_DATA_DIR: /tmp
+        ports:
+          - 8108:8108
+      meilisearch:
+        image: getmeili/meilisearch:v1.54
+        env:
+          MEILI_MASTER_KEY: ci-meilisearch-key
+          MEILI_NO_ANALYTICS: "true"
+        ports:
+          - 7700:7700
+    env:
+      META_TEST_DATABASE_URL: postgres://meta:meta@localhost:5432/postgres?sslmode=disable
+      META_TEST_TYPESENSE_URL: http://localhost:8108
+      META_TEST_TYPESENSE_KEY: ci-typesense-key
+      META_TEST_MEILISEARCH_URL: http://localhost:7700
+      META_TEST_MEILISEARCH_KEY: ci-meilisearch-key
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Create the test role
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -c "CREATE ROLE meta LOGIN CREATEDB PASSWORD 'meta'"
+
+      - name: Wait for the engines
+        run: |
+          for u in http://localhost:8108/health http://localhost:7700/health; do
+            for i in $(seq 60); do curl -fsS "$u" && break; sleep 2; done
+          done
+
+      # The admin UI isn't needed: the engine tests don't serve it.
+      - name: Conformance, change feed and end-to-end tests on Typesense and Meilisearch
+        run: go test -count=1 ./internal/search/... && go test -count=1 -run TestServeWithSearchEngine ./cmd/meta
+
   proto-breaking:
     name: Proto breaking changes
     if: github.event_name == 'pull_request'

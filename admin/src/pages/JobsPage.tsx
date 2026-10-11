@@ -299,6 +299,41 @@ function RunJobDialog({ job, onClose, onStarted }: { job: Job; onClose: () => vo
 }
 
 function ParamField({ param: p, value, onChange }: { param: JobParam; value: string; onChange: (v: string) => void }) {
+  const choices = p.choices ?? [];
+  if (choices.length > 0 && p.type === "string_list") {
+    const picked = value.split(",").filter(Boolean);
+    return (
+      <fieldset className="choices">
+        <legend>
+          <Mono>{p.name}</Mono> <span className="muted small">{p.description}</span>
+        </legend>
+        {choices.map((c) => (
+          <label key={c} className="filter-check">
+            <input
+              type="checkbox"
+              checked={picked.includes(c)}
+              onChange={(e) => onChange((e.target.checked ? [...picked, c] : picked.filter((x) => x !== c)).join(","))}
+            />
+            <span>{c}</span>
+          </label>
+        ))}
+      </fieldset>
+    );
+  }
+  if (choices.length > 0) {
+    return (
+      <Field label={p.name} hint={p.description}>
+        <select value={value} required={p.required} onChange={(e) => onChange(e.target.value)}>
+          {p.required ? null : <option value="">—</option>}
+          {choices.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </Field>
+    );
+  }
   if (p.type === "bool") {
     return (
       <label className="filter-check">

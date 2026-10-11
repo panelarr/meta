@@ -96,6 +96,9 @@ message JobParam {
   bool required = 4;
   // Used when the parameter is left out.
   string default = 5;
+  // The values allowed, when the set is fixed: a "string" takes one (the UI
+  // shows a select), a "string_list" any of them (checkboxes).
+  repeated string choices = 6;
 }
 
 enum JobRunStatus {
@@ -161,7 +164,9 @@ message JobProgress {
   string unit = 4;
 }
 
-// The error detail of RunJob's ALREADY_EXISTS.
+// The error detail of RunJob's ALREADY_EXISTS. The error also carries a
+// google.rpc.ErrorInfo with reason "ALREADY_RUNNING" and the run in
+// metadata["current_run_id"].
 message JobAlreadyRunning {
   string current_run_id = 1;
 }

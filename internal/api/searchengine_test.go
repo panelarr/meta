@@ -103,8 +103,13 @@ func TestSearchEngineSettingsAndFallback(t *testing.T) {
 		search.GetDetails()["backend"] != "typesense" {
 		t.Fatalf("search health: %v", search)
 	}
-	if r, err := http.Get(f.srv.URL + "/readyz"); err != nil || r.StatusCode != http.StatusOK { //nolint:noctx // test
-		t.Fatalf("readyz with the engine down: %v %v", r, err)
+	r, err := http.Get(f.srv.URL + "/readyz") //nolint:noctx // test
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Body.Close()
+	if r.StatusCode != http.StatusOK {
+		t.Fatalf("readyz with the engine down: %d", r.StatusCode)
 	}
 
 	// Back to the configuration: PostgreSQL, the outbox stops and empties.

@@ -10,7 +10,7 @@ meta logs one JSON object per line by default (`log.format: text` for plain line
 |---|---|---|
 | `GET /healthz` | none | The process is up (liveness) |
 | `GET /readyz` | none | The database answers (readiness) |
-| `GET /v1/admin/health` (`MetaAdminService.GetHealth`) | `admin` | Every part, with status, message, latency and details: `database` (connections), `search` (backend and its capabilities, checked with a query), and `provider:<id>` for each plugin (checked live: mode, plugin version, a running sync) |
+| `GET /v1/admin/health` (`MetaAdminService.GetHealth`) | `admin` | Every part, with status, message, latency and details: `database` (connections), `search` (backend and its capabilities, checked with a query; with an engine also its index, document count and change backlog, and `DEGRADED` while PostgreSQL answers for it), and `provider:<id>` for each plugin (checked live: mode, plugin version, a running sync) |
 
 The overall status of `GetHealth` is `DOWN` when the database is down, `DEGRADED` when the search backend or a plugin is down or degraded, `OK` otherwise.
 
@@ -39,6 +39,10 @@ With `listen: ""` they're served on the API port at `/metrics` instead, to calle
 | `meta_job_runs_total` | job, status, trigger | Finished job runs, syncs included (succeeded, failed, cancelled, skipped) |
 | `meta_job_duration_seconds` | job | Job run duration (histogram) |
 | `meta_job_running` | job | 1 while a run of the job goes on in this process |
+| `meta_search_fallbacks_total` | backend | Queries an engine failed and PostgreSQL answered |
+| `meta_search_outbox_pending` | | Entry changes waiting for the search engine |
+| `meta_search_outbox_lag_seconds` | | Age of the oldest waiting change |
+| `meta_search_index_documents` | backend | Documents in the engine's index after the last rebuild |
 | `meta_api_requests_total` | procedure, code | API calls by RPC and outcome (REST calls count under their RPC) |
 | `meta_api_request_duration_seconds` | procedure | API latency (histogram) |
 

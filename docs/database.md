@@ -29,6 +29,10 @@ For contributors: how meta's tables map to the [entry schema](schema.md). The sc
 
 `maintenance_jobs` holds work a migration leaves for meta to do, such as rebuilding every entry after the merge rules change. `meta serve` runs pending jobs in the background at start (the API answers meanwhile, with the old data until each entry is rebuilt), and `meta rebuild` runs them, or a full rebuild, by hand. A rebuild works from the stored provider records and downloads nothing.
 
+## Search engines
+
+Only used with an optional search engine ([search](search.md)). `search_outbox` lists entries the engine must look at again, written in the same transaction as the change; `search_indexes` records each engine's live index, its document schema version and when it was built; `search_settings` holds settings saved in the admin, with the API key sealed by meta's secret key.
+
 ## Syncs
 
 `sync_runs` records every run with its counts, notices, progress and errors. `sync_cursors` keeps where the next run of each provider and ingestion kind continues from.

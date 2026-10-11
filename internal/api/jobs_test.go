@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 
 	metav1 "github.com/panelarr/meta/gen/panelarr/meta/v1"
 	"github.com/panelarr/meta/gen/panelarr/meta/v1/metav1connect"
@@ -168,6 +169,17 @@ func TestRunJobBusyCancelAndErrors(t *testing.T) {
 	}
 	if detail.GetCurrentRunId() != id {
 		t.Fatalf("detail: %v", detail)
+	}
+	var info *errdetails.ErrorInfo
+	for _, d := range cerr.Details() {
+		if m, err := d.Value(); err == nil {
+			if v, ok := m.(*errdetails.ErrorInfo); ok {
+				info = v
+			}
+		}
+	}
+	if info.GetReason() != "ALREADY_RUNNING" || info.GetMetadata()["current_run_id"] != id {
+		t.Fatalf("error info: %v", info)
 	}
 	var busy map[string]any
 	if code := f.rest(t, http.MethodPost, "/v1/admin/jobs/hold:run", &busy); code != http.StatusConflict {

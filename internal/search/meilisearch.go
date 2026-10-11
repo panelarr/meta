@@ -324,6 +324,9 @@ func (ms *Meilisearch) Search(ctx context.Context, live string, q Query) (Result
 		"sort":                 meiliSort(q.Sort, q.Reverse, text != ""),
 		"attributesToRetrieve": append([]string{"id"}, meiliSearchable...),
 		"showMatchesPosition":  text != "",
+		// Every word must match (with typos), as on the other backends;
+		// Meilisearch would otherwise drop words until something matches.
+		"matchingStrategy": "all",
 	}
 	// Pages give an exact total; a page that doesn't start on a page
 	// boundary is cut from a longer first page.

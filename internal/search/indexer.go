@@ -107,16 +107,25 @@ func (ix *Indexer) Round(ctx context.Context) (int, error) {
 		lag = time.Since(stats.Oldest)
 	}
 	ix.opts.Metrics.SearchOutbox(stats.Pending, lag)
-	if stats.Pending == 0 {
-		return 0, nil
-	}
-	// Another process may have rebuilt and swapped: write where it says.
-	if _, err := x.Load(ctx); err != nil {
-		return 0, ix.failed(err)
+	// Without an index (first use, or the engine was down when meta
+	// started) keep looking, so a build starts once the engine is there.
+	// With one, another process may have rebuilt and swapped: write where
+	// it says.
+	if !x.Ready() || stats.Pending > 0 {
+		if _, err := x.Load(ctx); err != nil {
+			return 0, ix.failed(err)
+		}
 	}
 	if !x.Ready() {
+		// Build only once the engine answers; a build now would fail.
+		if err := x.Check(ctx); err != nil {
+			return 0, ix.failed(err)
+		}
 		ix.flood("the search index isn't built yet")
 		return 0, errNotBuilt
+	}
+	if stats.Pending == 0 {
+		return 0, nil
 	}
 	if stats.Pending > ix.opts.RebuildThreshold {
 		ix.flood("the search outbox passed rebuild_threshold")

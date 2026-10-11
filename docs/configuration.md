@@ -26,7 +26,12 @@ meta version
 | `secret_key` | `META_SECRET_KEY` | generated | Base64 of 32 bytes (`openssl rand -base64 32`). Encrypts stored secrets such as proxy passwords. Without it, meta generates `secret.key` in `data_dir` the first time it stores a secret. **Keep it with your database backups** |
 | `api_keys` | `META_API_KEYS` (comma-separated) | none | **Deprecated.** Keys with full access, kept so older setups keep working. Create [clients](api.md#clients-and-scopes-metaclientsservice) with scoped keys instead |
 | `database_url` | `META_DATABASE_URL` | required | PostgreSQL URL |
-| `search.backend` | `META_SEARCH_BACKEND` | `postgres` | Search backend. Only `postgres` exists today; others plug in behind the same interface later |
+| `search.backend` | `META_SEARCH_BACKEND` | `postgres` | `postgres`, `typesense` or `meilisearch` (see [search](search.md)). Settings saved in the admin win over these |
+| `search.typesense.url`, `.api_key`, `.index_prefix` | `META_TYPESENSE_URL`, `META_TYPESENSE_API_KEY` | prefix `meta` | Typesense server and a key that may manage collections and aliases |
+| `search.meilisearch.url`, `.api_key`, `.index_prefix` | `META_MEILISEARCH_URL`, `META_MEILISEARCH_API_KEY` | prefix `meta` | Meilisearch server and a key that may manage indexes |
+| `search.browse` | | `facets` | Who serves browsing with an engine: `facets` (the engine when facets are asked for), `engine`, `postgres` |
+| `search.timeout` | | `2s` | How long a query waits for the engine before PostgreSQL answers |
+| `search.outbox.batch`, `.interval`, `.rebuild_threshold` | | `500`, `1s`, `50000` | Changes applied per round, how often the indexer looks, and the backlog above which the index is rebuilt instead |
 | `merge.priority` | | config order | Preferred provider per field (see [Merging](#merging)) |
 | `merge.display_language` | | `en` | Language of display titles when a request doesn't ask for one |
 | `ingest.batch_size` | | `500` | Records per transaction when a plugin sends checkpoints rarely |

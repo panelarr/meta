@@ -852,6 +852,14 @@ components:
           type: string
           title: default
           description: Used when the parameter is left out.
+        choices:
+          type: array
+          items:
+            type: string
+          title: choices
+          description: |-
+            The values allowed, when the set is fixed: a "string" takes one (the UI
+             shows a select), a "string_list" any of them (checkboxes).
       title: JobParam
       additionalProperties: false
     panelarr.meta.v1.JobProgress:
