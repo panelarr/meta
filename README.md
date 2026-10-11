@@ -20,6 +20,8 @@ Plugins live in their own repositories. A fresh meta has no plugins and an empty
 
 ## Documentation
 
+- [The API](docs/api.md)
+- [Configuration](docs/configuration.md)
 - [The plugin protocol](docs/protocol.md)
 - [Writing a plugin](docs/writing-a-plugin.md)
 - [The entry schema](docs/schema.md)

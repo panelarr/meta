@@ -13,6 +13,11 @@ import (
 	"github.com/panelarr/meta/internal/textnorm"
 )
 
+// MaxCandidates caps how many title matches and how many name matches a
+// search considers. Results are ranked best first, so this only limits how
+// deep a client can page into weak matches.
+const MaxCandidates = 1000
+
 // Postgres searches with the database's own tools: trigram similarity and
 // substring matching (pg_trgm) over normalized titles and people's names.
 // Browse and search share the filters and sort orders.
@@ -96,8 +101,8 @@ func (b *builder) filters(f Filter) {
 			WHERE et.entry_id = e.id AND t.is_genre AND t.name_key = ANY(`+b.arg(v)+`::text[]))`)
 	}
 	if v := keys(f.Tags); len(v) > 0 {
-		b.where = append(b.where, `(SELECT count(DISTINCT t.name_key) FROM entry_tags et JOIN tags t ON t.id = et.tag_id
-			WHERE et.entry_id = e.id AND t.name_key = ANY(`+b.arg(v)+`::text[])) = `+b.arg(len(v)))
+		b.where = append(b.where, `e.id IN (SELECT et.entry_id FROM entry_tags et JOIN tags t ON t.id = et.tag_id
+			WHERE t.name_key = ANY(`+b.arg(v)+`::text[]) GROUP BY et.entry_id HAVING count(DISTINCT t.name_key) = `+b.arg(len(v))+`)`)
 	}
 	if v := keys(f.ExcludeTags); len(v) > 0 {
 		b.where = append(b.where, `NOT EXISTS (SELECT 1 FROM entry_tags et JOIN tags t ON t.id = et.tag_id
@@ -163,6 +168,7 @@ func (p *Postgres) Query(ctx context.Context, q Query) (Result, error) {
 		t := b.arg(text)
 		like := b.arg("%" + text + "%")
 		prefix := b.arg(text + "%")
+		cap := b.arg(MaxCandidates)
 		b.filters(q.Filter)
 		sql = `WITH title_hits AS (
 				SELECT DISTINCT ON (t.entry_id) t.entry_id, t.text AS matched, 'title' AS field,
@@ -171,8 +177,10 @@ func (p *Postgres) Query(ctx context.Context, q Query) (Result, error) {
 					     ELSE greatest(similarity(t.norm, ` + t + `), word_similarity(` + t + `, t.norm)) * 0.85
 					END + CASE WHEN t.is_primary THEN 0.02 ELSE 0 END AS score
 				FROM entry_titles t
-				WHERE t.norm % ` + t + ` OR t.norm LIKE ` + like + ` OR ` + t + ` <% t.norm
+				WHERE t.norm % ` + t + ` OR t.norm LIKE ` + like + ` 
 				ORDER BY t.entry_id, score DESC
+			), title_top AS (
+				SELECT * FROM title_hits ORDER BY score DESC LIMIT ` + cap + `
 			), person_hits AS (
 				SELECT DISTINCT ON (c.entry_id) c.entry_id, pe.name AS matched, 'person' AS field,
 					CASE WHEN pe.name_key = ` + t + ` THEN 0.8
@@ -180,11 +188,13 @@ func (p *Postgres) Query(ctx context.Context, q Query) (Result, error) {
 					END AS score
 				FROM persons pe
 				JOIN entry_credits c ON c.person_id = pe.id
-				WHERE pe.name_key % ` + t + ` OR pe.name_key LIKE ` + like + ` OR ` + t + ` <% pe.name_key
+				WHERE pe.name_key % ` + t + ` OR pe.name_key LIKE ` + like + ` 
 				ORDER BY c.entry_id, score DESC
+			), person_top AS (
+				SELECT * FROM person_hits ORDER BY score DESC LIMIT ` + cap + `
 			), hits AS (
 				SELECT DISTINCT ON (entry_id) entry_id, matched, field, score
-				FROM (SELECT * FROM title_hits UNION ALL SELECT * FROM person_hits) u
+				FROM (SELECT * FROM title_top UNION ALL SELECT * FROM person_top) u
 				ORDER BY entry_id, score DESC
 			)
 			SELECT e.id, h.score::float8, h.matched, h.field, count(*) OVER ()
