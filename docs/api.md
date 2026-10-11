@@ -54,7 +54,8 @@ curl -X POST -H "Authorization: Bearer $META_ADMIN_TOKEN" \
 | `Search` | `GET /v1/search?query=…` | Find entries by title (every language, alternative titles) and by people |
 | `GetEntry` | `GET /v1/entries/{id}` | Full details with provenance and attribution |
 | `LookupExternal` | `GET /v1/lookup/{provider}/{external_id}` | The entry for another site's ID, e.g. `/v1/lookup/anilist/30013` |
-| `ListTags` | `GET /v1/tags?genres_only=true` | Tags and genres with entry counts, for filter menus |
+| `ListTags` | `GET /v1/tags?genres_only=true` | Tags and genres with entry counts, for filter menus. `query` finds them by name or path, `tags_only` leaves genres out |
+| `ListLanguages` | `GET /v1/languages` | Original and title languages in the catalogue with entry counts |
 
 ### Filters and sorting
 
@@ -75,6 +76,8 @@ curl -H "Authorization: Bearer $KEY" \
 | `year_from`, `year_to` | start year, inclusive |
 | `title_languages` | has a title in one of the languages |
 | `include_inactive` | also merged and removed entries |
+
+Genres and tags are given by key or by name. A key names one tag exactly: `genre/fantasy` is the genre, `tag/settings/fantasy` is the tag "Fantasy" under "Settings". A name matches every tag of that name, whatever its parent. `ListTags` and `GetEntry` return each tag's `key` and `path` (its parents, root first).
 
 Sorts: `SORT_FIELD_POPULARITY` (Browse default), `RATING`, `UPDATED`, `YEAR`, `TITLE`, and `RELEVANCE` (Search default). `reverse` flips the order. Paging: `page_size` (1–100, default 24) and the opaque `next_page_token`. `total_size` counts every match. Search considers the best 1,000 title matches and 1,000 name matches.
 

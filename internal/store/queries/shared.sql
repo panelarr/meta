@@ -46,35 +46,40 @@ ON CONFLICT DO NOTHING;
 SELECT tag_id FROM tag_external_ids WHERE provider = @provider AND external_id = @external_id;
 
 -- name: UpsertTag :one
-INSERT INTO tags (id, name, name_key, description, parent_key, level, is_genre, is_spoiler, is_explicit, content_rating, data)
-VALUES (@id, @name, @name_key, @description, @parent_key, @level, @is_genre, @is_spoiler, @is_explicit, @content_rating, @data)
-ON CONFLICT (name_key) DO UPDATE
+-- Creates or updates a tag by its key (kind + path). Returns no row when
+-- nothing changed.
+INSERT INTO tags (id, key, name, name_key, path, description, parent_key, level, is_genre, is_spoiler, is_explicit, content_rating, data)
+VALUES (@id, @key, @name, @name_key, @path, @description, @parent_key, @level, @is_genre, @is_spoiler, @is_explicit, @content_rating, @data)
+ON CONFLICT (key) DO UPDATE
 SET name = EXCLUDED.name,
+    name_key = EXCLUDED.name_key,
+    path = EXCLUDED.path,
     description = CASE WHEN EXCLUDED.description <> '' THEN EXCLUDED.description ELSE tags.description END,
-    parent_key = CASE WHEN EXCLUDED.parent_key <> '' THEN EXCLUDED.parent_key ELSE tags.parent_key END,
-    level = GREATEST(EXCLUDED.level, tags.level),
-    is_genre = EXCLUDED.is_genre OR tags.is_genre,
+    parent_key = EXCLUDED.parent_key,
+    level = EXCLUDED.level,
+    is_genre = EXCLUDED.is_genre,
     is_spoiler = EXCLUDED.is_spoiler,
     is_explicit = EXCLUDED.is_explicit,
     content_rating = CASE WHEN EXCLUDED.content_rating <> 'unspecified' THEN EXCLUDED.content_rating ELSE tags.content_rating END,
     data = EXCLUDED.data,
     updated_at = now()
-WHERE (tags.name, tags.description, tags.parent_key, tags.level, tags.is_genre, tags.is_spoiler, tags.is_explicit, tags.content_rating, tags.data)
+WHERE (tags.name, tags.name_key, tags.path, tags.description, tags.parent_key, tags.level, tags.is_genre, tags.is_spoiler, tags.is_explicit, tags.content_rating, tags.data)
    IS DISTINCT FROM
-      (EXCLUDED.name,
+      (EXCLUDED.name, EXCLUDED.name_key, EXCLUDED.path,
        CASE WHEN EXCLUDED.description <> '' THEN EXCLUDED.description ELSE tags.description END,
-       CASE WHEN EXCLUDED.parent_key <> '' THEN EXCLUDED.parent_key ELSE tags.parent_key END,
-       GREATEST(EXCLUDED.level, tags.level), EXCLUDED.is_genre OR tags.is_genre, EXCLUDED.is_spoiler, EXCLUDED.is_explicit,
+       EXCLUDED.parent_key, EXCLUDED.level, EXCLUDED.is_genre, EXCLUDED.is_spoiler, EXCLUDED.is_explicit,
        CASE WHEN EXCLUDED.content_rating <> 'unspecified' THEN EXCLUDED.content_rating ELSE tags.content_rating END,
        EXCLUDED.data)
 RETURNING id;
 
 -- name: GetTagIDByKey :one
-SELECT id FROM tags WHERE name_key = @name_key;
+SELECT id FROM tags WHERE key = @key;
 
 -- name: InsertTagExternalID :exec
+-- A provider's tag ID points at the tag that has it now.
 INSERT INTO tag_external_ids (provider, external_id, tag_id) VALUES (@provider, @external_id, @tag_id)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (provider, external_id) DO UPDATE SET tag_id = EXCLUDED.tag_id
+WHERE tag_external_ids.tag_id IS DISTINCT FROM EXCLUDED.tag_id;
 
 -- name: RecountTags :exec
 UPDATE tags t
@@ -94,3 +99,7 @@ WHERE (NOT @genres_only::boolean OR is_genre)
   AND (@prefix::text = '' OR name_key LIKE @prefix::text || '%')
 ORDER BY entry_count DESC, name_key
 LIMIT @lim OFFSET @off;
+
+-- name: DeleteUnusedTags :execrows
+-- Tags no entry carries any more (after a rebuild).
+DELETE FROM tags t WHERE NOT EXISTS (SELECT 1 FROM entry_tags et WHERE et.tag_id = t.id);

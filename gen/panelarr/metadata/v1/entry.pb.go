@@ -3167,6 +3167,9 @@ func (x *License) GetCompany() *Company {
 }
 
 // Tag is shared between entries. Genres are tags with is_genre set.
+//
+// A tag is identified by its kind and path, not by its name alone: the genre
+// "Fantasy" and a tag "Settings > Fantasy" are different tags.
 type Tag struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// meta's ID. Empty in records sent by plugins; set by meta when serving.
@@ -3184,9 +3187,15 @@ type Tag struct {
 	ContentRating ContentRating `protobuf:"varint,10,opt,name=content_rating,json=contentRating,proto3,enum=panelarr.metadata.v1.ContentRating" json:"content_rating,omitempty"`
 	// How many entries carry the tag. Computed by meta; providers may send
 	// their own count.
-	EntryCount    int64         `protobuf:"varint,11,opt,name=entry_count,json=entryCount,proto3" json:"entry_count,omitempty"`
-	Aliases       []string      `protobuf:"bytes,12,rep,name=aliases,proto3" json:"aliases,omitempty"`
-	ExternalIds   []*ExternalId `protobuf:"bytes,13,rep,name=external_ids,json=externalIds,proto3" json:"external_ids,omitempty"`
+	EntryCount  int64         `protobuf:"varint,11,opt,name=entry_count,json=entryCount,proto3" json:"entry_count,omitempty"`
+	Aliases     []string      `protobuf:"bytes,12,rep,name=aliases,proto3" json:"aliases,omitempty"`
+	ExternalIds []*ExternalId `protobuf:"bytes,13,rep,name=external_ids,json=externalIds,proto3" json:"external_ids,omitempty"`
+	// Names of the ancestors, root first, e.g. ["Settings"] for "Settings >
+	// Fantasy". Empty for top-level tags and for genres.
+	Path []string `protobuf:"bytes,14,rep,name=path,proto3" json:"path,omitempty"`
+	// meta's stable key for the tag, used in filters: "genre/fantasy",
+	// "tag/settings/fantasy". Set by meta when serving.
+	Key           string `protobuf:"bytes,15,opt,name=key,proto3" json:"key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3310,6 +3319,20 @@ func (x *Tag) GetExternalIds() []*ExternalId {
 		return x.ExternalIds
 	}
 	return nil
+}
+
+func (x *Tag) GetPath() []string {
+	if x != nil {
+		return x.Path
+	}
+	return nil
+}
+
+func (x *Tag) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
 }
 
 type TagAssignment struct {
@@ -4121,7 +4144,7 @@ const file_panelarr_metadata_v1_entry_proto_rawDesc = "" +
 	"\blanguage\x18\x01 \x01(\tR\blanguage\x12\x1a\n" +
 	"\blicensed\x18\x02 \x01(\bR\blicensed\x125\n" +
 	"\x04date\x18\x03 \x01(\v2!.panelarr.metadata.v1.PartialDateR\x04date\x127\n" +
-	"\acompany\x18\x04 \x01(\v2\x1d.panelarr.metadata.v1.CompanyR\acompany\"\xbf\x03\n" +
+	"\acompany\x18\x04 \x01(\v2\x1d.panelarr.metadata.v1.CompanyR\acompany\"\xe5\x03\n" +
 	"\x03Tag\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -4140,7 +4163,9 @@ const file_panelarr_metadata_v1_entry_proto_rawDesc = "" +
 	"\ventry_count\x18\v \x01(\x03R\n" +
 	"entryCount\x12\x18\n" +
 	"\aaliases\x18\f \x03(\tR\aaliases\x12C\n" +
-	"\fexternal_ids\x18\r \x03(\v2 .panelarr.metadata.v1.ExternalIdR\vexternalIds\"\xd8\x01\n" +
+	"\fexternal_ids\x18\r \x03(\v2 .panelarr.metadata.v1.ExternalIdR\vexternalIds\x12\x12\n" +
+	"\x04path\x18\x0e \x03(\tR\x04path\x12\x10\n" +
+	"\x03key\x18\x0f \x01(\tR\x03key\"\xd8\x01\n" +
 	"\rTagAssignment\x12+\n" +
 	"\x03tag\x18\x01 \x01(\v2\x19.panelarr.metadata.v1.TagR\x03tag\x127\n" +
 	"\x06weight\x18\x02 \x01(\x0e2\x1f.panelarr.metadata.v1.TagWeightR\x06weight\x12\x1d\n" +

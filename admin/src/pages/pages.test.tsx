@@ -27,7 +27,7 @@ describe("catalogue", () => {
     app.dispose();
   });
 
-  it("filters by type, genre and year, and sorts", async () => {
+  it("filters by type, genres and year, and sorts", async () => {
     const app = renderApp("/catalogue");
     await screen.findByText("4 entries");
 
@@ -35,16 +35,19 @@ describe("catalogue", () => {
     expect(await screen.findByText("2 entries")).toBeInTheDocument();
     expect(app.router.state.location.search).toMatchObject({ type: "ENTRY_TYPE_MANGA" });
 
-    await userEvent.selectOptions(await screen.findByLabelText("Genre"), "Fantasy");
+    // "Quiet Orbit" has a tag "Settings › Fantasy" but not the genre: it must not match.
+    await userEvent.type(screen.getByRole("combobox", { name: "Genres" }), "Fan");
+    await userEvent.click(await screen.findByRole("option", { name: /Fantasy/ }));
     expect(await screen.findByText("1 entry")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /The Clockwork Garden/ })).toBeInTheDocument();
+    expect(app.router.state.location.search).toMatchObject({ genre: ["Fantasy"] });
 
     await userEvent.click(screen.getByRole("button", { name: "Reset" }));
     expect(await screen.findByText("4 entries")).toBeInTheDocument();
 
+    // Typed fields apply on their own after a pause.
     await userEvent.type(screen.getByLabelText("From year"), "2015");
-    await userEvent.click(screen.getByRole("button", { name: "Apply" }));
-    expect(await screen.findByText("2 entries")).toBeInTheDocument();
+    expect(await screen.findByText("2 entries", {}, { timeout: 3000 })).toBeInTheDocument();
 
     await userEvent.selectOptions(screen.getByLabelText("Sort"), "SORT_FIELD_TITLE");
     await waitFor(() => {
@@ -52,6 +55,65 @@ describe("catalogue", () => {
       expect(titles).toEqual(["Lantern Keeper", "Salt and Iron"]);
     });
     app.dispose();
+  });
+
+  it("includes and excludes tags found by typing", async () => {
+    const app = renderApp("/catalogue");
+    await screen.findByText("4 entries");
+
+    await userEvent.type(screen.getByRole("combobox", { name: "With tags" }), "spa");
+    await userEvent.click(await screen.findByRole("option", { name: /Settings › Space/ }));
+    expect(await screen.findByText("1 entry")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Quiet Orbit/ })).toBeInTheDocument();
+    expect(app.router.state.location.search).toMatchObject({ tag: ["tag/settings/space"] });
+
+    await userEvent.click(screen.getByRole("button", { name: "Remove Settings › Space" }));
+    expect(await screen.findByText("4 entries")).toBeInTheDocument();
+
+    // Leaving out the tag "Settings › Fantasy" keeps the entries with the genre Fantasy.
+    await userEvent.type(screen.getByRole("combobox", { name: "Without tags" }), "fantasy");
+    expect(await screen.findByRole("option", { name: /Fantasy \(genre\)/ })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("option", { name: /Settings › Fantasy/ }));
+    expect(await screen.findByText("3 entries")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Quiet Orbit/ })).not.toBeInTheDocument();
+    app.dispose();
+  });
+
+  it("filters by original and title language, by name", async () => {
+    const app = renderApp("/catalogue");
+    await screen.findByText("4 entries");
+    const original = screen.getByLabelText("Original language");
+    await within(original).findByRole("option", { name: "Korean (1)" });
+    await userEvent.selectOptions(original, "ko");
+    expect(await screen.findByText("1 entry")).toBeInTheDocument();
+    expect(app.router.state.location.search).toMatchObject({ lang: "ko" });
+
+    await userEvent.selectOptions(original, "");
+    await userEvent.selectOptions(screen.getByLabelText("Title language"), "zh");
+    expect(await screen.findByText("1 entry")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Salt and Iron/ })).toBeInTheDocument();
+    app.dispose();
+  });
+
+  it("applies a genre from a card and shows how many more genres there are", async () => {
+    const app = renderApp("/catalogue");
+    await screen.findByText("4 entries");
+    await userEvent.click(screen.getAllByRole("button", { name: "Action" })[0] as HTMLElement);
+    expect(await screen.findByText("2 entries")).toBeInTheDocument();
+    expect(app.router.state.location.search).toMatchObject({ genre: ["Action"] });
+    app.dispose();
+
+    server.use(
+      http.get("*/v1/entries", () =>
+        HttpResponse.json({
+          totalSize: "1",
+          entries: [{ id: "x", title: "Many Genres", genres: ["A", "B", "C", "D", "E"] }],
+        }),
+      ),
+    );
+    const many = renderApp("/catalogue");
+    expect(await screen.findByText("+2")).toHaveAttribute("title", "D, E");
+    many.dispose();
   });
 
   it("searches titles in any language and people", async () => {
@@ -96,6 +158,16 @@ describe("entry", () => {
     expect(screen.queryByText("Time Loop")).not.toBeInTheDocument();
     await userEvent.click(screen.getByLabelText("Show spoiler tags (1)"));
     expect(screen.getByText("Time Loop")).toBeInTheDocument();
+    app.dispose();
+  });
+
+  it("links tags and genres to the catalogue, with the tag's path", async () => {
+    const app = renderApp("/entries/0192aa00-0000-7000-8000-000000000003");
+    const tag = await screen.findByRole("link", { name: "Settings › Fantasy" });
+    expect(tag.getAttribute("href")).toContain("tag=");
+    await userEvent.click(tag);
+    expect(await screen.findByText("1 entry")).toBeInTheDocument();
+    expect(app.router.state.location.search).toMatchObject({ tag: ["tag/settings/fantasy"] });
     app.dispose();
   });
 

@@ -131,3 +131,12 @@ INSERT INTO persons (id, name, name_key, has_ids, data)
 SELECT unnest(@ids::uuid[]), unnest(@names::text[]), unnest(@name_keys::text[]), false, '{}'::jsonb
 ON CONFLICT (name_key) WHERE NOT has_ids DO UPDATE SET name_key = EXCLUDED.name_key
 RETURNING id, name_key;
+
+-- name: ListActiveEntryIDsAfter :many
+SELECT id FROM entries WHERE state = 'active' AND id > @after ORDER BY id LIMIT @lim;
+
+-- name: PendingMaintenance :many
+SELECT * FROM maintenance_jobs ORDER BY created_at;
+
+-- name: FinishMaintenance :exec
+DELETE FROM maintenance_jobs WHERE name = @name;

@@ -44,7 +44,7 @@ type Seed = {
   year: number;
   lang: string;
   genres: string[];
-  tags?: { name: string; spoiler?: boolean }[];
+  tags?: { name: string; path?: string[]; spoiler?: boolean }[];
   score: number;
   rank: number;
   author: string;
@@ -90,6 +90,11 @@ const seeds: Seed[] = [
     year: 2004,
     lang: "ja",
     genres: ["Sci-Fi"],
+    // A tag that shares its name with a genre: it must not count as the genre.
+    tags: [
+      { name: "Fantasy", path: ["Settings"] },
+      { name: "Space", path: ["Settings"] },
+    ],
     score: 64,
     rank: 9,
     author: "Ren Invented",
@@ -132,8 +137,11 @@ export function mockEntries(): Entry[] {
     credits: [{ person: { id: `p${i}`, name: s.author }, role: "PERSON_ROLE_AUTHOR", rawRole: "author" }],
     companies: [{ company: { id: `c${i}`, name: "Imaginary Press" }, role: "COMPANY_ROLE_PUBLISHER", language: "en" }],
     tags: [
-      ...s.genres.map((g) => ({ tag: { id: `g-${g}`, name: g, isGenre: true } })),
-      ...(s.tags ?? []).map((t) => ({ tag: { id: `t-${t.name}`, name: t.name }, isSpoiler: t.spoiler ?? false })),
+      ...s.genres.map((g) => ({ tag: { id: `g-${g}`, key: genreKey(g), name: g, isGenre: true } })),
+      ...(s.tags ?? []).map((t) => ({
+        tag: { id: `t-${tagKey(t.name, t.path)}`, key: tagKey(t.name, t.path), name: t.name, path: t.path ?? [] },
+        isSpoiler: t.spoiler ?? false,
+      })),
     ],
     relations:
       i === 0
@@ -180,14 +188,42 @@ export function mockEntries(): Entry[] {
   }));
 }
 
+const slug = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+export const genreKey = (name: string) => `genre/${slug(name)}`;
+export const tagKey = (name: string, path: string[] = []) => ["tag", ...path.map(slug), slug(name)].join("/");
+
 export function mockGenres(): Tag[] {
   const names = [...new Set(seeds.flatMap((s) => s.genres))].sort();
   return names.map((name) => ({
     id: `g-${name}`,
+    key: genreKey(name),
     name,
     isGenre: true,
     entryCount: String(seeds.filter((s) => s.genres.includes(name)).length),
   }));
+}
+
+export function mockTags(): Tag[] {
+  const byKey = new Map<string, Tag>();
+  for (const s of seeds) {
+    for (const t of s.tags ?? []) {
+      const key = tagKey(t.name, t.path);
+      const cur = byKey.get(key);
+      byKey.set(key, {
+        id: `t-${key}`,
+        key,
+        name: t.name,
+        path: t.path ?? [],
+        isGenre: false,
+        entryCount: String(Number(cur?.entryCount ?? 0) + 1),
+      });
+    }
+  }
+  return [...byKey.values()];
 }
 
 export function mockProviders(): Provider[] {

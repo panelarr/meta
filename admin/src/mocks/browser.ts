@@ -12,6 +12,6 @@ export async function startMockWorker(): Promise<void> {
     quiet: false,
   });
   console.info(
-    'meta admin: mock mode. Sign in with any token ("bad" is rejected, "mtk_…" is a client key, "config-key" an api_keys key).',
+    'Panelarr Meta admin: mock mode. Sign in with any token ("bad" is rejected, "mtk_…" is a client key, "config-key" an api_keys key).',
   );
 }

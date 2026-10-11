@@ -43,9 +43,19 @@ export function Badge({ tone = "neutral", children, title }: { tone?: Tone; chil
   );
 }
 
-export function Field({ label, hint, children }: { label: ReactNode; hint?: ReactNode; children: ReactNode }) {
+export function Field({
+  label,
+  hint,
+  children,
+  className,
+}: {
+  label: ReactNode;
+  hint?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="field">
+    <div className={className ? `field ${className}` : "field"}>
       {/* biome-ignore lint/a11y/noLabelWithoutControl: the control is passed as children. */}
       <label className="field-wrap">
         <span className="field-label">{label}</span>

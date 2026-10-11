@@ -671,7 +671,7 @@ func (q *Queries) ListEntryRelations(ctx context.Context, entryID uuid.UUID) ([]
 
 const listEntryTags = `-- name: ListEntryTags :many
 SELECT et.entry_id, et.tag_id, et.position, et.weight, et.raw_weight, et.score, et.is_spoiler, et.source, t.name, t.description, t.parent_key, t.level, t.is_genre, t.is_spoiler AS tag_is_spoiler,
-       t.is_explicit, t.content_rating, t.entry_count, t.data AS tag_data
+       t.is_explicit, t.content_rating, t.entry_count, t.data AS tag_data, t.key AS tag_key, t.path AS tag_path
 FROM entry_tags et
 JOIN tags t ON t.id = et.tag_id
 WHERE et.entry_id = $1
@@ -697,6 +697,8 @@ type ListEntryTagsRow struct {
 	ContentRating string
 	EntryCount    int64
 	TagData       []byte
+	TagKey        string
+	TagPath       []string
 }
 
 func (q *Queries) ListEntryTags(ctx context.Context, entryID uuid.UUID) ([]ListEntryTagsRow, error) {
@@ -727,6 +729,8 @@ func (q *Queries) ListEntryTags(ctx context.Context, entryID uuid.UUID) ([]ListE
 			&i.ContentRating,
 			&i.EntryCount,
 			&i.TagData,
+			&i.TagKey,
+			&i.TagPath,
 		); err != nil {
 			return nil, err
 		}

@@ -111,7 +111,7 @@ func (t *tx) flushDirty(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		if c.State == "active" && bytes.Equal(c.ContentHash, row.ContentHash) {
+		if !t.force && c.State == "active" && bytes.Equal(c.ContentHash, row.ContentHash) {
 			continue
 		}
 		updates = append(updates, row)

@@ -11,6 +11,19 @@ import (
 	"github.com/google/uuid"
 )
 
+const deleteUnusedTags = `-- name: DeleteUnusedTags :execrows
+DELETE FROM tags t WHERE NOT EXISTS (SELECT 1 FROM entry_tags et WHERE et.tag_id = t.id)
+`
+
+// Tags no entry carries any more (after a rebuild).
+func (q *Queries) DeleteUnusedTags(ctx context.Context) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteUnusedTags)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const findCompanyByExternalIDs = `-- name: FindCompanyByExternalIDs :one
 SELECT company_id FROM company_external_ids
 WHERE (provider, external_id) IN (
@@ -92,11 +105,11 @@ func (q *Queries) FindTagByExternalID(ctx context.Context, arg FindTagByExternal
 }
 
 const getTagIDByKey = `-- name: GetTagIDByKey :one
-SELECT id FROM tags WHERE name_key = $1
+SELECT id FROM tags WHERE key = $1
 `
 
-func (q *Queries) GetTagIDByKey(ctx context.Context, nameKey string) (uuid.UUID, error) {
-	row := q.db.QueryRow(ctx, getTagIDByKey, nameKey)
+func (q *Queries) GetTagIDByKey(ctx context.Context, key string) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, getTagIDByKey, key)
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
@@ -184,7 +197,8 @@ func (q *Queries) InsertPersonExternalID(ctx context.Context, arg InsertPersonEx
 
 const insertTagExternalID = `-- name: InsertTagExternalID :exec
 INSERT INTO tag_external_ids (provider, external_id, tag_id) VALUES ($1, $2, $3)
-ON CONFLICT DO NOTHING
+ON CONFLICT (provider, external_id) DO UPDATE SET tag_id = EXCLUDED.tag_id
+WHERE tag_external_ids.tag_id IS DISTINCT FROM EXCLUDED.tag_id
 `
 
 type InsertTagExternalIDParams struct {
@@ -193,13 +207,14 @@ type InsertTagExternalIDParams struct {
 	TagID      uuid.UUID
 }
 
+// A provider's tag ID points at the tag that has it now.
 func (q *Queries) InsertTagExternalID(ctx context.Context, arg InsertTagExternalIDParams) error {
 	_, err := q.db.Exec(ctx, insertTagExternalID, arg.Provider, arg.ExternalID, arg.TagID)
 	return err
 }
 
 const listTags = `-- name: ListTags :many
-SELECT id, name, name_key, description, parent_key, level, is_genre, is_spoiler, is_explicit, content_rating, data, entry_count, created_at, updated_at FROM tags
+SELECT id, name, name_key, description, parent_key, level, is_genre, is_spoiler, is_explicit, content_rating, data, entry_count, created_at, updated_at, key, path FROM tags
 WHERE (NOT $1::boolean OR is_genre)
   AND ($2::text = '' OR name_key LIKE $2::text || '%')
 ORDER BY entry_count DESC, name_key
@@ -242,6 +257,8 @@ func (q *Queries) ListTags(ctx context.Context, arg ListTagsParams) ([]Tag, erro
 			&i.EntryCount,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Key,
+			&i.Path,
 		); err != nil {
 			return nil, err
 		}
@@ -314,25 +331,26 @@ func (q *Queries) UpdatePerson(ctx context.Context, arg UpdatePersonParams) erro
 }
 
 const upsertTag = `-- name: UpsertTag :one
-INSERT INTO tags (id, name, name_key, description, parent_key, level, is_genre, is_spoiler, is_explicit, content_rating, data)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-ON CONFLICT (name_key) DO UPDATE
+INSERT INTO tags (id, key, name, name_key, path, description, parent_key, level, is_genre, is_spoiler, is_explicit, content_rating, data)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+ON CONFLICT (key) DO UPDATE
 SET name = EXCLUDED.name,
+    name_key = EXCLUDED.name_key,
+    path = EXCLUDED.path,
     description = CASE WHEN EXCLUDED.description <> '' THEN EXCLUDED.description ELSE tags.description END,
-    parent_key = CASE WHEN EXCLUDED.parent_key <> '' THEN EXCLUDED.parent_key ELSE tags.parent_key END,
-    level = GREATEST(EXCLUDED.level, tags.level),
-    is_genre = EXCLUDED.is_genre OR tags.is_genre,
+    parent_key = EXCLUDED.parent_key,
+    level = EXCLUDED.level,
+    is_genre = EXCLUDED.is_genre,
     is_spoiler = EXCLUDED.is_spoiler,
     is_explicit = EXCLUDED.is_explicit,
     content_rating = CASE WHEN EXCLUDED.content_rating <> 'unspecified' THEN EXCLUDED.content_rating ELSE tags.content_rating END,
     data = EXCLUDED.data,
     updated_at = now()
-WHERE (tags.name, tags.description, tags.parent_key, tags.level, tags.is_genre, tags.is_spoiler, tags.is_explicit, tags.content_rating, tags.data)
+WHERE (tags.name, tags.name_key, tags.path, tags.description, tags.parent_key, tags.level, tags.is_genre, tags.is_spoiler, tags.is_explicit, tags.content_rating, tags.data)
    IS DISTINCT FROM
-      (EXCLUDED.name,
+      (EXCLUDED.name, EXCLUDED.name_key, EXCLUDED.path,
        CASE WHEN EXCLUDED.description <> '' THEN EXCLUDED.description ELSE tags.description END,
-       CASE WHEN EXCLUDED.parent_key <> '' THEN EXCLUDED.parent_key ELSE tags.parent_key END,
-       GREATEST(EXCLUDED.level, tags.level), EXCLUDED.is_genre OR tags.is_genre, EXCLUDED.is_spoiler, EXCLUDED.is_explicit,
+       EXCLUDED.parent_key, EXCLUDED.level, EXCLUDED.is_genre, EXCLUDED.is_spoiler, EXCLUDED.is_explicit,
        CASE WHEN EXCLUDED.content_rating <> 'unspecified' THEN EXCLUDED.content_rating ELSE tags.content_rating END,
        EXCLUDED.data)
 RETURNING id
@@ -340,8 +358,10 @@ RETURNING id
 
 type UpsertTagParams struct {
 	ID            uuid.UUID
+	Key           string
 	Name          string
 	NameKey       string
+	Path          []string
 	Description   string
 	ParentKey     string
 	Level         int32
@@ -352,11 +372,15 @@ type UpsertTagParams struct {
 	Data          []byte
 }
 
+// Creates or updates a tag by its key (kind + path). Returns no row when
+// nothing changed.
 func (q *Queries) UpsertTag(ctx context.Context, arg UpsertTagParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, upsertTag,
 		arg.ID,
+		arg.Key,
 		arg.Name,
 		arg.NameKey,
+		arg.Path,
 		arg.Description,
 		arg.ParentKey,
 		arg.Level,

@@ -18,7 +18,7 @@ func get(h http.Handler, path string) *httptest.ResponseRecorder {
 
 func TestServesTheApp(t *testing.T) {
 	h := handler(fstest.MapFS{
-		"index.html":          {Data: []byte("<!doctype html><title>meta admin</title>")},
+		"index.html":          {Data: []byte("<!doctype html><title>Panelarr Meta</title>")},
 		"favicon.svg":         {Data: []byte("<svg/>")},
 		"assets/index-ab1.js": {Data: []byte("console.log(1)")},
 		".keep":               {Data: nil},
@@ -26,7 +26,7 @@ func TestServesTheApp(t *testing.T) {
 
 	for _, path := range []string{"/", "/catalogue", "/entries/x", "/providers?provider=a", "/.keep"} {
 		rec := get(h, path)
-		if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "meta admin") {
+		if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Panelarr Meta") {
 			t.Fatalf("%s: %d %q", path, rec.Code, rec.Body.String())
 		}
 		if rec.Header().Get("Cache-Control") != "no-cache" {

@@ -53,14 +53,23 @@ func (b *builder) arg(v any) string {
 	return fmt.Sprintf("$%d", len(b.args))
 }
 
-func keys(names []string) []string {
-	out := make([]string, 0, len(names))
-	for _, n := range names {
-		if k := textnorm.Key(n); k != "" {
-			out = append(out, k)
+// tagRefs splits tag filter values into tag keys ("genre/fantasy",
+// "tag/settings/fantasy") and normalized names ("Fantasy" matches every
+// tag or genre with that name).
+func tagRefs(values []string) (keys, names []string) {
+	keys, names = []string{}, []string{}
+	for _, v := range values {
+		v = strings.TrimSpace(v)
+		switch {
+		case strings.HasPrefix(v, "genre/") || strings.HasPrefix(v, "tag/"):
+			keys = append(keys, strings.ToLower(v))
+		default:
+			if k := textnorm.Key(v); k != "" {
+				names = append(names, k)
+			}
 		}
 	}
-	return out
+	return keys, names
 }
 
 func lower(vals []string) []string {
@@ -96,17 +105,22 @@ func (b *builder) filters(f Filter) {
 	if f.YearTo > 0 {
 		b.where = append(b.where, "e.year <= "+b.arg(f.YearTo))
 	}
-	if v := keys(f.Genres); len(v) > 0 {
+	if keys, names := tagRefs(f.Genres); len(keys)+len(names) > 0 {
 		b.where = append(b.where, `EXISTS (SELECT 1 FROM entry_tags et JOIN tags t ON t.id = et.tag_id
-			WHERE et.entry_id = e.id AND t.is_genre AND t.name_key = ANY(`+b.arg(v)+`::text[]))`)
+			WHERE et.entry_id = e.id AND t.is_genre AND (t.key = ANY(`+b.arg(keys)+`::text[]) OR t.name_key = ANY(`+b.arg(names)+`::text[])))`)
 	}
-	if v := keys(f.Tags); len(v) > 0 {
-		b.where = append(b.where, `e.id IN (SELECT et.entry_id FROM entry_tags et JOIN tags t ON t.id = et.tag_id
-			WHERE t.name_key = ANY(`+b.arg(v)+`::text[]) GROUP BY et.entry_id HAVING count(DISTINCT t.name_key) = `+b.arg(len(v))+`)`)
+	// Every listed tag must be there.
+	for _, ref := range f.Tags {
+		keys, names := tagRefs([]string{ref})
+		if len(keys)+len(names) == 0 {
+			continue
+		}
+		b.where = append(b.where, `EXISTS (SELECT 1 FROM entry_tags et JOIN tags t ON t.id = et.tag_id
+			WHERE et.entry_id = e.id AND (t.key = ANY(`+b.arg(keys)+`::text[]) OR t.name_key = ANY(`+b.arg(names)+`::text[])))`)
 	}
-	if v := keys(f.ExcludeTags); len(v) > 0 {
+	if keys, names := tagRefs(f.ExcludeTags); len(keys)+len(names) > 0 {
 		b.where = append(b.where, `NOT EXISTS (SELECT 1 FROM entry_tags et JOIN tags t ON t.id = et.tag_id
-			WHERE et.entry_id = e.id AND t.name_key = ANY(`+b.arg(v)+`::text[]))`)
+			WHERE et.entry_id = e.id AND (t.key = ANY(`+b.arg(keys)+`::text[]) OR t.name_key = ANY(`+b.arg(names)+`::text[])))`)
 	}
 	if v := lower(f.TitleLanguages); len(v) > 0 {
 		a := b.arg(v)

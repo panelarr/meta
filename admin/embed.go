@@ -23,7 +23,7 @@ var dist embed.FS
 const CSP = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; " +
 	"connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
 
-const notBuilt = `<!doctype html><meta charset="utf-8"><title>meta admin</title>
+const notBuilt = `<!doctype html><meta charset="utf-8"><title>Panelarr Meta</title>
 <p>The admin UI isn't built: run <code>make admin</code> and rebuild meta.</p>
 `
 

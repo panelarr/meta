@@ -26,6 +26,7 @@ const (
 	MetaService_GetEntry_FullMethodName       = "/panelarr.meta.v1.MetaService/GetEntry"
 	MetaService_LookupExternal_FullMethodName = "/panelarr.meta.v1.MetaService/LookupExternal"
 	MetaService_ListTags_FullMethodName       = "/panelarr.meta.v1.MetaService/ListTags"
+	MetaService_ListLanguages_FullMethodName  = "/panelarr.meta.v1.MetaService/ListLanguages"
 )
 
 // MetaServiceClient is the client API for MetaService service.
@@ -54,6 +55,9 @@ type MetaServiceClient interface {
 	// ListTags lists the tags and genres meta knows, with entry counts, for
 	// building browse filters.
 	ListTags(ctx context.Context, in *ListTagsRequest, opts ...grpc.CallOption) (*ListTagsResponse, error)
+	// ListLanguages lists the original languages and title languages of the
+	// catalogue, with entry counts, for building browse filters.
+	ListLanguages(ctx context.Context, in *ListLanguagesRequest, opts ...grpc.CallOption) (*ListLanguagesResponse, error)
 }
 
 type metaServiceClient struct {
@@ -114,6 +118,16 @@ func (c *metaServiceClient) ListTags(ctx context.Context, in *ListTagsRequest, o
 	return out, nil
 }
 
+func (c *metaServiceClient) ListLanguages(ctx context.Context, in *ListLanguagesRequest, opts ...grpc.CallOption) (*ListLanguagesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListLanguagesResponse)
+	err := c.cc.Invoke(ctx, MetaService_ListLanguages_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MetaServiceServer is the server API for MetaService service.
 // All implementations must embed UnimplementedMetaServiceServer
 // for forward compatibility.
@@ -140,6 +154,9 @@ type MetaServiceServer interface {
 	// ListTags lists the tags and genres meta knows, with entry counts, for
 	// building browse filters.
 	ListTags(context.Context, *ListTagsRequest) (*ListTagsResponse, error)
+	// ListLanguages lists the original languages and title languages of the
+	// catalogue, with entry counts, for building browse filters.
+	ListLanguages(context.Context, *ListLanguagesRequest) (*ListLanguagesResponse, error)
 	mustEmbedUnimplementedMetaServiceServer()
 }
 
@@ -164,6 +181,9 @@ func (UnimplementedMetaServiceServer) LookupExternal(context.Context, *LookupExt
 }
 func (UnimplementedMetaServiceServer) ListTags(context.Context, *ListTagsRequest) (*ListTagsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListTags not implemented")
+}
+func (UnimplementedMetaServiceServer) ListLanguages(context.Context, *ListLanguagesRequest) (*ListLanguagesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListLanguages not implemented")
 }
 func (UnimplementedMetaServiceServer) mustEmbedUnimplementedMetaServiceServer() {}
 func (UnimplementedMetaServiceServer) testEmbeddedByValue()                     {}
@@ -276,6 +296,24 @@ func _MetaService_ListTags_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MetaService_ListLanguages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListLanguagesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MetaServiceServer).ListLanguages(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MetaService_ListLanguages_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MetaServiceServer).ListLanguages(ctx, req.(*ListLanguagesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MetaService_ServiceDesc is the grpc.ServiceDesc for MetaService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -302,6 +340,10 @@ var MetaService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListTags",
 			Handler:    _MetaService_ListTags_Handler,
+		},
+		{
+			MethodName: "ListLanguages",
+			Handler:    _MetaService_ListLanguages_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -16,6 +16,7 @@ import {
   mockProviders,
   mockRuns,
   mockSolvers,
+  mockTags,
 } from "./data";
 
 type Db = {
@@ -126,6 +127,16 @@ function matching(db: Db, params: URLSearchParams, query?: string): { entries: E
     if (all("filter.languages").length && !all("filter.languages").includes(e.originalLanguage ?? "")) return false;
     const genres = (e.tags ?? []).filter((t) => t.tag?.isGenre).map((t) => (t.tag?.name ?? "").toLowerCase());
     if (all("filter.genres").length && !all("filter.genres").some((g) => genres.includes(g.toLowerCase())))
+      return false;
+    // Tags by key ("tag/settings/fantasy") or by name.
+    const has = (ref: string) =>
+      (e.tags ?? []).some((t) => t.tag?.key === ref || (t.tag?.name ?? "").toLowerCase() === ref.toLowerCase());
+    if (!all("filter.tags").every(has)) return false;
+    if (all("filter.excludeTags").some(has)) return false;
+    if (
+      all("filter.titleLanguages").length &&
+      !(e.titles ?? []).some((t) => all("filter.titleLanguages").includes(t.language ?? ""))
+    )
       return false;
     const year = e.dates?.start?.year ?? 0;
     if (params.get("filter.yearFrom") && year < Number(params.get("filter.yearFrom"))) return false;
@@ -275,7 +286,30 @@ export function createHandlers(db: Db = createDb(), latency = 0) {
 
     http.get(`${base}/tags`, async ({ request }) => {
       await wait();
-      return guard(request, false) ?? ok({ tags: mockGenres() });
+      const denied = guard(request, false);
+      if (denied) return denied;
+      const params = new URL(request.url).searchParams;
+      const q = (params.get("query") ?? "").toLowerCase();
+      let tags = params.get("genresOnly") === "true" ? mockGenres() : [...mockGenres(), ...mockTags()];
+      if (params.get("tagsOnly") === "true") tags = mockTags();
+      if (q) tags = tags.filter((t) => [...(t.path ?? []), t.name ?? ""].join(" ").toLowerCase().includes(q));
+      return ok({ tags: tags.slice(0, Number(params.get("pageSize") ?? 200)) });
+    }),
+
+    http.get(`${base}/languages`, async ({ request }) => {
+      await wait();
+      const denied = guard(request, false);
+      if (denied) return denied;
+      const count = (codes: string[]) =>
+        [...codes.reduce((m, c) => m.set(c, (m.get(c) ?? 0) + 1), new Map<string, number>())]
+          .sort((a, b) => b[1] - a[1])
+          .map(([code, n]) => ({ code, entries: String(n) }));
+      return ok({
+        original: count(db.entries.map((e) => e.originalLanguage ?? "").filter(Boolean)),
+        titles: count(
+          db.entries.flatMap((e) => [...new Set((e.titles ?? []).map((t) => t.language ?? ""))]).filter(Boolean),
+        ),
+      });
     }),
 
     // ----- MetaAdminService --------------------------------------------------------

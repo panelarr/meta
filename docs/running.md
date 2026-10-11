@@ -36,5 +36,5 @@ Other commands run in the same image: `docker exec meta /meta sync mangabaka`, `
 - **Plugins:** run them as their own containers (standalone, ports 8903 and up) or let meta start them (managed). Give standalone plugins an API key.
 - **Several replicas** can share one database: migrations take a lock, and so does each provider's sync, so a provider never syncs twice at the same time.
 - **Health:** `/healthz` (process up) and `/readyz` (database reachable) need no key.
-- **Upgrades:** meta applies new migrations at startup. `meta migrate status` shows where a database stands.
+- **Upgrades:** meta applies new migrations at startup. `meta migrate status` shows where a database stands. Some upgrades also queue a rebuild of every entry from the stored provider records; `meta serve` runs it in the background after starting (a large catalogue takes a while, and the API keeps answering), or run `meta rebuild` beforehand.
 - **Shutdown:** on SIGTERM meta stops scheduling, cancels running syncs (they are recorded as cancelled; what was committed stays) and drains requests.

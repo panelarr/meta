@@ -138,6 +138,15 @@ func (q *Queries) FindEntriesForRefs(ctx context.Context, arg FindEntriesForRefs
 	return items, nil
 }
 
+const finishMaintenance = `-- name: FinishMaintenance :exec
+DELETE FROM maintenance_jobs WHERE name = $1
+`
+
+func (q *Queries) FinishMaintenance(ctx context.Context, name string) error {
+	_, err := q.db.Exec(ctx, finishMaintenance, name)
+	return err
+}
+
 const getEntries = `-- name: GetEntries :many
 
 SELECT id, state, merged_into, title, type, raw_type, status, raw_status, content_rating, raw_content_rating, original_language, year, rating, popularity, popularity_rank, cover, dates, progress, adaptations, items, licenses, stats, field_sources, search_vector, content_hash, created_at, updated_at FROM entries WHERE id = ANY($1::uuid[])
@@ -218,6 +227,35 @@ func (q *Queries) LinkMergedRecords(ctx context.Context, provider string) (int64
 	return result.RowsAffected(), nil
 }
 
+const listActiveEntryIDsAfter = `-- name: ListActiveEntryIDsAfter :many
+SELECT id FROM entries WHERE state = 'active' AND id > $1 ORDER BY id LIMIT $2
+`
+
+type ListActiveEntryIDsAfterParams struct {
+	After uuid.UUID
+	Lim   int32
+}
+
+func (q *Queries) ListActiveEntryIDsAfter(ctx context.Context, arg ListActiveEntryIDsAfterParams) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listActiveEntryIDsAfter, arg.After, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []uuid.UUID{}
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFieldLocksForEntries = `-- name: ListFieldLocksForEntries :many
 SELECT entry_id, field, provider, value, note, created_at FROM field_locks WHERE entry_id = ANY($1::uuid[])
 `
@@ -279,6 +317,30 @@ func (q *Queries) ListProviderEntriesForEntries(ctx context.Context, ids []uuid.
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const pendingMaintenance = `-- name: PendingMaintenance :many
+SELECT name, reason, created_at FROM maintenance_jobs ORDER BY created_at
+`
+
+func (q *Queries) PendingMaintenance(ctx context.Context) ([]MaintenanceJob, error) {
+	rows, err := q.db.Query(ctx, pendingMaintenance)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []MaintenanceJob{}
+	for rows.Next() {
+		var i MaintenanceJob
+		if err := rows.Scan(&i.Name, &i.Reason, &i.CreatedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

@@ -45,6 +45,40 @@ func (q *Queries) ListAttributionsForEntries(ctx context.Context, ids []uuid.UUI
 	return items, nil
 }
 
+const listGenreKeysForEntries = `-- name: ListGenreKeysForEntries :many
+SELECT et.entry_id, t.name, t.key
+FROM entry_tags et
+JOIN tags t ON t.id = et.tag_id
+WHERE et.entry_id = ANY($1::uuid[]) AND t.is_genre
+ORDER BY et.entry_id, et.position
+`
+
+type ListGenreKeysForEntriesRow struct {
+	EntryID uuid.UUID
+	Name    string
+	Key     string
+}
+
+func (q *Queries) ListGenreKeysForEntries(ctx context.Context, ids []uuid.UUID) ([]ListGenreKeysForEntriesRow, error) {
+	rows, err := q.db.Query(ctx, listGenreKeysForEntries, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListGenreKeysForEntriesRow{}
+	for rows.Next() {
+		var i ListGenreKeysForEntriesRow
+		if err := rows.Scan(&i.EntryID, &i.Name, &i.Key); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listGenresForEntries = `-- name: ListGenresForEntries :many
 SELECT et.entry_id, t.name
 FROM entry_tags et
@@ -68,6 +102,39 @@ func (q *Queries) ListGenresForEntries(ctx context.Context, ids []uuid.UUID) ([]
 	for rows.Next() {
 		var i ListGenresForEntriesRow
 		if err := rows.Scan(&i.EntryID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOriginalLanguages = `-- name: ListOriginalLanguages :many
+SELECT original_language AS code, count(*)::bigint AS entries
+FROM entries
+WHERE state = 'active' AND original_language <> ''
+GROUP BY original_language
+ORDER BY entries DESC, code
+`
+
+type ListOriginalLanguagesRow struct {
+	Code    string
+	Entries int64
+}
+
+func (q *Queries) ListOriginalLanguages(ctx context.Context) ([]ListOriginalLanguagesRow, error) {
+	rows, err := q.db.Query(ctx, listOriginalLanguages)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOriginalLanguagesRow{}
+	for rows.Next() {
+		var i ListOriginalLanguagesRow
+		if err := rows.Scan(&i.Code, &i.Entries); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -124,19 +191,27 @@ func (q *Queries) ListSourcesForEntry(ctx context.Context, entryID uuid.NullUUID
 }
 
 const listTagsWithParent = `-- name: ListTagsWithParent :many
-SELECT t.id, t.name, t.name_key, t.description, t.parent_key, t.level, t.is_genre, t.is_spoiler, t.is_explicit, t.content_rating, t.data, t.entry_count, t.created_at, t.updated_at, COALESCE(p.name, '')::text AS parent_name
+SELECT t.id, t.name, t.name_key, t.description, t.parent_key, t.level, t.is_genre, t.is_spoiler, t.is_explicit, t.content_rating, t.data, t.entry_count, t.created_at, t.updated_at, t.key, t.path, COALESCE(p.name, '')::text AS parent_name
 FROM tags t
-LEFT JOIN tags p ON p.name_key = t.parent_key AND t.parent_key <> ''
+LEFT JOIN LATERAL (
+    SELECT p.name FROM tags p
+    WHERE p.name_key = t.parent_key AND t.parent_key <> '' AND p.is_genre = t.is_genre
+    LIMIT 1
+) p ON true
 WHERE (NOT $1::boolean OR t.is_genre)
-  AND ($2::text = '' OR t.name_key LIKE $2::text || '%')
+  AND (NOT $2::boolean OR NOT t.is_genre)
+  AND ($3::text = '' OR t.name_key LIKE $3::text || '%')
+  AND ($4::text = '' OR (t.name_key || ' ' || lower(array_to_string(t.path, ' '))) LIKE '%' || $4::text || '%')
   AND t.entry_count > 0
-ORDER BY t.entry_count DESC, t.name_key
-LIMIT $4 OFFSET $3
+ORDER BY t.is_genre DESC, t.entry_count DESC, t.name_key
+LIMIT $6 OFFSET $5
 `
 
 type ListTagsWithParentParams struct {
 	GenresOnly bool
+	TagsOnly   bool
 	Prefix     string
+	Query      string
 	Off        int32
 	Lim        int32
 }
@@ -156,13 +231,17 @@ type ListTagsWithParentRow struct {
 	EntryCount    int64
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
+	Key           string
+	Path          []string
 	ParentName    string
 }
 
 func (q *Queries) ListTagsWithParent(ctx context.Context, arg ListTagsWithParentParams) ([]ListTagsWithParentRow, error) {
 	rows, err := q.db.Query(ctx, listTagsWithParent,
 		arg.GenresOnly,
+		arg.TagsOnly,
 		arg.Prefix,
+		arg.Query,
 		arg.Off,
 		arg.Lim,
 	)
@@ -188,8 +267,44 @@ func (q *Queries) ListTagsWithParent(ctx context.Context, arg ListTagsWithParent
 			&i.EntryCount,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Key,
+			&i.Path,
 			&i.ParentName,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTitleLanguages = `-- name: ListTitleLanguages :many
+SELECT t.language AS code, count(DISTINCT t.entry_id)::bigint AS entries
+FROM entry_titles t
+JOIN entries e ON e.id = t.entry_id AND e.state = 'active'
+WHERE t.language <> ''
+GROUP BY t.language
+ORDER BY entries DESC, code
+`
+
+type ListTitleLanguagesRow struct {
+	Code    string
+	Entries int64
+}
+
+func (q *Queries) ListTitleLanguages(ctx context.Context) ([]ListTitleLanguagesRow, error) {
+	rows, err := q.db.Query(ctx, listTitleLanguages)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListTitleLanguagesRow{}
+	for rows.Next() {
+		var i ListTitleLanguagesRow
+		if err := rows.Scan(&i.Code, &i.Entries); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

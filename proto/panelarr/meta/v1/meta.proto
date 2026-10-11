@@ -46,6 +46,12 @@ service MetaService {
   rpc ListTags(ListTagsRequest) returns (ListTagsResponse) {
     option (google.api.http) = {get: "/v1/tags"};
   }
+
+  // ListLanguages lists the original languages and title languages of the
+  // catalogue, with entry counts, for building browse filters.
+  rpc ListLanguages(ListLanguagesRequest) returns (ListLanguagesResponse) {
+    option (google.api.http) = {get: "/v1/languages"};
+  }
 }
 
 // EntrySummary is the short form of an entry used in lists.
@@ -61,7 +67,7 @@ message EntrySummary {
   // Year the work started, 0 if unknown.
   int32 year = 7;
   panelarr.metadata.v1.Image cover = 8;
-  // Genre names.
+  // Genre names, in the order the provider lists them.
   repeated string genres = 9;
   // Rating on a 0..100 scale from the preferred provider, if any.
   optional double rating = 10;
@@ -129,11 +135,12 @@ message EntrySource {
 // EntryFilter narrows Browse and Search. Repeated fields match any of their
 // values; different fields must all match.
 message EntryFilter {
-  // Genre names.
+  // Genres, by key ("genre/romance") or name. An entry must have any of them.
   repeated string genres = 1;
-  // Tag names. An entry must have all of them.
+  // Tags, by key ("tag/settings/school") or name. An entry must have all of
+  // them.
   repeated string tags = 2;
-  // Tag or genre names to leave out.
+  // Tags or genres, by key or name, to leave out.
   repeated string exclude_tags = 3;
   repeated panelarr.metadata.v1.EntryType types = 4;
   repeated panelarr.metadata.v1.EntryStatus statuses = 5;
@@ -248,6 +255,27 @@ message ListTagsRequest {
   // 1..1000, default 200.
   int32 page_size = 3;
   string page_token = 4;
+  // Words to find anywhere in the name or path, case-insensitive (for
+  // type-ahead).
+  string query = 5;
+  // Only tags (no genres).
+  bool tags_only = 6;
+}
+
+message ListLanguagesRequest {}
+
+message LanguageCount {
+  // BCP 47 tag, e.g. "ja", "ko", "zh-Hant".
+  string code = 1;
+  // Active entries with it.
+  int64 entries = 2;
+}
+
+message ListLanguagesResponse {
+  // Original languages of entries, most common first.
+  repeated LanguageCount original = 1;
+  // Languages of titles, most common first.
+  repeated LanguageCount titles = 2;
 }
 
 message ListTagsResponse {

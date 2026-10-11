@@ -435,6 +435,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/languages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * ListLanguages
+         * @description ListLanguages lists the original languages and title languages of the
+         *      catalogue, with entry counts, for building browse filters.
+         */
+        get: operations["MetaService_ListLanguages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/lookup/{provider}/{externalId}": {
         parameters: {
             query?: never;
@@ -827,17 +848,18 @@ export interface components {
         "panelarr.meta.v1.EntryFilter": {
             /**
              * genres
-             * @description Genre names.
+             * @description Genres, by key ("genre/romance") or name. An entry must have any of them.
              */
             genres?: string[];
             /**
              * tags
-             * @description Tag names. An entry must have all of them.
+             * @description Tags, by key ("tag/settings/school") or name. An entry must have all of
+             *      them.
              */
             tags?: string[];
             /**
              * exclude_tags
-             * @description Tag or genre names to leave out.
+             * @description Tags or genres, by key or name, to leave out.
              */
             excludeTags?: string[];
             /** types */
@@ -926,7 +948,7 @@ export interface components {
             cover?: components["schemas"]["panelarr.metadata.v1.Image"];
             /**
              * genres
-             * @description Genre names.
+             * @description Genre names, in the order the provider lists them.
              */
             genres?: string[];
             /**
@@ -987,6 +1009,20 @@ export interface components {
             /** run */
             run?: components["schemas"]["panelarr.meta.v1.SyncRun"];
         };
+        /** LanguageCount */
+        "panelarr.meta.v1.LanguageCount": {
+            /**
+             * code
+             * @description BCP 47 tag, e.g. "ja", "ko", "zh-Hant".
+             */
+            code?: string;
+            /**
+             * entries
+             * Format: int64
+             * @description Active entries with it.
+             */
+            entries?: string;
+        };
         /** ListAssignmentsRequest */
         "panelarr.meta.v1.ListAssignmentsRequest": Record<string, never>;
         /** ListAssignmentsResponse */
@@ -1005,6 +1041,21 @@ export interface components {
         "panelarr.meta.v1.ListClientsResponse": {
             /** clients */
             clients?: components["schemas"]["panelarr.meta.v1.Client"][];
+        };
+        /** ListLanguagesRequest */
+        "panelarr.meta.v1.ListLanguagesRequest": Record<string, never>;
+        /** ListLanguagesResponse */
+        "panelarr.meta.v1.ListLanguagesResponse": {
+            /**
+             * original
+             * @description Original languages of entries, most common first.
+             */
+            original?: components["schemas"]["panelarr.meta.v1.LanguageCount"][];
+            /**
+             * titles
+             * @description Languages of titles, most common first.
+             */
+            titles?: components["schemas"]["panelarr.meta.v1.LanguageCount"][];
         };
         /** ListProfilesRequest */
         "panelarr.meta.v1.ListProfilesRequest": Record<string, never>;
@@ -1075,6 +1126,17 @@ export interface components {
             pageSize?: number;
             /** page_token */
             pageToken?: string;
+            /**
+             * query
+             * @description Words to find anywhere in the name or path, case-insensitive (for
+             *      type-ahead).
+             */
+            query?: string;
+            /**
+             * tags_only
+             * @description Only tags (no genres).
+             */
+            tagsOnly?: boolean;
         };
         /** ListTagsResponse */
         "panelarr.meta.v1.ListTagsResponse": {
@@ -2407,6 +2469,9 @@ export interface components {
         /**
          * Tag
          * @description Tag is shared between entries. Genres are tags with is_genre set.
+         *
+         *      A tag is identified by its kind and path, not by its name alone: the genre
+         *      "Fantasy" and a tag "Settings > Fantasy" are different tags.
          */
         "panelarr.metadata.v1.Tag": {
             /**
@@ -2452,6 +2517,18 @@ export interface components {
             aliases?: string[];
             /** external_ids */
             externalIds?: components["schemas"]["panelarr.metadata.v1.ExternalId"][];
+            /**
+             * path
+             * @description Names of the ancestors, root first, e.g. ["Settings"] for "Settings >
+             *      Fantasy". Empty for top-level tags and for genres.
+             */
+            path?: string[];
+            /**
+             * key
+             * @description meta's stable key for the tag, used in filters: "genre/fantasy",
+             *      "tag/settings/fantasy". Set by meta when serving.
+             */
+            key?: string;
         };
         /** TagAssignment */
         "panelarr.metadata.v1.TagAssignment": {
@@ -3078,11 +3155,14 @@ export interface operations {
     MetaService_Browse: {
         parameters: {
             query?: {
-                /** @description Genre names. */
+                /** @description Genres, by key ("genre/romance") or name. An entry must have any of them. */
                 "filter.genres"?: string[];
-                /** @description Tag names. An entry must have all of them. */
+                /**
+                 * @description Tags, by key ("tag/settings/school") or name. An entry must have all of
+                 *      them.
+                 */
                 "filter.tags"?: string[];
-                /** @description Tag or genre names to leave out. */
+                /** @description Tags or genres, by key or name, to leave out. */
                 "filter.excludeTags"?: string[];
                 /** @description The filter.types query parameter. */
                 "filter.types"?: components["schemas"]["panelarr.metadata.v1.EntryType"][];
@@ -3154,6 +3234,26 @@ export interface operations {
             };
         };
     };
+    MetaService_ListLanguages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["panelarr.meta.v1.ListLanguagesResponse"];
+                };
+            };
+        };
+    };
     MetaService_LookupExternal: {
         parameters: {
             query?: {
@@ -3189,11 +3289,14 @@ export interface operations {
             query?: {
                 /** @description The query query parameter. */
                 query?: string;
-                /** @description Genre names. */
+                /** @description Genres, by key ("genre/romance") or name. An entry must have any of them. */
                 "filter.genres"?: string[];
-                /** @description Tag names. An entry must have all of them. */
+                /**
+                 * @description Tags, by key ("tag/settings/school") or name. An entry must have all of
+                 *      them.
+                 */
                 "filter.tags"?: string[];
-                /** @description Tag or genre names to leave out. */
+                /** @description Tags or genres, by key or name, to leave out. */
                 "filter.excludeTags"?: string[];
                 /** @description The filter.types query parameter. */
                 "filter.types"?: components["schemas"]["panelarr.metadata.v1.EntryType"][];
@@ -3250,6 +3353,13 @@ export interface operations {
                 pageSize?: number;
                 /** @description The pageToken query parameter. */
                 pageToken?: string;
+                /**
+                 * @description Words to find anywhere in the name or path, case-insensitive (for
+                 *      type-ahead).
+                 */
+                query?: string;
+                /** @description Only tags (no genres). */
+                tagsOnly?: boolean;
             };
             header?: never;
             path?: never;

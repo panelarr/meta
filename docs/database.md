@@ -23,7 +23,11 @@ For contributors: how meta's tables map to the [entry schema](schema.md). The sc
 
 ## Shared people, companies and tags
 
-`persons`, `companies` and `tags` are stored once and referenced from entries. Each has an `*_external_ids` table. People and companies known only by name (no IDs) are shared by their normalized name; ones with IDs are kept apart even when the names match. Tags are shared by normalized name, and genres are tags with `is_genre`.
+`persons`, `companies` and `tags` are stored once and referenced from entries. Each has an `*_external_ids` table. People and companies known only by name (no IDs) are shared by their normalized name; ones with IDs are kept apart even when the names match. Tags are shared by their `key`, which is made of the kind and the path: `genre/fantasy` for the genre, `tag/settings/fantasy` for the tag "Fantasy" under "Settings". A genre and a tag with the same name, or two tags of the same name under different parents, stay separate. Genres are tags with `is_genre`.
+
+## Maintenance
+
+`maintenance_jobs` holds work a migration leaves for meta to do, such as rebuilding every entry after the merge rules change. `meta serve` runs pending jobs in the background at start (the API answers meanwhile, with the old data until each entry is rebuilt), and `meta rebuild` runs them, or a full rebuild, by hand. A rebuild works from the stored provider records and downloads nothing.
 
 ## Syncs
 

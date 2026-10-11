@@ -455,19 +455,21 @@ components:
           items:
             type: string
           title: genres
-          description: Genre names.
+          description: Genres, by key ("genre/romance") or name. An entry must have any of them.
         tags:
           type: array
           items:
             type: string
           title: tags
-          description: Tag names. An entry must have all of them.
+          description: |-
+            Tags, by key ("tag/settings/school") or name. An entry must have all of
+             them.
         excludeTags:
           type: array
           items:
             type: string
           title: exclude_tags
-          description: Tag or genre names to leave out.
+          description: Tags or genres, by key or name, to leave out.
         types:
           type: array
           items:
@@ -582,7 +584,7 @@ components:
           items:
             type: string
           title: genres
-          description: Genre names.
+          description: Genre names, in the order the provider lists them.
         rating:
           type:
             - number
@@ -667,6 +669,20 @@ components:
           title: run
       title: GetSyncRunResponse
       additionalProperties: false
+    panelarr.meta.v1.LanguageCount:
+      type: object
+      properties:
+        code:
+          type: string
+          title: code
+          description: BCP 47 tag, e.g. "ja", "ko", "zh-Hant".
+        entries:
+          type: string
+          title: entries
+          format: int64
+          description: Active entries with it.
+      title: LanguageCount
+      additionalProperties: false
     panelarr.meta.v1.ListAssignmentsRequest:
       type: object
       title: ListAssignmentsRequest
@@ -698,6 +714,27 @@ components:
             $ref: '#/components/schemas/panelarr.meta.v1.Client'
           title: clients
       title: ListClientsResponse
+      additionalProperties: false
+    panelarr.meta.v1.ListLanguagesRequest:
+      type: object
+      title: ListLanguagesRequest
+      additionalProperties: false
+    panelarr.meta.v1.ListLanguagesResponse:
+      type: object
+      properties:
+        original:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.meta.v1.LanguageCount'
+          title: original
+          description: Original languages of entries, most common first.
+        titles:
+          type: array
+          items:
+            $ref: '#/components/schemas/panelarr.meta.v1.LanguageCount'
+          title: titles
+          description: Languages of titles, most common first.
+      title: ListLanguagesResponse
       additionalProperties: false
     panelarr.meta.v1.ListProfilesRequest:
       type: object
@@ -794,6 +831,16 @@ components:
         pageToken:
           type: string
           title: page_token
+        query:
+          type: string
+          title: query
+          description: |-
+            Words to find anywhere in the name or path, case-insensitive (for
+             type-ahead).
+        tagsOnly:
+          type: boolean
+          title: tags_only
+          description: Only tags (no genres).
       title: ListTagsRequest
       additionalProperties: false
     panelarr.meta.v1.ListTagsResponse:
@@ -2744,9 +2791,27 @@ components:
           items:
             $ref: '#/components/schemas/panelarr.metadata.v1.ExternalId'
           title: external_ids
+        path:
+          type: array
+          items:
+            type: string
+          title: path
+          description: |-
+            Names of the ancestors, root first, e.g. ["Settings"] for "Settings >
+             Fantasy". Empty for top-level tags and for genres.
+        key:
+          type: string
+          title: key
+          description: |-
+            meta's stable key for the tag, used in filters: "genre/fantasy",
+             "tag/settings/fantasy". Set by meta when serving.
       title: Tag
       additionalProperties: false
-      description: Tag is shared between entries. Genres are tags with is_genre set.
+      description: |-
+        Tag is shared between entries. Genres are tags with is_genre set.
+
+         A tag is identified by its kind and path, not by its name alone: the genre
+         "Fantasy" and a tag "Settings > Fantasy" are different tags.
     panelarr.metadata.v1.TagAssignment:
       type: object
       properties:
@@ -3419,7 +3484,7 @@ paths:
       parameters:
         - name: filter.genres
           in: query
-          description: Genre names.
+          description: Genres, by key ("genre/romance") or name. An entry must have any of them.
           schema:
             type: array
             items:
@@ -3427,7 +3492,9 @@ paths:
             title: genres
         - name: filter.tags
           in: query
-          description: Tag names. An entry must have all of them.
+          description: |-
+            Tags, by key ("tag/settings/school") or name. An entry must have all of
+             them.
           schema:
             type: array
             items:
@@ -3435,7 +3502,7 @@ paths:
             title: tags
         - name: filter.excludeTags
           in: query
-          description: Tag or genre names to leave out.
+          description: Tags or genres, by key or name, to leave out.
           schema:
             type: array
             items:
@@ -3570,6 +3637,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/panelarr.meta.v1.GetEntryResponse'
+  /v1/languages:
+    get:
+      tags:
+        - MetaService
+      summary: ListLanguages
+      description: |-
+        ListLanguages lists the original languages and title languages of the
+         catalogue, with entry counts, for building browse filters.
+      operationId: MetaService_ListLanguages
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/panelarr.meta.v1.ListLanguagesResponse'
   /v1/lookup/{provider}/{externalId}:
     get:
       tags:
@@ -3632,7 +3715,7 @@ paths:
             title: query
         - name: filter.genres
           in: query
-          description: Genre names.
+          description: Genres, by key ("genre/romance") or name. An entry must have any of them.
           schema:
             type: array
             items:
@@ -3640,7 +3723,9 @@ paths:
             title: genres
         - name: filter.tags
           in: query
-          description: Tag names. An entry must have all of them.
+          description: |-
+            Tags, by key ("tag/settings/school") or name. An entry must have all of
+             them.
           schema:
             type: array
             items:
@@ -3648,7 +3733,7 @@ paths:
             title: tags
         - name: filter.excludeTags
           in: query
-          description: Tag or genre names to leave out.
+          description: Tags or genres, by key or name, to leave out.
           schema:
             type: array
             items:
@@ -3788,6 +3873,20 @@ paths:
           schema:
             type: string
             title: page_token
+        - name: query
+          in: query
+          description: |-
+            Words to find anywhere in the name or path, case-insensitive (for
+             type-ahead).
+          schema:
+            type: string
+            title: query
+        - name: tagsOnly
+          in: query
+          description: Only tags (no genres).
+          schema:
+            type: boolean
+            title: tags_only
       responses:
         "200":
           description: Success

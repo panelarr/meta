@@ -46,6 +46,9 @@ const (
 	MetaServiceLookupExternalProcedure = "/panelarr.meta.v1.MetaService/LookupExternal"
 	// MetaServiceListTagsProcedure is the fully-qualified name of the MetaService's ListTags RPC.
 	MetaServiceListTagsProcedure = "/panelarr.meta.v1.MetaService/ListTags"
+	// MetaServiceListLanguagesProcedure is the fully-qualified name of the MetaService's ListLanguages
+	// RPC.
+	MetaServiceListLanguagesProcedure = "/panelarr.meta.v1.MetaService/ListLanguages"
 )
 
 // MetaServiceClient is a client for the panelarr.meta.v1.MetaService service.
@@ -66,6 +69,9 @@ type MetaServiceClient interface {
 	// ListTags lists the tags and genres meta knows, with entry counts, for
 	// building browse filters.
 	ListTags(context.Context, *connect.Request[v1.ListTagsRequest]) (*connect.Response[v1.ListTagsResponse], error)
+	// ListLanguages lists the original languages and title languages of the
+	// catalogue, with entry counts, for building browse filters.
+	ListLanguages(context.Context, *connect.Request[v1.ListLanguagesRequest]) (*connect.Response[v1.ListLanguagesResponse], error)
 }
 
 // NewMetaServiceClient constructs a client for the panelarr.meta.v1.MetaService service. By
@@ -109,6 +115,12 @@ func NewMetaServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(metaServiceMethods.ByName("ListTags")),
 			connect.WithClientOptions(opts...),
 		),
+		listLanguages: connect.NewClient[v1.ListLanguagesRequest, v1.ListLanguagesResponse](
+			httpClient,
+			baseURL+MetaServiceListLanguagesProcedure,
+			connect.WithSchema(metaServiceMethods.ByName("ListLanguages")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -119,6 +131,7 @@ type metaServiceClient struct {
 	getEntry       *connect.Client[v1.GetEntryRequest, v1.GetEntryResponse]
 	lookupExternal *connect.Client[v1.LookupExternalRequest, v1.LookupExternalResponse]
 	listTags       *connect.Client[v1.ListTagsRequest, v1.ListTagsResponse]
+	listLanguages  *connect.Client[v1.ListLanguagesRequest, v1.ListLanguagesResponse]
 }
 
 // Browse calls panelarr.meta.v1.MetaService.Browse.
@@ -146,6 +159,11 @@ func (c *metaServiceClient) ListTags(ctx context.Context, req *connect.Request[v
 	return c.listTags.CallUnary(ctx, req)
 }
 
+// ListLanguages calls panelarr.meta.v1.MetaService.ListLanguages.
+func (c *metaServiceClient) ListLanguages(ctx context.Context, req *connect.Request[v1.ListLanguagesRequest]) (*connect.Response[v1.ListLanguagesResponse], error) {
+	return c.listLanguages.CallUnary(ctx, req)
+}
+
 // MetaServiceHandler is an implementation of the panelarr.meta.v1.MetaService service.
 type MetaServiceHandler interface {
 	// Browse lists entries with filters and a sort order, for discovery pages
@@ -164,6 +182,9 @@ type MetaServiceHandler interface {
 	// ListTags lists the tags and genres meta knows, with entry counts, for
 	// building browse filters.
 	ListTags(context.Context, *connect.Request[v1.ListTagsRequest]) (*connect.Response[v1.ListTagsResponse], error)
+	// ListLanguages lists the original languages and title languages of the
+	// catalogue, with entry counts, for building browse filters.
+	ListLanguages(context.Context, *connect.Request[v1.ListLanguagesRequest]) (*connect.Response[v1.ListLanguagesResponse], error)
 }
 
 // NewMetaServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -203,6 +224,12 @@ func NewMetaServiceHandler(svc MetaServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(metaServiceMethods.ByName("ListTags")),
 		connect.WithHandlerOptions(opts...),
 	)
+	metaServiceListLanguagesHandler := connect.NewUnaryHandler(
+		MetaServiceListLanguagesProcedure,
+		svc.ListLanguages,
+		connect.WithSchema(metaServiceMethods.ByName("ListLanguages")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/panelarr.meta.v1.MetaService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case MetaServiceBrowseProcedure:
@@ -215,6 +242,8 @@ func NewMetaServiceHandler(svc MetaServiceHandler, opts ...connect.HandlerOption
 			metaServiceLookupExternalHandler.ServeHTTP(w, r)
 		case MetaServiceListTagsProcedure:
 			metaServiceListTagsHandler.ServeHTTP(w, r)
+		case MetaServiceListLanguagesProcedure:
+			metaServiceListLanguagesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -242,4 +271,8 @@ func (UnimplementedMetaServiceHandler) LookupExternal(context.Context, *connect.
 
 func (UnimplementedMetaServiceHandler) ListTags(context.Context, *connect.Request[v1.ListTagsRequest]) (*connect.Response[v1.ListTagsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("panelarr.meta.v1.MetaService.ListTags is not implemented"))
+}
+
+func (UnimplementedMetaServiceHandler) ListLanguages(context.Context, *connect.Request[v1.ListLanguagesRequest]) (*connect.Response[v1.ListLanguagesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("panelarr.meta.v1.MetaService.ListLanguages is not implemented"))
 }

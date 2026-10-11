@@ -238,6 +238,9 @@ message License {
 }
 
 // Tag is shared between entries. Genres are tags with is_genre set.
+//
+// A tag is identified by its kind and path, not by its name alone: the genre
+// "Fantasy" and a tag "Settings > Fantasy" are different tags.
 message Tag {
   // meta's ID. Empty in records sent by plugins; set by meta when serving.
   string id = 1;
@@ -257,6 +260,12 @@ message Tag {
   int64 entry_count = 11;
   repeated string aliases = 12;
   repeated ExternalId external_ids = 13;
+  // Names of the ancestors, root first, e.g. ["Settings"] for "Settings >
+  // Fantasy". Empty for top-level tags and for genres.
+  repeated string path = 14;
+  // meta's stable key for the tag, used in filters: "genre/fantasy",
+  // "tag/settings/fantasy". Set by meta when serving.
+  string key = 15;
 }
 
 message TagAssignment {

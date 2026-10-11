@@ -3,6 +3,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { type FormEvent, useState } from "react";
+import icon from "../assets/panelarr-icon.svg";
 import { safeRedirect, verifyAdminToken } from "../auth/login";
 import { session } from "../auth/session";
 import { ErrorBox, Field } from "../components/ui";
@@ -30,7 +31,12 @@ export function LoginPage() {
   return (
     <main className="login">
       <form className="card login-card" onSubmit={submit}>
-        <h1>meta admin</h1>
+        <div className="login-brand">
+          <img src={icon} alt="" width={56} height={56} />
+          <h1>
+            <span className="brand-name">Panelarr</span> <span className="brand-product">Meta</span>
+          </h1>
+        </div>
         {search.expired ? (
           <p className="notice" role="status">
             Your session ended: the server no longer accepts the token. Sign in again.

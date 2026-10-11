@@ -6,6 +6,7 @@ import { useState } from "react";
 import { api, unwrap } from "../api/client";
 import type { Attribution, Entry, PartialDate } from "../api/types";
 import { Badge, Empty, ErrorBox, Loading, Mono, PageHeader } from "../components/ui";
+import { tagLabel } from "../lib/catalogue";
 import { enumLabel, formatDate, languageLabel } from "../lib/format";
 import { Cover } from "./CataloguePage";
 
@@ -205,15 +206,22 @@ function EntryDetails({ entry: e }: { entry: Entry }) {
             ) : null}
           </header>
           <div className="badges">
-            {visibleTags.map((t, i) => (
-              <Badge
-                key={i}
-                tone={t.tag?.isGenre ? "info" : t.isSpoiler || t.tag?.isSpoiler ? "warn" : "neutral"}
-                title={t.tag?.description}
-              >
-                {t.tag?.name}
-              </Badge>
-            ))}
+            {visibleTags.map((t, i) => {
+              const tag = t.tag ?? {};
+              const tone = tag.isGenre ? "info" : t.isSpoiler || tag.isSpoiler ? "warn" : "neutral";
+              const search = tag.isGenre ? { genre: [tag.name ?? ""] } : { tag: [tag.key || tag.name || ""] };
+              return (
+                <Link
+                  key={i}
+                  to="/catalogue"
+                  search={search}
+                  className={`badge badge-${tone} chip-button`}
+                  title={[tag.description, `Show entries with ${tagLabel(tag)}`].filter(Boolean).join("\n")}
+                >
+                  {tagLabel(tag)}
+                </Link>
+              );
+            })}
           </div>
         </section>
       ) : null}

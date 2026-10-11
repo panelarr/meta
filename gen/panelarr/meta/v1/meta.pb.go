@@ -107,7 +107,7 @@ type EntrySummary struct {
 	// Year the work started, 0 if unknown.
 	Year  int32     `protobuf:"varint,7,opt,name=year,proto3" json:"year,omitempty"`
 	Cover *v1.Image `protobuf:"bytes,8,opt,name=cover,proto3" json:"cover,omitempty"`
-	// Genre names.
+	// Genre names, in the order the provider lists them.
 	Genres []string `protobuf:"bytes,9,rep,name=genres,proto3" json:"genres,omitempty"`
 	// Rating on a 0..100 scale from the preferred provider, if any.
 	Rating *float64 `protobuf:"fixed64,10,opt,name=rating,proto3,oneof" json:"rating,omitempty"`
@@ -643,11 +643,12 @@ func (x *EntrySource) GetProviderUpdatedAt() *timestamppb.Timestamp {
 // values; different fields must all match.
 type EntryFilter struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Genre names.
+	// Genres, by key ("genre/romance") or name. An entry must have any of them.
 	Genres []string `protobuf:"bytes,1,rep,name=genres,proto3" json:"genres,omitempty"`
-	// Tag names. An entry must have all of them.
+	// Tags, by key ("tag/settings/school") or name. An entry must have all of
+	// them.
 	Tags []string `protobuf:"bytes,2,rep,name=tags,proto3" json:"tags,omitempty"`
-	// Tag or genre names to leave out.
+	// Tags or genres, by key or name, to leave out.
 	ExcludeTags    []string           `protobuf:"bytes,3,rep,name=exclude_tags,json=excludeTags,proto3" json:"exclude_tags,omitempty"`
 	Types          []v1.EntryType     `protobuf:"varint,4,rep,packed,name=types,proto3,enum=panelarr.metadata.v1.EntryType" json:"types,omitempty"`
 	Statuses       []v1.EntryStatus   `protobuf:"varint,5,rep,packed,name=statuses,proto3,enum=panelarr.metadata.v1.EntryStatus" json:"statuses,omitempty"`
@@ -1389,8 +1390,13 @@ type ListTagsRequest struct {
 	// Prefix filter on the name, case-insensitive.
 	Prefix string `protobuf:"bytes,2,opt,name=prefix,proto3" json:"prefix,omitempty"`
 	// 1..1000, default 200.
-	PageSize      int32  `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
-	PageToken     string `protobuf:"bytes,4,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	PageSize  int32  `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	PageToken string `protobuf:"bytes,4,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	// Words to find anywhere in the name or path, case-insensitive (for
+	// type-ahead).
+	Query string `protobuf:"bytes,5,opt,name=query,proto3" json:"query,omitempty"`
+	// Only tags (no genres).
+	TagsOnly      bool `protobuf:"varint,6,opt,name=tags_only,json=tagsOnly,proto3" json:"tags_only,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1453,6 +1459,164 @@ func (x *ListTagsRequest) GetPageToken() string {
 	return ""
 }
 
+func (x *ListTagsRequest) GetQuery() string {
+	if x != nil {
+		return x.Query
+	}
+	return ""
+}
+
+func (x *ListTagsRequest) GetTagsOnly() bool {
+	if x != nil {
+		return x.TagsOnly
+	}
+	return false
+}
+
+type ListLanguagesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListLanguagesRequest) Reset() {
+	*x = ListLanguagesRequest{}
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListLanguagesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListLanguagesRequest) ProtoMessage() {}
+
+func (x *ListLanguagesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListLanguagesRequest.ProtoReflect.Descriptor instead.
+func (*ListLanguagesRequest) Descriptor() ([]byte, []int) {
+	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{15}
+}
+
+type LanguageCount struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// BCP 47 tag, e.g. "ja", "ko", "zh-Hant".
+	Code string `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	// Active entries with it.
+	Entries       int64 `protobuf:"varint,2,opt,name=entries,proto3" json:"entries,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LanguageCount) Reset() {
+	*x = LanguageCount{}
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LanguageCount) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LanguageCount) ProtoMessage() {}
+
+func (x *LanguageCount) ProtoReflect() protoreflect.Message {
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LanguageCount.ProtoReflect.Descriptor instead.
+func (*LanguageCount) Descriptor() ([]byte, []int) {
+	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *LanguageCount) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *LanguageCount) GetEntries() int64 {
+	if x != nil {
+		return x.Entries
+	}
+	return 0
+}
+
+type ListLanguagesResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Original languages of entries, most common first.
+	Original []*LanguageCount `protobuf:"bytes,1,rep,name=original,proto3" json:"original,omitempty"`
+	// Languages of titles, most common first.
+	Titles        []*LanguageCount `protobuf:"bytes,2,rep,name=titles,proto3" json:"titles,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListLanguagesResponse) Reset() {
+	*x = ListLanguagesResponse{}
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListLanguagesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListLanguagesResponse) ProtoMessage() {}
+
+func (x *ListLanguagesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListLanguagesResponse.ProtoReflect.Descriptor instead.
+func (*ListLanguagesResponse) Descriptor() ([]byte, []int) {
+	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *ListLanguagesResponse) GetOriginal() []*LanguageCount {
+	if x != nil {
+		return x.Original
+	}
+	return nil
+}
+
+func (x *ListLanguagesResponse) GetTitles() []*LanguageCount {
+	if x != nil {
+		return x.Titles
+	}
+	return nil
+}
+
 type ListTagsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Tags          []*v1.Tag              `protobuf:"bytes,1,rep,name=tags,proto3" json:"tags,omitempty"`
@@ -1463,7 +1627,7 @@ type ListTagsResponse struct {
 
 func (x *ListTagsResponse) Reset() {
 	*x = ListTagsResponse{}
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[15]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1475,7 +1639,7 @@ func (x *ListTagsResponse) String() string {
 func (*ListTagsResponse) ProtoMessage() {}
 
 func (x *ListTagsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[15]
+	mi := &file_panelarr_meta_v1_meta_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1488,7 +1652,7 @@ func (x *ListTagsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTagsResponse.ProtoReflect.Descriptor instead.
 func (*ListTagsResponse) Descriptor() ([]byte, []int) {
-	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{15}
+	return file_panelarr_meta_v1_meta_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ListTagsResponse) GetTags() []*v1.Tag {
@@ -1633,14 +1797,23 @@ const file_panelarr_meta_v1_meta_proto_rawDesc = "" +
 	"\arefresh\x18\x03 \x01(\bR\arefresh\x12\x1a\n" +
 	"\blanguage\x18\x04 \x01(\tR\blanguage\"G\n" +
 	"\x16LookupExternalResponse\x12-\n" +
-	"\x05entry\x18\x01 \x01(\v2\x17.panelarr.meta.v1.EntryR\x05entry\"\x86\x01\n" +
+	"\x05entry\x18\x01 \x01(\v2\x17.panelarr.meta.v1.EntryR\x05entry\"\xb9\x01\n" +
 	"\x0fListTagsRequest\x12\x1f\n" +
 	"\vgenres_only\x18\x01 \x01(\bR\n" +
 	"genresOnly\x12\x16\n" +
 	"\x06prefix\x18\x02 \x01(\tR\x06prefix\x12\x1b\n" +
 	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
-	"page_token\x18\x04 \x01(\tR\tpageToken\"i\n" +
+	"page_token\x18\x04 \x01(\tR\tpageToken\x12\x14\n" +
+	"\x05query\x18\x05 \x01(\tR\x05query\x12\x1b\n" +
+	"\ttags_only\x18\x06 \x01(\bR\btagsOnly\"\x16\n" +
+	"\x14ListLanguagesRequest\"=\n" +
+	"\rLanguageCount\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\x12\x18\n" +
+	"\aentries\x18\x02 \x01(\x03R\aentries\"\x8d\x01\n" +
+	"\x15ListLanguagesResponse\x12;\n" +
+	"\boriginal\x18\x01 \x03(\v2\x1f.panelarr.meta.v1.LanguageCountR\boriginal\x127\n" +
+	"\x06titles\x18\x02 \x03(\v2\x1f.panelarr.meta.v1.LanguageCountR\x06titles\"i\n" +
 	"\x10ListTagsResponse\x12-\n" +
 	"\x04tags\x18\x01 \x03(\v2\x19.panelarr.metadata.v1.TagR\x04tags\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken*\xb6\x01\n" +
@@ -1651,7 +1824,7 @@ const file_panelarr_meta_v1_meta_proto_rawDesc = "" +
 	"\x12SORT_FIELD_UPDATED\x10\x03\x12\x13\n" +
 	"\x0fSORT_FIELD_YEAR\x10\x04\x12\x14\n" +
 	"\x10SORT_FIELD_TITLE\x10\x05\x12\x18\n" +
-	"\x14SORT_FIELD_RELEVANCE\x10\x062\xb5\x04\n" +
+	"\x14SORT_FIELD_RELEVANCE\x10\x062\xae\x05\n" +
 	"\vMetaService\x12`\n" +
 	"\x06Browse\x12\x1f.panelarr.meta.v1.BrowseRequest\x1a .panelarr.meta.v1.BrowseResponse\"\x13\x82\xd3\xe4\x93\x02\r\x12\v/v1/entries\x12_\n" +
 	"\x06Search\x12\x1f.panelarr.meta.v1.SearchRequest\x1a .panelarr.meta.v1.SearchResponse\"\x12\x82\xd3\xe4\x93\x02\f\x12\n" +
@@ -1659,7 +1832,8 @@ const file_panelarr_meta_v1_meta_proto_rawDesc = "" +
 	"\bGetEntry\x12!.panelarr.meta.v1.GetEntryRequest\x1a\".panelarr.meta.v1.GetEntryResponse\"\x18\x82\xd3\xe4\x93\x02\x12\x12\x10/v1/entries/{id}\x12\x90\x01\n" +
 	"\x0eLookupExternal\x12'.panelarr.meta.v1.LookupExternalRequest\x1a(.panelarr.meta.v1.LookupExternalResponse\"+\x82\xd3\xe4\x93\x02%\x12#/v1/lookup/{provider}/{external_id}\x12c\n" +
 	"\bListTags\x12!.panelarr.meta.v1.ListTagsRequest\x1a\".panelarr.meta.v1.ListTagsResponse\"\x10\x82\xd3\xe4\x93\x02\n" +
-	"\x12\b/v1/tagsB\xb9\x01\n" +
+	"\x12\b/v1/tags\x12w\n" +
+	"\rListLanguages\x12&.panelarr.meta.v1.ListLanguagesRequest\x1a'.panelarr.meta.v1.ListLanguagesResponse\"\x15\x82\xd3\xe4\x93\x02\x0f\x12\r/v1/languagesB\xb9\x01\n" +
 	"\x14com.panelarr.meta.v1B\tMetaProtoP\x01Z4github.com/panelarr/meta/gen/panelarr/meta/v1;metav1\xa2\x02\x03PMX\xaa\x02\x10Panelarr.Meta.V1\xca\x02\x10Panelarr\\Meta\\V1\xe2\x02\x1cPanelarr\\Meta\\V1\\GPBMetadata\xea\x02\x12Panelarr::Meta::V1b\x06proto3"
 
 var (
@@ -1675,7 +1849,7 @@ func file_panelarr_meta_v1_meta_proto_rawDescGZIP() []byte {
 }
 
 var file_panelarr_meta_v1_meta_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_panelarr_meta_v1_meta_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_panelarr_meta_v1_meta_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_panelarr_meta_v1_meta_proto_goTypes = []any{
 	(SortField)(0),                 // 0: panelarr.meta.v1.SortField
 	(*EntrySummary)(nil),           // 1: panelarr.meta.v1.EntrySummary
@@ -1693,69 +1867,72 @@ var file_panelarr_meta_v1_meta_proto_goTypes = []any{
 	(*LookupExternalRequest)(nil),  // 13: panelarr.meta.v1.LookupExternalRequest
 	(*LookupExternalResponse)(nil), // 14: panelarr.meta.v1.LookupExternalResponse
 	(*ListTagsRequest)(nil),        // 15: panelarr.meta.v1.ListTagsRequest
-	(*ListTagsResponse)(nil),       // 16: panelarr.meta.v1.ListTagsResponse
-	nil,                            // 17: panelarr.meta.v1.Entry.FieldSourcesEntry
-	(v1.EntryType)(0),              // 18: panelarr.metadata.v1.EntryType
-	(v1.EntryStatus)(0),            // 19: panelarr.metadata.v1.EntryStatus
-	(v1.ContentRating)(0),          // 20: panelarr.metadata.v1.ContentRating
-	(*v1.Image)(nil),               // 21: panelarr.metadata.v1.Image
-	(*v1.Attribution)(nil),         // 22: panelarr.metadata.v1.Attribution
-	(*v1.Title)(nil),               // 23: panelarr.metadata.v1.Title
-	(*v1.Description)(nil),         // 24: panelarr.metadata.v1.Description
-	(*v1.Credit)(nil),              // 25: panelarr.metadata.v1.Credit
-	(*v1.CompanyCredit)(nil),       // 26: panelarr.metadata.v1.CompanyCredit
-	(*v1.License)(nil),             // 27: panelarr.metadata.v1.License
-	(*v1.TagAssignment)(nil),       // 28: panelarr.metadata.v1.TagAssignment
-	(*v1.Relation)(nil),            // 29: panelarr.metadata.v1.Relation
-	(*v1.Adaptation)(nil),          // 30: panelarr.metadata.v1.Adaptation
-	(*v1.Item)(nil),                // 31: panelarr.metadata.v1.Item
-	(*v1.Progress)(nil),            // 32: panelarr.metadata.v1.Progress
-	(*v1.Dates)(nil),               // 33: panelarr.metadata.v1.Dates
-	(*v1.Link)(nil),                // 34: panelarr.metadata.v1.Link
-	(*v1.ExternalId)(nil),          // 35: panelarr.metadata.v1.ExternalId
-	(v1.EntryState)(0),             // 36: panelarr.metadata.v1.EntryState
-	(*timestamppb.Timestamp)(nil),  // 37: google.protobuf.Timestamp
-	(*v1.Stats)(nil),               // 38: panelarr.metadata.v1.Stats
-	(*v1.Tag)(nil),                 // 39: panelarr.metadata.v1.Tag
+	(*ListLanguagesRequest)(nil),   // 16: panelarr.meta.v1.ListLanguagesRequest
+	(*LanguageCount)(nil),          // 17: panelarr.meta.v1.LanguageCount
+	(*ListLanguagesResponse)(nil),  // 18: panelarr.meta.v1.ListLanguagesResponse
+	(*ListTagsResponse)(nil),       // 19: panelarr.meta.v1.ListTagsResponse
+	nil,                            // 20: panelarr.meta.v1.Entry.FieldSourcesEntry
+	(v1.EntryType)(0),              // 21: panelarr.metadata.v1.EntryType
+	(v1.EntryStatus)(0),            // 22: panelarr.metadata.v1.EntryStatus
+	(v1.ContentRating)(0),          // 23: panelarr.metadata.v1.ContentRating
+	(*v1.Image)(nil),               // 24: panelarr.metadata.v1.Image
+	(*v1.Attribution)(nil),         // 25: panelarr.metadata.v1.Attribution
+	(*v1.Title)(nil),               // 26: panelarr.metadata.v1.Title
+	(*v1.Description)(nil),         // 27: panelarr.metadata.v1.Description
+	(*v1.Credit)(nil),              // 28: panelarr.metadata.v1.Credit
+	(*v1.CompanyCredit)(nil),       // 29: panelarr.metadata.v1.CompanyCredit
+	(*v1.License)(nil),             // 30: panelarr.metadata.v1.License
+	(*v1.TagAssignment)(nil),       // 31: panelarr.metadata.v1.TagAssignment
+	(*v1.Relation)(nil),            // 32: panelarr.metadata.v1.Relation
+	(*v1.Adaptation)(nil),          // 33: panelarr.metadata.v1.Adaptation
+	(*v1.Item)(nil),                // 34: panelarr.metadata.v1.Item
+	(*v1.Progress)(nil),            // 35: panelarr.metadata.v1.Progress
+	(*v1.Dates)(nil),               // 36: panelarr.metadata.v1.Dates
+	(*v1.Link)(nil),                // 37: panelarr.metadata.v1.Link
+	(*v1.ExternalId)(nil),          // 38: panelarr.metadata.v1.ExternalId
+	(v1.EntryState)(0),             // 39: panelarr.metadata.v1.EntryState
+	(*timestamppb.Timestamp)(nil),  // 40: google.protobuf.Timestamp
+	(*v1.Stats)(nil),               // 41: panelarr.metadata.v1.Stats
+	(*v1.Tag)(nil),                 // 42: panelarr.metadata.v1.Tag
 }
 var file_panelarr_meta_v1_meta_proto_depIdxs = []int32{
-	18, // 0: panelarr.meta.v1.EntrySummary.type:type_name -> panelarr.metadata.v1.EntryType
-	19, // 1: panelarr.meta.v1.EntrySummary.status:type_name -> panelarr.metadata.v1.EntryStatus
-	20, // 2: panelarr.meta.v1.EntrySummary.content_rating:type_name -> panelarr.metadata.v1.ContentRating
-	21, // 3: panelarr.meta.v1.EntrySummary.cover:type_name -> panelarr.metadata.v1.Image
-	22, // 4: panelarr.meta.v1.EntrySummary.attributions:type_name -> panelarr.metadata.v1.Attribution
-	18, // 5: panelarr.meta.v1.Entry.type:type_name -> panelarr.metadata.v1.EntryType
-	19, // 6: panelarr.meta.v1.Entry.status:type_name -> panelarr.metadata.v1.EntryStatus
-	20, // 7: panelarr.meta.v1.Entry.content_rating:type_name -> panelarr.metadata.v1.ContentRating
-	23, // 8: panelarr.meta.v1.Entry.titles:type_name -> panelarr.metadata.v1.Title
-	24, // 9: panelarr.meta.v1.Entry.descriptions:type_name -> panelarr.metadata.v1.Description
-	25, // 10: panelarr.meta.v1.Entry.credits:type_name -> panelarr.metadata.v1.Credit
-	26, // 11: panelarr.meta.v1.Entry.companies:type_name -> panelarr.metadata.v1.CompanyCredit
-	27, // 12: panelarr.meta.v1.Entry.licenses:type_name -> panelarr.metadata.v1.License
-	28, // 13: panelarr.meta.v1.Entry.tags:type_name -> panelarr.metadata.v1.TagAssignment
-	29, // 14: panelarr.meta.v1.Entry.relations:type_name -> panelarr.metadata.v1.Relation
-	30, // 15: panelarr.meta.v1.Entry.adaptations:type_name -> panelarr.metadata.v1.Adaptation
-	31, // 16: panelarr.meta.v1.Entry.items:type_name -> panelarr.metadata.v1.Item
-	32, // 17: panelarr.meta.v1.Entry.progress:type_name -> panelarr.metadata.v1.Progress
-	33, // 18: panelarr.meta.v1.Entry.dates:type_name -> panelarr.metadata.v1.Dates
-	21, // 19: panelarr.meta.v1.Entry.images:type_name -> panelarr.metadata.v1.Image
-	34, // 20: panelarr.meta.v1.Entry.links:type_name -> panelarr.metadata.v1.Link
-	35, // 21: panelarr.meta.v1.Entry.external_ids:type_name -> panelarr.metadata.v1.ExternalId
+	21, // 0: panelarr.meta.v1.EntrySummary.type:type_name -> panelarr.metadata.v1.EntryType
+	22, // 1: panelarr.meta.v1.EntrySummary.status:type_name -> panelarr.metadata.v1.EntryStatus
+	23, // 2: panelarr.meta.v1.EntrySummary.content_rating:type_name -> panelarr.metadata.v1.ContentRating
+	24, // 3: panelarr.meta.v1.EntrySummary.cover:type_name -> panelarr.metadata.v1.Image
+	25, // 4: panelarr.meta.v1.EntrySummary.attributions:type_name -> panelarr.metadata.v1.Attribution
+	21, // 5: panelarr.meta.v1.Entry.type:type_name -> panelarr.metadata.v1.EntryType
+	22, // 6: panelarr.meta.v1.Entry.status:type_name -> panelarr.metadata.v1.EntryStatus
+	23, // 7: panelarr.meta.v1.Entry.content_rating:type_name -> panelarr.metadata.v1.ContentRating
+	26, // 8: panelarr.meta.v1.Entry.titles:type_name -> panelarr.metadata.v1.Title
+	27, // 9: panelarr.meta.v1.Entry.descriptions:type_name -> panelarr.metadata.v1.Description
+	28, // 10: panelarr.meta.v1.Entry.credits:type_name -> panelarr.metadata.v1.Credit
+	29, // 11: panelarr.meta.v1.Entry.companies:type_name -> panelarr.metadata.v1.CompanyCredit
+	30, // 12: panelarr.meta.v1.Entry.licenses:type_name -> panelarr.metadata.v1.License
+	31, // 13: panelarr.meta.v1.Entry.tags:type_name -> panelarr.metadata.v1.TagAssignment
+	32, // 14: panelarr.meta.v1.Entry.relations:type_name -> panelarr.metadata.v1.Relation
+	33, // 15: panelarr.meta.v1.Entry.adaptations:type_name -> panelarr.metadata.v1.Adaptation
+	34, // 16: panelarr.meta.v1.Entry.items:type_name -> panelarr.metadata.v1.Item
+	35, // 17: panelarr.meta.v1.Entry.progress:type_name -> panelarr.metadata.v1.Progress
+	36, // 18: panelarr.meta.v1.Entry.dates:type_name -> panelarr.metadata.v1.Dates
+	24, // 19: panelarr.meta.v1.Entry.images:type_name -> panelarr.metadata.v1.Image
+	37, // 20: panelarr.meta.v1.Entry.links:type_name -> panelarr.metadata.v1.Link
+	38, // 21: panelarr.meta.v1.Entry.external_ids:type_name -> panelarr.metadata.v1.ExternalId
 	3,  // 22: panelarr.meta.v1.Entry.stats:type_name -> panelarr.meta.v1.ProviderStats
-	36, // 23: panelarr.meta.v1.Entry.state:type_name -> panelarr.metadata.v1.EntryState
+	39, // 23: panelarr.meta.v1.Entry.state:type_name -> panelarr.metadata.v1.EntryState
 	4,  // 24: panelarr.meta.v1.Entry.sources:type_name -> panelarr.meta.v1.EntrySource
-	17, // 25: panelarr.meta.v1.Entry.field_sources:type_name -> panelarr.meta.v1.Entry.FieldSourcesEntry
-	37, // 26: panelarr.meta.v1.Entry.created_at:type_name -> google.protobuf.Timestamp
-	37, // 27: panelarr.meta.v1.Entry.updated_at:type_name -> google.protobuf.Timestamp
-	38, // 28: panelarr.meta.v1.ProviderStats.stats:type_name -> panelarr.metadata.v1.Stats
-	35, // 29: panelarr.meta.v1.EntrySource.ref:type_name -> panelarr.metadata.v1.ExternalId
-	22, // 30: panelarr.meta.v1.EntrySource.attribution:type_name -> panelarr.metadata.v1.Attribution
-	36, // 31: panelarr.meta.v1.EntrySource.state:type_name -> panelarr.metadata.v1.EntryState
-	37, // 32: panelarr.meta.v1.EntrySource.fetched_at:type_name -> google.protobuf.Timestamp
-	37, // 33: panelarr.meta.v1.EntrySource.provider_updated_at:type_name -> google.protobuf.Timestamp
-	18, // 34: panelarr.meta.v1.EntryFilter.types:type_name -> panelarr.metadata.v1.EntryType
-	19, // 35: panelarr.meta.v1.EntryFilter.statuses:type_name -> panelarr.metadata.v1.EntryStatus
-	20, // 36: panelarr.meta.v1.EntryFilter.content_ratings:type_name -> panelarr.metadata.v1.ContentRating
+	20, // 25: panelarr.meta.v1.Entry.field_sources:type_name -> panelarr.meta.v1.Entry.FieldSourcesEntry
+	40, // 26: panelarr.meta.v1.Entry.created_at:type_name -> google.protobuf.Timestamp
+	40, // 27: panelarr.meta.v1.Entry.updated_at:type_name -> google.protobuf.Timestamp
+	41, // 28: panelarr.meta.v1.ProviderStats.stats:type_name -> panelarr.metadata.v1.Stats
+	38, // 29: panelarr.meta.v1.EntrySource.ref:type_name -> panelarr.metadata.v1.ExternalId
+	25, // 30: panelarr.meta.v1.EntrySource.attribution:type_name -> panelarr.metadata.v1.Attribution
+	39, // 31: panelarr.meta.v1.EntrySource.state:type_name -> panelarr.metadata.v1.EntryState
+	40, // 32: panelarr.meta.v1.EntrySource.fetched_at:type_name -> google.protobuf.Timestamp
+	40, // 33: panelarr.meta.v1.EntrySource.provider_updated_at:type_name -> google.protobuf.Timestamp
+	21, // 34: panelarr.meta.v1.EntryFilter.types:type_name -> panelarr.metadata.v1.EntryType
+	22, // 35: panelarr.meta.v1.EntryFilter.statuses:type_name -> panelarr.metadata.v1.EntryStatus
+	23, // 36: panelarr.meta.v1.EntryFilter.content_ratings:type_name -> panelarr.metadata.v1.ContentRating
 	5,  // 37: panelarr.meta.v1.BrowseRequest.filter:type_name -> panelarr.meta.v1.EntryFilter
 	0,  // 38: panelarr.meta.v1.BrowseRequest.sort:type_name -> panelarr.meta.v1.SortField
 	1,  // 39: panelarr.meta.v1.BrowseResponse.entries:type_name -> panelarr.meta.v1.EntrySummary
@@ -1765,22 +1942,26 @@ var file_panelarr_meta_v1_meta_proto_depIdxs = []int32{
 	9,  // 43: panelarr.meta.v1.SearchResponse.hits:type_name -> panelarr.meta.v1.SearchHit
 	2,  // 44: panelarr.meta.v1.GetEntryResponse.entry:type_name -> panelarr.meta.v1.Entry
 	2,  // 45: panelarr.meta.v1.LookupExternalResponse.entry:type_name -> panelarr.meta.v1.Entry
-	39, // 46: panelarr.meta.v1.ListTagsResponse.tags:type_name -> panelarr.metadata.v1.Tag
-	6,  // 47: panelarr.meta.v1.MetaService.Browse:input_type -> panelarr.meta.v1.BrowseRequest
-	8,  // 48: panelarr.meta.v1.MetaService.Search:input_type -> panelarr.meta.v1.SearchRequest
-	11, // 49: panelarr.meta.v1.MetaService.GetEntry:input_type -> panelarr.meta.v1.GetEntryRequest
-	13, // 50: panelarr.meta.v1.MetaService.LookupExternal:input_type -> panelarr.meta.v1.LookupExternalRequest
-	15, // 51: panelarr.meta.v1.MetaService.ListTags:input_type -> panelarr.meta.v1.ListTagsRequest
-	7,  // 52: panelarr.meta.v1.MetaService.Browse:output_type -> panelarr.meta.v1.BrowseResponse
-	10, // 53: panelarr.meta.v1.MetaService.Search:output_type -> panelarr.meta.v1.SearchResponse
-	12, // 54: panelarr.meta.v1.MetaService.GetEntry:output_type -> panelarr.meta.v1.GetEntryResponse
-	14, // 55: panelarr.meta.v1.MetaService.LookupExternal:output_type -> panelarr.meta.v1.LookupExternalResponse
-	16, // 56: panelarr.meta.v1.MetaService.ListTags:output_type -> panelarr.meta.v1.ListTagsResponse
-	52, // [52:57] is the sub-list for method output_type
-	47, // [47:52] is the sub-list for method input_type
-	47, // [47:47] is the sub-list for extension type_name
-	47, // [47:47] is the sub-list for extension extendee
-	0,  // [0:47] is the sub-list for field type_name
+	17, // 46: panelarr.meta.v1.ListLanguagesResponse.original:type_name -> panelarr.meta.v1.LanguageCount
+	17, // 47: panelarr.meta.v1.ListLanguagesResponse.titles:type_name -> panelarr.meta.v1.LanguageCount
+	42, // 48: panelarr.meta.v1.ListTagsResponse.tags:type_name -> panelarr.metadata.v1.Tag
+	6,  // 49: panelarr.meta.v1.MetaService.Browse:input_type -> panelarr.meta.v1.BrowseRequest
+	8,  // 50: panelarr.meta.v1.MetaService.Search:input_type -> panelarr.meta.v1.SearchRequest
+	11, // 51: panelarr.meta.v1.MetaService.GetEntry:input_type -> panelarr.meta.v1.GetEntryRequest
+	13, // 52: panelarr.meta.v1.MetaService.LookupExternal:input_type -> panelarr.meta.v1.LookupExternalRequest
+	15, // 53: panelarr.meta.v1.MetaService.ListTags:input_type -> panelarr.meta.v1.ListTagsRequest
+	16, // 54: panelarr.meta.v1.MetaService.ListLanguages:input_type -> panelarr.meta.v1.ListLanguagesRequest
+	7,  // 55: panelarr.meta.v1.MetaService.Browse:output_type -> panelarr.meta.v1.BrowseResponse
+	10, // 56: panelarr.meta.v1.MetaService.Search:output_type -> panelarr.meta.v1.SearchResponse
+	12, // 57: panelarr.meta.v1.MetaService.GetEntry:output_type -> panelarr.meta.v1.GetEntryResponse
+	14, // 58: panelarr.meta.v1.MetaService.LookupExternal:output_type -> panelarr.meta.v1.LookupExternalResponse
+	19, // 59: panelarr.meta.v1.MetaService.ListTags:output_type -> panelarr.meta.v1.ListTagsResponse
+	18, // 60: panelarr.meta.v1.MetaService.ListLanguages:output_type -> panelarr.meta.v1.ListLanguagesResponse
+	55, // [55:61] is the sub-list for method output_type
+	49, // [49:55] is the sub-list for method input_type
+	49, // [49:49] is the sub-list for extension type_name
+	49, // [49:49] is the sub-list for extension extendee
+	0,  // [0:49] is the sub-list for field type_name
 }
 
 func init() { file_panelarr_meta_v1_meta_proto_init() }
@@ -1795,7 +1976,7 @@ func file_panelarr_meta_v1_meta_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_panelarr_meta_v1_meta_proto_rawDesc), len(file_panelarr_meta_v1_meta_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   17,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

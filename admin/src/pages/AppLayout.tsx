@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Link, Outlet } from "@tanstack/react-router";
+import icon from "../assets/panelarr-icon.svg";
 import { session } from "../auth/session";
 import { healthQuery } from "./HealthPage";
 
@@ -26,8 +27,10 @@ export function AppLayout() {
   return (
     <div className="shell">
       <header className="topbar">
-        <Link to="/catalogue" className="brand">
-          meta <span className="muted">admin</span>
+        <Link to="/catalogue" className="brand" aria-label="Panelarr Meta">
+          <img src={icon} alt="" width={26} height={26} className="brand-icon" />
+          <span className="brand-name">Panelarr</span>
+          <span className="brand-product">Meta</span>
         </Link>
         <nav className="nav" aria-label="Main">
           {nav.map((item) => (

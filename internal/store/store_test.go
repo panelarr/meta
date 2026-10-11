@@ -238,27 +238,32 @@ func TestTagsSharedByKey(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	s := storetest.New(t)
-	up := func(name string, genre bool) uuid.UUID {
+	up := func(key, name string, genre bool, path ...string) uuid.UUID {
+		if path == nil {
+			path = []string{}
+		}
 		id, err := s.UpsertTag(ctx, db.UpsertTagParams{
-			ID: uuid.Must(uuid.NewV7()), Name: name, NameKey: "romance", IsGenre: genre, ContentRating: "safe", Data: []byte(`{}`),
+			ID: uuid.Must(uuid.NewV7()), Key: key, Name: name, NameKey: "romance", Path: path, IsGenre: genre, ContentRating: "safe", Data: []byte(`{}`),
 		})
 		if errors.Is(err, pgx.ErrNoRows) { // unchanged: nothing returned
-			id, err = s.GetTagIDByKey(ctx, "romance")
+			id, err = s.GetTagIDByKey(ctx, key)
 		}
 		if err != nil {
 			t.Fatal(err)
 		}
 		return id
 	}
-	first := up("Romance", false)
-	if second := up("Romance", true); second != first {
+	genre := up("genre/romance", "Romance", true)
+	if again := up("genre/romance", "Romance", true); again != genre {
 		t.Fatal("same key gave a new tag")
 	}
-	if third := up("Romance", true); third != first {
-		t.Fatal("unchanged upsert gave a new tag")
+	// A tag with the same name under a parent is a different tag.
+	tag := up("tag/themes/romance", "Romance", false, "Themes")
+	if tag == genre {
+		t.Fatal("a tag and a genre with the same name were joined")
 	}
 	e := newEntry(t, s)
-	if _, err := s.InsertEntryTags(ctx, []db.InsertEntryTagsParams{{EntryID: e, TagID: first, Weight: "core"}}); err != nil {
+	if _, err := s.InsertEntryTags(ctx, []db.InsertEntryTagsParams{{EntryID: e, TagID: genre, Weight: "core"}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.RecountTags(ctx); err != nil {
@@ -267,6 +272,9 @@ func TestTagsSharedByKey(t *testing.T) {
 	tags, err := s.ListTags(ctx, db.ListTagsParams{GenresOnly: true, Prefix: "rom", Lim: 10})
 	if err != nil || len(tags) != 1 || tags[0].EntryCount != 1 || !tags[0].IsGenre {
 		t.Fatalf("tags: %+v %v", tags, err)
+	}
+	if n, err := s.DeleteUnusedTags(ctx); err != nil || n != 1 {
+		t.Fatalf("unused tags removed: %d %v", n, err)
 	}
 }
 

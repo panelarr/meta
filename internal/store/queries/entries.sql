@@ -160,7 +160,7 @@ VALUES (@entry_id, @tag_id, @position, @weight, @raw_weight, @score, @is_spoiler
 
 -- name: ListEntryTags :many
 SELECT et.*, t.name, t.description, t.parent_key, t.level, t.is_genre, t.is_spoiler AS tag_is_spoiler,
-       t.is_explicit, t.content_rating, t.entry_count, t.data AS tag_data
+       t.is_explicit, t.content_rating, t.entry_count, t.data AS tag_data, t.key AS tag_key, t.path AS tag_path
 FROM entry_tags et
 JOIN tags t ON t.id = et.tag_id
 WHERE et.entry_id = @entry_id

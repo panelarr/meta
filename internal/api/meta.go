@@ -51,6 +51,10 @@ type Meta struct {
 	idx    search.Index
 	opts   MetaOptions
 
+	langMu    sync.Mutex
+	langCache *metav1.ListLanguagesResponse
+	langAt    time.Time
+
 	refreshing sync.Map // entry ID -> struct{}
 	refreshSem chan struct{}
 }
@@ -304,7 +308,9 @@ func (m *Meta) ListTags(ctx context.Context, req *connect.Request[metav1.ListTag
 		return nil, err
 	}
 	rows, err := m.st.ListTagsWithParent(ctx, db.ListTagsWithParentParams{
-		GenresOnly: req.Msg.GetGenresOnly(), Prefix: textnorm.Key(req.Msg.GetPrefix()), Lim: int32(size + 1), Off: int32(off),
+		GenresOnly: req.Msg.GetGenresOnly(), TagsOnly: req.Msg.GetTagsOnly(),
+		Prefix: textnorm.Key(req.Msg.GetPrefix()), Query: textnorm.Key(req.Msg.GetQuery()),
+		Lim: int32(size + 1), Off: int32(off),
 	})
 	if err != nil {
 		return nil, err
@@ -315,8 +321,10 @@ func (m *Meta) ListTags(ctx context.Context, req *connect.Request[metav1.ListTag
 			out.NextPageToken = encodeOffset(off + size)
 			break
 		}
-		t := tagProto(r.ID, r.Name, r.Description, r.Level, r.IsGenre, r.IsSpoiler, r.IsExplicit, r.ContentRating, r.EntryCount, r.Data)
-		t.Parent = r.ParentName
+		t := tagProto(r.ID, r.Key, r.Path, r.Name, r.Description, r.Level, r.IsGenre, r.IsSpoiler, r.IsExplicit, r.ContentRating, r.EntryCount, r.Data)
+		if t.Parent == "" {
+			t.Parent = r.ParentName
+		}
 		out.Tags = append(out.Tags, t)
 	}
 	return connect.NewResponse(out), nil
@@ -366,4 +374,31 @@ func (m *Meta) refreshIfStale(e *metav1.Entry) {
 		}
 		m.opts.Log.Debug("refreshed stale entry", "entry", id, "providers", res.GetRefreshed())
 	}()
+}
+
+// ListLanguages lists original and title languages with entry counts. The
+// answer is cached for a few minutes: it scans every title.
+func (m *Meta) ListLanguages(ctx context.Context, _ *connect.Request[metav1.ListLanguagesRequest]) (*connect.Response[metav1.ListLanguagesResponse], error) {
+	m.langMu.Lock()
+	defer m.langMu.Unlock()
+	if m.langCache != nil && time.Since(m.langAt) < 5*time.Minute {
+		return connect.NewResponse(m.langCache), nil
+	}
+	orig, err := m.st.ListOriginalLanguages(ctx)
+	if err != nil {
+		return nil, err
+	}
+	titles, err := m.st.ListTitleLanguages(ctx)
+	if err != nil {
+		return nil, err
+	}
+	res := &metav1.ListLanguagesResponse{}
+	for _, o := range orig {
+		res.Original = append(res.Original, &metav1.LanguageCount{Code: o.Code, Entries: o.Entries})
+	}
+	for _, t := range titles {
+		res.Titles = append(res.Titles, &metav1.LanguageCount{Code: t.Code, Entries: t.Entries})
+	}
+	m.langCache, m.langAt = res, time.Now()
+	return connect.NewResponse(res), nil
 }

@@ -2,9 +2,10 @@
 
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { api, unwrap } from "../api/client";
-import type { EntrySummary } from "../api/types";
+import type { EntrySummary, Tag } from "../api/types";
+import { MultiSelect, type Option } from "../components/MultiSelect";
 import { Badge, Empty, ErrorBox, Field, Loading, PageHeader } from "../components/ui";
 import {
   type CatalogueSearch,
@@ -13,7 +14,10 @@ import {
   coverUrl,
   entryStatuses,
   entryTypes,
+  labelFromKey,
+  languageName,
   sortFields,
+  tagLabel,
 } from "../lib/catalogue";
 import { enumLabel } from "../lib/format";
 
@@ -63,22 +67,64 @@ function useGenres() {
   });
 }
 
+function useLanguages() {
+  return useQuery({
+    queryKey: ["languages"],
+    queryFn: async () => unwrap(api.GET("/v1/languages")),
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** Tag suggestions for typed text, fetched from the server (there can be thousands of tags). */
+function useTagSuggestions(text: string, tagsOnly: boolean) {
+  const [debounced, setDebounced] = useState(text);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(text), 250);
+    return () => clearTimeout(t);
+  }, [text]);
+  return useQuery({
+    queryKey: ["tag-suggestions", debounced, tagsOnly],
+    queryFn: async () =>
+      (await unwrap(api.GET("/v1/tags", { params: { query: { query: debounced.trim(), tagsOnly, pageSize: 20 } } })))
+        .tags ?? [],
+    placeholderData: (prev) => prev,
+    staleTime: 60_000,
+  });
+}
+
+function tagOptions(tags: Tag[]): Option[] {
+  return tags.map((t) => ({
+    value: t.key ?? t.name ?? "",
+    label: t.isGenre ? `${t.name} (genre)` : tagLabel(t),
+    detail: Number(t.entryCount ?? 0).toLocaleString(),
+  }));
+}
+
 export function CataloguePage() {
   const search = route.useSearch();
   const navigate = useNavigate();
   const genres = useGenres();
+  const languages = useLanguages();
   const [q, setQ] = useState(search.q ?? "");
   const [from, setFrom] = useState(search.from ? String(search.from) : "");
   const [to, setTo] = useState(search.to ? String(search.to) : "");
-  const [lang, setLang] = useState(search.lang ?? "");
+  const [tagText, setTagText] = useState("");
+  const [xtagText, setXtagText] = useState("");
+  const tagSuggestions = useTagSuggestions(tagText, true);
+  const xtagSuggestions = useTagSuggestions(xtagText, false);
+  // Labels of tags seen in suggestions, so chips keep them after the list changes.
+  const labels = useRef(new Map<string, string>());
+  for (const o of [...tagOptions(tagSuggestions.data ?? []), ...tagOptions(xtagSuggestions.data ?? [])]) {
+    labels.current.set(o.value, o.label);
+  }
+  const labelOf = (key: string) => labels.current.get(key) ?? labelFromKey(key);
 
   // Keep the inputs in step when the URL changes (back button, links).
   useEffect(() => {
     setQ(search.q ?? "");
     setFrom(search.from ? String(search.from) : "");
     setTo(search.to ? String(search.to) : "");
-    setLang(search.lang ?? "");
-  }, [search.q, search.from, search.to, search.lang]);
+  }, [search.q, search.from, search.to]);
 
   const results = useInfiniteQuery({
     queryKey: ["catalogue", search],
@@ -90,20 +136,30 @@ export function CataloguePage() {
   const go = (patch: Partial<CatalogueSearch>) =>
     void navigate({ to: "/catalogue", search: (prev: CatalogueSearch) => clean({ ...prev, ...patch }) });
 
+  const typed = (): Partial<CatalogueSearch> => ({
+    q: q.trim() || undefined,
+    from: from ? Number(from) : undefined,
+    to: to ? Number(to) : undefined,
+  });
+
+  // Typed fields apply on their own after a pause; Enter applies at once.
+  useEffect(() => {
+    const patch = typed();
+    if (patch.q === search.q && patch.from === search.from && patch.to === search.to) return;
+    const t = setTimeout(() => go(patch), 500);
+    return () => clearTimeout(t);
+  });
+
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    go({
-      q: q.trim() || undefined,
-      from: from ? Number(from) : undefined,
-      to: to ? Number(to) : undefined,
-      lang: lang.trim() || undefined,
-    });
+    go(typed());
   };
 
   const pages = results.data?.pages ?? [];
   const entries = pages.flatMap((p) => p.entries);
   const matched = new Map(pages.flatMap((p) => [...p.matched]));
   const first = pages[0];
+  const list = (values: string[]) => (values.length > 0 ? values : undefined);
 
   return (
     <>
@@ -114,7 +170,7 @@ export function CataloguePage() {
       </p>
 
       <form className="catalogue-filters" onSubmit={submit} aria-label="Catalogue filters">
-        <Field label="Search">
+        <Field label="Search" className="span-all">
           <input
             type="search"
             value={q}
@@ -122,6 +178,42 @@ export function CataloguePage() {
             onChange={(event) => setQ(event.target.value)}
           />
         </Field>
+        <MultiSelect
+          className="span-2"
+          label="Genres"
+          hint="Entries with any of them"
+          placeholder="Any genre"
+          values={search.genre ?? []}
+          onChange={(v) => go({ genre: list(v) })}
+          filterLocally
+          options={(genres.data ?? []).map((g) => ({
+            value: g.name ?? "",
+            label: g.name ?? "",
+            detail: Number(g.entryCount ?? 0).toLocaleString(),
+          }))}
+        />
+        <MultiSelect
+          className="span-2"
+          label="With tags"
+          hint="Entries with all of them"
+          placeholder="Type to find tags"
+          values={search.tag ?? []}
+          onChange={(v) => go({ tag: list(v) })}
+          onQuery={setTagText}
+          options={tagOptions(tagSuggestions.data ?? [])}
+          labelFor={labelOf}
+        />
+        <MultiSelect
+          className="span-2"
+          label="Without tags"
+          hint="Leave out entries with any of them"
+          placeholder="Type to find tags or genres"
+          values={search.xtag ?? []}
+          onChange={(v) => go({ xtag: list(v) })}
+          onQuery={setXtagText}
+          options={tagOptions(xtagSuggestions.data ?? [])}
+          labelFor={labelOf}
+        />
         <Field label="Type">
           <select value={search.type ?? ""} onChange={(e) => go({ type: (e.target.value || undefined) as never })}>
             <option value="">Any</option>
@@ -152,24 +244,17 @@ export function CataloguePage() {
             ))}
           </select>
         </Field>
-        <Field label="Genre">
-          <select value={search.genre ?? ""} onChange={(e) => go({ genre: e.target.value || undefined })}>
+        <Field label="Original language">
+          <select value={search.lang ?? ""} onChange={(e) => go({ lang: e.target.value || undefined })}>
             <option value="">Any</option>
-            {(genres.data ?? []).map((g) => (
-              <option key={g.id ?? g.name} value={g.name}>
-                {g.name}
-              </option>
-            ))}
+            {languageOptions(languages.data?.original, search.lang)}
           </select>
         </Field>
-        <Field label="From year">
-          <input type="number" min="1" max="9999" value={from} onChange={(e) => setFrom(e.target.value)} />
-        </Field>
-        <Field label="To year">
-          <input type="number" min="1" max="9999" value={to} onChange={(e) => setTo(e.target.value)} />
-        </Field>
-        <Field label="Original language" hint='e.g. "ja", "ko", "zh"'>
-          <input type="text" value={lang} onChange={(e) => setLang(e.target.value)} />
+        <Field label="Title language">
+          <select value={search.tlang ?? ""} onChange={(e) => go({ tlang: e.target.value || undefined })}>
+            <option value="">Any</option>
+            {languageOptions(languages.data?.titles, search.tlang)}
+          </select>
         </Field>
         <Field label="Sort">
           <select value={search.sort ?? ""} onChange={(e) => go({ sort: (e.target.value || undefined) as never })}>
@@ -181,20 +266,29 @@ export function CataloguePage() {
             ))}
           </select>
         </Field>
-        <label className="filter-check">
-          <input
-            type="checkbox"
-            checked={search.reverse ?? false}
-            onChange={(e) => go({ reverse: e.target.checked || undefined })}
-          />
-          <span>Reverse order</span>
-        </label>
-        <div className="actions">
-          <button type="submit" className="primary">
-            {q.trim() ? "Search" : "Apply"}
-          </button>
+        <Field label="From year">
+          <input type="number" min="1" max="9999" value={from} onChange={(e) => setFrom(e.target.value)} />
+        </Field>
+        <Field label="To year">
+          <input type="number" min="1" max="9999" value={to} onChange={(e) => setTo(e.target.value)} />
+        </Field>
+        <div className="field">
+          <span className="field-label">Order</span>
+          <label className="check-control">
+            <input
+              type="checkbox"
+              checked={search.reverse ?? false}
+              onChange={(e) => go({ reverse: e.target.checked || undefined })}
+            />
+            <span>Reverse order</span>
+          </label>
+        </div>
+        <div className="filter-actions">
           <button type="button" onClick={() => void navigate({ to: "/catalogue", search: {} })}>
             Reset
+          </button>
+          <button type="submit" className="primary">
+            Search
           </button>
         </div>
       </form>
@@ -216,7 +310,12 @@ export function CataloguePage() {
       {entries.length > 0 ? (
         <ul className="entry-grid">
           {entries.map((entry) => (
-            <EntryCard key={entry.id} entry={entry} matched={matched.get(entry.id ?? "")} />
+            <EntryCard
+              key={entry.id}
+              entry={entry}
+              matched={matched.get(entry.id ?? "")}
+              onGenre={(g) => go({ genre: [...new Set([...(search.genre ?? []), g])] })}
+            />
           ))}
         </ul>
       ) : null}
@@ -229,6 +328,18 @@ export function CataloguePage() {
       ) : null}
     </>
   );
+}
+
+function languageOptions(list: { code?: string; entries?: string }[] | undefined, current?: string) {
+  const items = [...(list ?? [])];
+  // Keep a language from the URL selectable even before the list loads.
+  if (current && !items.some((l) => l.code === current)) items.unshift({ code: current });
+  return items.map((l) => (
+    <option key={l.code} value={l.code}>
+      {languageName(l.code ?? "")}
+      {l.entries ? ` (${Number(l.entries).toLocaleString()})` : ""}
+    </option>
+  ));
 }
 
 function clean(search: CatalogueSearch): CatalogueSearch {
@@ -254,7 +365,17 @@ export function Cover({
   );
 }
 
-function EntryCard({ entry, matched }: { entry: EntrySummary; matched?: string }) {
+const cardGenres = 3;
+
+function EntryCard({
+  entry,
+  matched,
+  onGenre,
+}: {
+  entry: EntrySummary;
+  matched?: string;
+  onGenre: (genre: string) => void;
+}) {
   const facts = [
     entry.type ? enumLabel(entry.type, "ENTRY_TYPE_") : undefined,
     entry.status && entry.status !== "ENTRY_STATUS_UNSPECIFIED" ? enumLabel(entry.status, "ENTRY_STATUS_") : undefined,
@@ -271,9 +392,20 @@ function EntryCard({ entry, matched }: { entry: EntrySummary; matched?: string }
       <div className="muted small">{facts.join(" · ")}</div>
       {entry.genres && entry.genres.length > 0 ? (
         <div className="badges">
-          {entry.genres.slice(0, 3).map((g) => (
-            <Badge key={g}>{g}</Badge>
+          {entry.genres.slice(0, cardGenres).map((g) => (
+            <button
+              key={g}
+              type="button"
+              className="badge badge-neutral chip-button"
+              title={`Show ${g}`}
+              onClick={() => onGenre(g)}
+            >
+              {g}
+            </button>
           ))}
+          {entry.genres.length > cardGenres ? (
+            <Badge title={entry.genres.slice(cardGenres).join(", ")}>+{entry.genres.length - cardGenres}</Badge>
+          ) : null}
         </div>
       ) : null}
       {attribution.length > 0 ? <div className="attribution small">Data: {attribution.join(", ")}</div> : null}

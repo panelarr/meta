@@ -9,10 +9,18 @@ export type CatalogueSearch = {
   type?: EntryType;
   status?: EntryStatus;
   rating?: ContentRating;
-  genre?: string;
+  /** Genre names: an entry needs any of them. */
+  genre?: string[];
+  /** Tag keys ("tag/settings/school"): an entry needs all of them. */
+  tag?: string[];
+  /** Tag or genre keys or names to leave out. */
+  xtag?: string[];
   from?: number;
   to?: number;
+  /** Original language (BCP 47). */
   lang?: string;
+  /** Has a title in this language. */
+  tlang?: string;
   sort?: SortField;
   reverse?: boolean;
 };
@@ -74,16 +82,25 @@ function text(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() !== "" ? value : undefined;
 }
 
+/** A list from the URL: an array, or a single value from an older link. */
+function list(value: unknown): string[] | undefined {
+  const values = (Array.isArray(value) ? value : [value]).flatMap((v) => (text(v) ? [String(v)] : []));
+  return values.length > 0 ? [...new Set(values)] : undefined;
+}
+
 export function parseCatalogueSearch(search: Record<string, unknown>): CatalogueSearch {
   return {
     q: text(search.q),
     type: oneOf(entryTypes, search.type),
     status: oneOf(entryStatuses, search.status),
     rating: oneOf(contentRatings, search.rating),
-    genre: text(search.genre),
+    genre: list(search.genre),
+    tag: list(search.tag),
+    xtag: list(search.xtag),
     from: year(search.from),
     to: year(search.to),
     lang: text(search.lang),
+    tlang: text(search.tlang),
     sort: oneOf(
       sortFields.map((s) => s.value),
       search.sort,
@@ -100,9 +117,12 @@ export function catalogueQuery(search: CatalogueSearch, pageToken?: string) {
     "filter.statuses"?: EntryStatus[];
     "filter.contentRatings"?: ContentRating[];
     "filter.genres"?: string[];
+    "filter.tags"?: string[];
+    "filter.excludeTags"?: string[];
     "filter.yearFrom"?: number;
     "filter.yearTo"?: number;
     "filter.languages"?: string[];
+    "filter.titleLanguages"?: string[];
     sort?: SortField;
     reverse?: boolean;
     pageSize: number;
@@ -112,10 +132,13 @@ export function catalogueQuery(search: CatalogueSearch, pageToken?: string) {
   if (search.type) query["filter.types"] = [search.type];
   if (search.status) query["filter.statuses"] = [search.status];
   if (search.rating) query["filter.contentRatings"] = [search.rating];
-  if (search.genre) query["filter.genres"] = [search.genre];
+  if (search.genre?.length) query["filter.genres"] = search.genre;
+  if (search.tag?.length) query["filter.tags"] = search.tag;
+  if (search.xtag?.length) query["filter.excludeTags"] = search.xtag;
   if (search.from) query["filter.yearFrom"] = search.from;
   if (search.to) query["filter.yearTo"] = search.to;
   if (search.lang) query["filter.languages"] = [search.lang];
+  if (search.tlang) query["filter.titleLanguages"] = [search.tlang];
   if (search.sort) query.sort = search.sort;
   if (search.reverse) query.reverse = true;
   if (pageToken) query.pageToken = pageToken;
@@ -130,4 +153,29 @@ export function coverUrl(image: Image | undefined, width = 250): string | undefi
   const exact = variants.find((v) => v.width === width && v.density === density && v.url);
   const sized = exact ?? variants.find((v) => v.width === width && v.url);
   return sized?.url || image.url || undefined;
+}
+
+/** "Settings › Fantasy": a tag's path and name. */
+export function tagLabel(tag: { name?: string; path?: string[] }): string {
+  return [...(tag.path ?? []), tag.name ?? ""].filter(Boolean).join(" › ");
+}
+
+/** A readable label for a tag key when the tag itself isn't loaded: "tag/settings/school" → "Settings › School". */
+export function labelFromKey(key: string): string {
+  const parts = key.split("/");
+  if (parts[0] !== "tag" && parts[0] !== "genre") return key;
+  return parts
+    .slice(1)
+    .map((p) => p.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()))
+    .join(" › ");
+}
+
+/** A language's English name ("ja" → "Japanese"), or the code when the browser doesn't know it. */
+export function languageName(code: string): string {
+  try {
+    const name = new Intl.DisplayNames(["en"], { type: "language" }).of(code);
+    return name && name !== code ? name : code;
+  } catch {
+    return code;
+  }
 }

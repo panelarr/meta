@@ -54,7 +54,7 @@ func TestUIAndAPIRouting(t *testing.T) {
 	// The UI loads without credentials, under the CSP.
 	for _, path := range []string{"/", "/catalogue", "/entries/anything", "/clients"} {
 		res, body := do(t, http.MethodGet, f.srv.URL+path, "", "")
-		if res.StatusCode != uiStatus || !strings.Contains(body, "meta admin") {
+		if res.StatusCode != uiStatus || !strings.Contains(body, "Panelarr Meta") {
 			t.Fatalf("%s: %d %q", path, res.StatusCode, body)
 		}
 		if res.Header.Get("Content-Security-Policy") != adminui.CSP {

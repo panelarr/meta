@@ -26,7 +26,7 @@ flowchart LR
 | `credits[]` | People and their roles (author, artist, editor, voice actor, ...) |
 | `companies[]` | Publishers, magazines, imprints, licensors, studios, ... with roles |
 | `licenses[]` | Licensing per language or region |
-| `tags[]` | Tag assignments; genres are tags with `is_genre`. Per entry: `weight`, `score`, `is_spoiler` |
+| `tags[]` | Tag assignments in the provider's order; genres are tags with `is_genre`. A tag's `path` lists its parents, root first; a tag is the same tag only with the same kind, path and name. Per entry: `weight`, `score`, `is_spoiler` |
 | `relations[]` | Links to other entries (sequel, spin-off, adaptation, ...) |
 | `adaptations[]` | The work in another medium (anime, live action, games, ...) |
 | `items[]` | Known releases: chapters, volumes, issues |

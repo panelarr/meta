@@ -42,6 +42,8 @@ type Querier interface {
 	DeleteSolver(ctx context.Context, id string) (int64, error)
 	DeleteTagsOf(ctx context.Context, ids []uuid.UUID) error
 	DeleteTitlesOf(ctx context.Context, ids []uuid.UUID) error
+	// Tags no entry carries any more (after a rebuild).
+	DeleteUnusedTags(ctx context.Context) (int64, error)
 	// Whether the entry already holds an active record of the provider (other
 	// than the given one). Two records of one provider are never merged by
 	// shared IDs: the provider itself keeps them apart.
@@ -58,6 +60,7 @@ type Querier interface {
 	// SPDX-License-Identifier: GPL-3.0-or-later
 	FindPersonByExternalIDs(ctx context.Context, arg FindPersonByExternalIDsParams) (uuid.UUID, error)
 	FindTagByExternalID(ctx context.Context, arg FindTagByExternalIDParams) (uuid.UUID, error)
+	FinishMaintenance(ctx context.Context, name string) error
 	FinishSyncRun(ctx context.Context, arg FinishSyncRunParams) error
 	GetAdminToken(ctx context.Context) (AdminToken, error)
 	GetClient(ctx context.Context, id string) (Client, error)
@@ -80,7 +83,7 @@ type Querier interface {
 	GetSolver(ctx context.Context, id string) (Solver, error)
 	GetSyncCursor(ctx context.Context, arg GetSyncCursorParams) (SyncCursor, error)
 	GetSyncRun(ctx context.Context, id uuid.UUID) (SyncRun, error)
-	GetTagIDByKey(ctx context.Context, nameKey string) (uuid.UUID, error)
+	GetTagIDByKey(ctx context.Context, key string) (uuid.UUID, error)
 	InsertClient(ctx context.Context, arg InsertClientParams) (Client, error)
 	InsertCompany(ctx context.Context, arg InsertCompanyParams) error
 	InsertCompanyExternalID(ctx context.Context, arg InsertCompanyExternalIDParams) error
@@ -99,12 +102,14 @@ type Querier interface {
 	InsertPerson(ctx context.Context, arg InsertPersonParams) error
 	InsertPersonExternalID(ctx context.Context, arg InsertPersonExternalIDParams) error
 	InsertRedirect(ctx context.Context, arg InsertRedirectParams) error
+	// A provider's tag ID points at the tag that has it now.
 	InsertTagExternalID(ctx context.Context, arg InsertTagExternalIDParams) error
 	LatestSyncRuns(ctx context.Context) ([]SyncRun, error)
 	// Records a provider merged, and that meta never gave an entry of their own,
 	// point at their target's entry. One statement for the whole provider;
 	// repeat to follow chains.
 	LinkMergedRecords(ctx context.Context, provider string) (int64, error)
+	ListActiveEntryIDsAfter(ctx context.Context, arg ListActiveEntryIDsAfterParams) ([]uuid.UUID, error)
 	ListAssignments(ctx context.Context) ([]ProfileAssignment, error)
 	ListAttributionsForEntries(ctx context.Context, ids []uuid.UUID) ([]ListAttributionsForEntriesRow, error)
 	// SPDX-License-Identifier: GPL-3.0-or-later
@@ -121,10 +126,12 @@ type Querier interface {
 	ListEntryTitles(ctx context.Context, entryID uuid.UUID) ([]EntryTitle, error)
 	ListFieldLocks(ctx context.Context, entryID uuid.UUID) ([]FieldLock, error)
 	ListFieldLocksForEntries(ctx context.Context, ids []uuid.UUID) ([]FieldLock, error)
+	ListGenreKeysForEntries(ctx context.Context, ids []uuid.UUID) ([]ListGenreKeysForEntriesRow, error)
 	ListGenresForEntries(ctx context.Context, ids []uuid.UUID) ([]ListGenresForEntriesRow, error)
 	// Provider merges whose records still sit in different entries. With
 	// external_ids empty, checks every merged record of the provider.
 	ListMergeTargets(ctx context.Context, arg ListMergeTargetsParams) ([]ListMergeTargetsRow, error)
+	ListOriginalLanguages(ctx context.Context) ([]ListOriginalLanguagesRow, error)
 	ListProfiles(ctx context.Context) ([]NetworkProfile, error)
 	ListProviderEntriesForEntries(ctx context.Context, ids []uuid.UUID) ([]ProviderEntry, error)
 	ListProviderEntriesForEntry(ctx context.Context, entryID uuid.NullUUID) ([]ProviderEntry, error)
@@ -136,6 +143,7 @@ type Querier interface {
 	ListSyncRuns(ctx context.Context, arg ListSyncRunsParams) ([]SyncRun, error)
 	ListTags(ctx context.Context, arg ListTagsParams) ([]Tag, error)
 	ListTagsWithParent(ctx context.Context, arg ListTagsWithParentParams) ([]ListTagsWithParentRow, error)
+	ListTitleLanguages(ctx context.Context) ([]ListTitleLanguagesRow, error)
 	// SPDX-License-Identifier: GPL-3.0-or-later
 	//
 	// Reads for the API: everything a page of results needs, for many entries
@@ -152,6 +160,7 @@ type Querier interface {
 	// that entry has its own lock for the field.
 	MoveFieldLocks(ctx context.Context, arg MoveFieldLocksParams) error
 	MoveProviderEntries(ctx context.Context, arg MoveProviderEntriesParams) error
+	PendingMaintenance(ctx context.Context) ([]MaintenanceJob, error)
 	ProfilesUsingSolver(ctx context.Context, solverID pgtype.Text) ([]string, error)
 	PutProfile(ctx context.Context, arg PutProfileParams) error
 	PutSolver(ctx context.Context, arg PutSolverParams) error
@@ -189,6 +198,8 @@ type Querier interface {
 	UpsertProviderEntry(ctx context.Context, arg UpsertProviderEntryParams) error
 	UpsertProviderEntryBatch(ctx context.Context, arg []UpsertProviderEntryBatchParams) *UpsertProviderEntryBatchBatchResults
 	UpsertSyncCursor(ctx context.Context, arg UpsertSyncCursorParams) error
+	// Creates or updates a tag by its key (kind + path). Returns no row when
+	// nothing changed.
 	UpsertTag(ctx context.Context, arg UpsertTagParams) (uuid.UUID, error)
 }
 

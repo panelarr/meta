@@ -44,6 +44,7 @@ Usage:
   meta migrate [up|down|status]       apply, roll back or list database migrations
   meta healthcheck [--url URL]        probe a running meta (for container health checks)
   meta admin-token reset              generate a new admin token (when META_ADMIN_TOKEN isn't set)
+  meta rebuild                        rebuild every entry from the stored provider records
   meta version                        print the version
 
 Flags (all commands):
@@ -83,6 +84,8 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		return serve(ctx, args[1:], out)
 	case "sync":
 		return syncOnce(ctx, args[1:], out)
+	case "rebuild":
+		return rebuild(ctx, args[1:], out)
 	case "admin-token":
 		return adminToken(ctx, args[1:], out)
 	case "healthcheck":
@@ -304,6 +307,13 @@ func serve(ctx context.Context, args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
+	// One-off jobs an upgrade queued (e.g. rebuilding entries) run in the
+	// background; the API serves meanwhile.
+	go func() {
+		if _, err := a.writer.RunMaintenance(syncCtx, log.With("component", "maintenance")); err != nil && syncCtx.Err() == nil {
+			log.Error("maintenance", "err", err)
+		}
+	}()
 	a.host.Start(syncCtx, time.Minute)
 	sched, err := ingest.NewScheduler(syncCtx, a.cfg, a.runner, log)
 	if err != nil {
@@ -451,5 +461,34 @@ func adminToken(ctx context.Context, args []string, out io.Writer) error {
 	}
 	auth.PrintAdminToken(out, token)
 	_, err = fmt.Fprintln(out, "Restart meta for the new token to take effect.")
+	return err
+}
+
+func rebuild(ctx context.Context, args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("rebuild", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	var c common
+	c.flags(fs)
+	if pos, err := parse(fs, args); err != nil || len(pos) != 0 {
+		return errUsage
+	}
+	a, err := open(ctx, c, os.Stderr)
+	if err != nil {
+		return err
+	}
+	defer a.close()
+	start := time.Now()
+	n, err := a.writer.RebuildAll(ctx, 500, func(done int) {
+		if done%20000 == 0 {
+			fmt.Fprintf(out, "rebuilt %d entries\n", done)
+		}
+	})
+	if err != nil {
+		return err
+	}
+	if err := a.st.FinishMaintenance(ctx, "rebuild-entries"); err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(out, "rebuilt %d entries in %s\n", n, time.Since(start).Round(time.Second))
 	return err
 }

@@ -5,6 +5,7 @@ package catalog
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -130,27 +131,55 @@ func (t *tx) company(ctx context.Context, c *metadatav1.Company) (uuid.UUID, err
 // Tags are shared by normalized name. A tag's own data (description,
 // flags) is written the first time this Writer meets it, not for every
 // entry that carries it; a restart picks up changes.
+// TagKey is a tag's identity: its kind and its path, e.g. "genre/fantasy"
+// or "tag/settings/fantasy". A genre and a tag with the same name are
+// different tags, and so are tags with the same name under different
+// parents.
+func TagKey(tg *metadatav1.Tag) string {
+	kind := "tag"
+	if tg.GetIsGenre() {
+		kind = "genre"
+	}
+	parts := []string{kind}
+	if !tg.GetIsGenre() {
+		for _, p := range tg.GetPath() {
+			if k := slug(p); k != "" {
+				parts = append(parts, k)
+			}
+		}
+	}
+	return strings.Join(append(parts, slug(tg.GetName())), "/")
+}
+
+func slug(s string) string {
+	return strings.ReplaceAll(textnorm.Key(strings.ReplaceAll(s, "/", " ")), " ", "-")
+}
+
 func (t *tx) tag(ctx context.Context, tg *metadatav1.Tag) (uuid.UUID, error) {
-	nameKey := textnorm.Key(tg.GetName())
-	key := "tag:" + nameKey
-	if id, ok := t.lookupKnown(key); ok {
+	key := TagKey(tg)
+	cacheKey := "tag:" + key
+	if id, ok := t.lookupKnown(cacheKey); ok {
 		return id, nil
 	}
 	data := proto.Clone(tg).(*metadatav1.Tag)
-	data.Id, data.Name, data.Description, data.Parent, data.Level = "", "", "", "", 0
+	data.Id, data.Name, data.Description, data.Parent, data.Level, data.Path, data.Key = "", "", "", "", 0, nil, ""
 	data.IsGenre, data.IsSpoiler, data.IsExplicit, data.ContentRating, data.EntryCount = false, false, false, 0, 0
 	js, err := pj.Marshal(data)
 	if err != nil {
 		return uuid.Nil, err
 	}
+	path := tg.GetPath()
+	if path == nil || tg.GetIsGenre() {
+		path = []string{}
+	}
 	id, err := t.q.UpsertTag(ctx, db.UpsertTagParams{
-		ID: uuid.Must(uuid.NewV7()), Name: tg.GetName(), NameKey: nameKey, Description: tg.GetDescription(),
-		ParentKey: textnorm.Key(tg.GetParent()), Level: tg.GetLevel(), IsGenre: tg.GetIsGenre(),
+		ID: uuid.Must(uuid.NewV7()), Key: key, Name: tg.GetName(), NameKey: textnorm.Key(tg.GetName()), Path: path,
+		Description: tg.GetDescription(), ParentKey: textnorm.Key(tg.GetParent()), Level: tg.GetLevel(), IsGenre: tg.GetIsGenre(),
 		IsSpoiler: tg.GetIsSpoiler(), IsExplicit: tg.GetIsExplicit(), ContentRating: enums.Name(tg.GetContentRating()),
 		Data: js,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		id, err = t.q.GetTagIDByKey(ctx, nameKey)
+		id, err = t.q.GetTagIDByKey(ctx, key)
 	}
 	if err != nil {
 		return uuid.Nil, err
@@ -163,7 +192,7 @@ func (t *tx) tag(ctx context.Context, tg *metadatav1.Tag) (uuid.UUID, error) {
 			return uuid.Nil, err
 		}
 	}
-	t.known[key] = id
+	t.known[cacheKey] = id
 	return id, nil
 }
 

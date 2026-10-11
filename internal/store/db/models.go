@@ -188,6 +188,12 @@ type IntegrationSetting struct {
 	DefaultProfileID pgtype.Text
 }
 
+type MaintenanceJob struct {
+	Name      string
+	Reason    string
+	CreatedAt time.Time
+}
+
 type NetworkProfile struct {
 	ID                  string
 	SolverID            pgtype.Text
@@ -307,6 +313,8 @@ type Tag struct {
 	EntryCount    int64
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
+	Key           string
+	Path          []string
 }
 
 type TagExternalID struct {

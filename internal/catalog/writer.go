@@ -93,6 +93,8 @@ type tx struct {
 	known map[string]uuid.UUID
 	// Records that became merged in this transaction.
 	mergedIDs []string
+	// force rebuilds entries even when their content hash is unchanged.
+	force bool
 	// Linking candidates for the current batch, by refKey.
 	cands map[string][]db.FindEntriesForRefsRow
 }
@@ -204,6 +206,45 @@ func (w *Writer) Rebuild(ctx context.Context, entry uuid.UUID) (Result, error) {
 		t.dirty[entry] = true
 		return nil
 	})
+}
+
+// RebuildAll rebuilds every active entry from its stored provider records,
+// even if nothing changed: after an upgrade that changes how entries are
+// built. progress, if set, gets the number of entries done so far.
+func (w *Writer) RebuildAll(ctx context.Context, batch int, progress func(done int)) (int, error) {
+	if batch <= 0 {
+		batch = 500
+	}
+	var after uuid.UUID
+	done := 0
+	for {
+		ids, err := w.st.ListActiveEntryIDsAfter(ctx, db.ListActiveEntryIDsAfterParams{After: after, Lim: int32(batch)})
+		if err != nil {
+			return done, err
+		}
+		if len(ids) == 0 {
+			break
+		}
+		if _, err := w.inTx(ctx, func(t *tx) error {
+			t.force = true
+			for _, id := range ids {
+				t.dirty[id] = true
+			}
+			return nil
+		}); err != nil {
+			return done, err
+		}
+		done += len(ids)
+		after = ids[len(ids)-1]
+		if progress != nil {
+			progress(done)
+		}
+	}
+	if err := w.st.RecountTags(ctx); err != nil {
+		return done, err
+	}
+	_, err := w.st.DeleteUnusedTags(ctx)
+	return done, err
 }
 
 // RecountTags refreshes the entry count of every tag.

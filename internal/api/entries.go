@@ -58,10 +58,15 @@ func decodeOne[T proto.Message](b []byte, newT func() T) (T, error) {
 	return v, nil
 }
 
-func tagProto(id uuid.UUID, name, description string, level int32, isGenre, isSpoiler, isExplicit bool, rating string, count int64, data []byte) *metadatav1.Tag {
+func tagProto(id uuid.UUID, key string, path []string, name, description string, level int32, isGenre, isSpoiler, isExplicit bool, rating string, count int64, data []byte) *metadatav1.Tag {
 	t := &metadatav1.Tag{}
 	_ = unmarshal.Unmarshal(data, t)
 	t.Id = id.String()
+	t.Key = key
+	t.Path = path
+	if len(path) > 0 {
+		t.Parent = path[len(path)-1]
+	}
 	t.Name = name
 	t.Description = description
 	t.Level = level
@@ -270,7 +275,7 @@ func (m *Meta) loadEntry(ctx context.Context, id uuid.UUID, lang string) (*metav
 	}
 	for _, t := range tags {
 		ta := &metadatav1.TagAssignment{
-			Tag:       tagProto(t.TagID, t.Name, t.Description, t.Level, t.IsGenre, t.TagIsSpoiler, t.IsExplicit, t.ContentRating, t.EntryCount, t.TagData),
+			Tag:       tagProto(t.TagID, t.TagKey, t.TagPath, t.Name, t.Description, t.Level, t.IsGenre, t.TagIsSpoiler, t.IsExplicit, t.ContentRating, t.EntryCount, t.TagData),
 			Weight:    enums.MustParse[metadatav1.TagWeight](t.Weight),
 			RawWeight: t.RawWeight,
 			IsSpoiler: t.IsSpoiler,
