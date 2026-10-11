@@ -80,6 +80,8 @@ type Query struct {
 	Reverse bool
 	Limit   int
 	Offset  int
+	// Facets asks for counts per filter value, from backends that can.
+	Facets bool
 }
 
 // Hit is one result.
@@ -96,6 +98,37 @@ type Hit struct {
 type Result struct {
 	Hits  []Hit
 	Total int64
+	// Facets, when asked for and the backend has the Facets capability.
+	Facets []Facet
+	// Backend is the backend that answered: an engine's name, or
+	// "postgres" when an engine fell back.
+	Backend string
+}
+
+// Facet fields.
+const (
+	FacetGenres           = "genres"
+	FacetTags             = "tags"
+	FacetType             = "type"
+	FacetStatus           = "status"
+	FacetContentRating    = "content_rating"
+	FacetOriginalLanguage = "original_language"
+)
+
+// FacetFields are the fields engines count, in display order.
+var FacetFields = []string{FacetGenres, FacetTags, FacetType, FacetStatus, FacetContentRating, FacetOriginalLanguage}
+
+// Facet is the counts of one field's values among all matches. Genre and
+// tag values are tag keys ("genre/fantasy").
+type Facet struct {
+	Field  string
+	Values []FacetValue
+}
+
+// FacetValue is one value and how many matches have it.
+type FacetValue struct {
+	Value string
+	Count int64
 }
 
 // New returns the backend named by the configuration.

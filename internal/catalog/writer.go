@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"sync"
 
@@ -26,6 +27,10 @@ import (
 type Options struct {
 	Priority        Priority
 	DisplayLanguage string
+	// SearchOutbox records every entry whose indexed content or state
+	// changes in search_outbox, in the same transaction, for an external
+	// search engine to pick up.
+	SearchOutbox bool
 }
 
 // Writer stores provider records and keeps the merged entries up to date.
@@ -95,6 +100,8 @@ type tx struct {
 	mergedIDs []string
 	// force rebuilds entries even when their content hash is unchanged.
 	force bool
+	// Entries whose content or state changed, for the search outbox.
+	reindex map[uuid.UUID]bool
 	// Linking candidates for the current batch, by refKey.
 	cands map[string][]db.FindEntriesForRefsRow
 }
@@ -105,12 +112,15 @@ func (w *Writer) inTx(ctx context.Context, f func(t *tx) error) (Result, error) 
 		t = &tx{
 			w: w, q: q, pgtx: pgtx,
 			dirty: map[uuid.UUID]bool{}, fresh: map[uuid.UUID]bool{},
-			claimed: map[string]bool{}, known: map[string]uuid.UUID{},
+			claimed: map[string]bool{}, known: map[string]uuid.UUID{}, reindex: map[uuid.UUID]bool{},
 		}
 		if err := f(t); err != nil {
 			return err
 		}
-		return t.flushDirty(ctx)
+		if err := t.flushDirty(ctx); err != nil {
+			return err
+		}
+		return t.enqueueSearch(ctx)
 	})
 	if err != nil {
 		return Result{}, err
@@ -642,6 +652,7 @@ func (t *tx) retireIfEmpty(ctx context.Context, from, to uuid.UUID) error {
 	if err := t.clearParts(ctx, []uuid.UUID{from}); err != nil {
 		return err
 	}
+	t.reindex[from] = true
 	if err := t.q.SetEntryState(ctx, db.SetEntryStateParams{ID: from, State: "merged", MergedInto: uuid.NullUUID{UUID: to, Valid: true}}); err != nil {
 		return err
 	}
@@ -649,4 +660,18 @@ func (t *tx) retireIfEmpty(ctx context.Context, from, to uuid.UUID) error {
 	t.dirty[to] = true
 	t.result.EntriesChanged++
 	return nil
+}
+
+// enqueueSearch writes the entries that changed to the search outbox, when
+// an external search engine is configured.
+func (t *tx) enqueueSearch(ctx context.Context) error {
+	if !t.w.opts.SearchOutbox || len(t.reindex) == 0 {
+		return nil
+	}
+	ids := make([]uuid.UUID, 0, len(t.reindex))
+	for id := range t.reindex {
+		ids = append(ids, id)
+	}
+	slices.SortFunc(ids, func(a, b uuid.UUID) int { return bytes.Compare(a[:], b[:]) })
+	return t.q.EnqueueSearch(ctx, ids)
 }
