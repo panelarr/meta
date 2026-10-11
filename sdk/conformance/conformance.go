@@ -376,8 +376,8 @@ func checkSync(ctx context.Context, rep *Report, c client.Client, info *metadata
 	if started != nil && started.GetUnchanged() && upserts+removals+merges > 0 {
 		rep.problem("Sync: SyncStarted says unchanged, but records were sent")
 	}
-	if started != nil && started.GetExpectedCount() > 0 && started.GetExpectedCount() != upserts {
-		rep.warn("Sync: expected %d upserts, got %d", started.GetExpectedCount(), upserts)
+	if started != nil && started.GetExpectedCount() > 0 && started.GetExpectedCount() != upserts+finished.GetSkipped() {
+		rep.warn("Sync: expected %d records, got %d upserts and %d skipped", started.GetExpectedCount(), upserts, finished.GetSkipped())
 	}
 	if rep.Events["checkpoint"] == 0 && upserts > 0 {
 		rep.warn("Sync: no checkpoints; the host can only commit at the end")

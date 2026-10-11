@@ -93,6 +93,51 @@ func (q *Queries) GetProviderEntryStates(ctx context.Context, arg GetProviderEnt
 	return items, nil
 }
 
+const listMergeTargets = `-- name: ListMergeTargets :many
+SELECT m.external_id, m.entry_id AS from_entry, t.entry_id AS to_entry
+FROM provider_entries m
+JOIN provider_entries t ON t.provider = m.provider AND t.external_id = m.merged_into
+WHERE m.provider = $1
+  AND m.state = 'merged'
+  AND m.entry_id IS NOT NULL
+  AND t.entry_id IS NOT NULL
+  AND m.entry_id <> t.entry_id
+  AND (cardinality($2::text[]) = 0 OR m.external_id = ANY($2::text[]))
+`
+
+type ListMergeTargetsParams struct {
+	Provider    string
+	ExternalIds []string
+}
+
+type ListMergeTargetsRow struct {
+	ExternalID string
+	FromEntry  uuid.NullUUID
+	ToEntry    uuid.NullUUID
+}
+
+// Provider merges whose records still sit in different entries. With
+// external_ids empty, checks every merged record of the provider.
+func (q *Queries) ListMergeTargets(ctx context.Context, arg ListMergeTargetsParams) ([]ListMergeTargetsRow, error) {
+	rows, err := q.db.Query(ctx, listMergeTargets, arg.Provider, arg.ExternalIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListMergeTargetsRow{}
+	for rows.Next() {
+		var i ListMergeTargetsRow
+		if err := rows.Scan(&i.ExternalID, &i.FromEntry, &i.ToEntry); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProviderEntriesForEntry = `-- name: ListProviderEntriesForEntry :many
 SELECT provider, external_id, entry_id, state, merged_into, record, raw, content_hash, attribution, provider_updated_at, fetched_at, last_seen_run, removed_at, created_at, updated_at FROM provider_entries WHERE entry_id = $1 ORDER BY provider, external_id
 `

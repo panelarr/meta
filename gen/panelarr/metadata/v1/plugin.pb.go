@@ -1097,7 +1097,9 @@ type SyncStarted struct {
 	// Identifies the snapshot, e.g. a dump's checksum or date.
 	SnapshotId   string                 `protobuf:"bytes,2,opt,name=snapshot_id,json=snapshotId,proto3" json:"snapshot_id,omitempty"`
 	SnapshotTime *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=snapshot_time,json=snapshotTime,proto3" json:"snapshot_time,omitempty"`
-	// Expected number of upserts, if known; 0 if not.
+	// Expected number of records (upserts plus skipped), if known; 0 if not.
+	// A plugin that learns the count later reports it as the total of a
+	// "read" SyncProgress event.
 	ExpectedCount int64 `protobuf:"varint,4,opt,name=expected_count,json=expectedCount,proto3" json:"expected_count,omitempty"`
 	// This run lists every record (see Ingestion.full_snapshot).
 	FullSnapshot bool `protobuf:"varint,5,opt,name=full_snapshot,json=fullSnapshot,proto3" json:"full_snapshot,omitempty"`

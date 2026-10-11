@@ -15,6 +15,9 @@ type Querier interface {
 	CountProviderEntries(ctx context.Context) ([]CountProviderEntriesRow, error)
 	// SPDX-License-Identifier: GPL-3.0-or-later
 	CreateSyncRun(ctx context.Context, arg CreateSyncRunParams) (SyncRun, error)
+	DeleteCompaniesOf(ctx context.Context, ids []uuid.UUID) error
+	DeleteCreditsOf(ctx context.Context, ids []uuid.UUID) error
+	DeleteDescriptionsOf(ctx context.Context, ids []uuid.UUID) error
 	DeleteEntry(ctx context.Context, id uuid.UUID) error
 	DeleteEntryCompanies(ctx context.Context, entryID uuid.UUID) error
 	DeleteEntryCredits(ctx context.Context, entryID uuid.UUID) error
@@ -25,7 +28,13 @@ type Querier interface {
 	DeleteEntryRelations(ctx context.Context, entryID uuid.UUID) error
 	DeleteEntryTags(ctx context.Context, entryID uuid.UUID) error
 	DeleteEntryTitles(ctx context.Context, entryID uuid.UUID) error
+	DeleteExternalIDsOf(ctx context.Context, ids []uuid.UUID) error
 	DeleteFieldLock(ctx context.Context, arg DeleteFieldLockParams) error
+	DeleteImagesOf(ctx context.Context, ids []uuid.UUID) error
+	DeleteLinksOf(ctx context.Context, ids []uuid.UUID) error
+	DeleteRelationsOf(ctx context.Context, ids []uuid.UUID) error
+	DeleteTagsOf(ctx context.Context, ids []uuid.UUID) error
+	DeleteTitlesOf(ctx context.Context, ids []uuid.UUID) error
 	// Whether the entry already holds an active record of the provider (other
 	// than the given one). Two records of one provider are never merged by
 	// shared IDs: the provider itself keeps them apart.
@@ -34,12 +43,20 @@ type Querier interface {
 	FindCompanyByExternalIDs(ctx context.Context, arg FindCompanyByExternalIDsParams) (uuid.UUID, error)
 	// Entries that any of the given (provider, id) pairs point at.
 	FindEntriesByExternalIDs(ctx context.Context, arg FindEntriesByExternalIDsParams) ([]FindEntriesByExternalIDsRow, error)
+	// Entries carrying any of the given IDs. The caller matches exact
+	// (provider, id) pairs; the two arrays only narrow the index scan.
+	FindEntriesForRefs(ctx context.Context, arg FindEntriesForRefsParams) ([]FindEntriesForRefsRow, error)
 	FindNameOnlyCompany(ctx context.Context, nameKey string) (uuid.UUID, error)
 	FindNameOnlyPerson(ctx context.Context, nameKey string) (uuid.UUID, error)
 	// SPDX-License-Identifier: GPL-3.0-or-later
 	FindPersonByExternalIDs(ctx context.Context, arg FindPersonByExternalIDsParams) (uuid.UUID, error)
 	FindTagByExternalID(ctx context.Context, arg FindTagByExternalIDParams) (uuid.UUID, error)
 	FinishSyncRun(ctx context.Context, arg FinishSyncRunParams) error
+	// SPDX-License-Identifier: GPL-3.0-or-later
+	//
+	// Set-based variants used by the catalog writer, so a batch of records
+	// costs a handful of round trips instead of several per record.
+	GetEntries(ctx context.Context, ids []uuid.UUID) ([]Entry, error)
 	GetEntry(ctx context.Context, id uuid.UUID) (Entry, error)
 	GetEntryHash(ctx context.Context, id uuid.UUID) ([]byte, error)
 	GetProvider(ctx context.Context, id string) (Provider, error)
@@ -55,6 +72,7 @@ type Querier interface {
 	InsertCompanyExternalID(ctx context.Context, arg InsertCompanyExternalIDParams) error
 	// SPDX-License-Identifier: GPL-3.0-or-later
 	InsertEntry(ctx context.Context, id uuid.UUID) error
+	InsertEntryBatch(ctx context.Context, id []uuid.UUID) *InsertEntryBatchBatchResults
 	InsertEntryCompanies(ctx context.Context, arg []InsertEntryCompaniesParams) (int64, error)
 	InsertEntryCredits(ctx context.Context, arg []InsertEntryCreditsParams) (int64, error)
 	InsertEntryDescriptions(ctx context.Context, arg []InsertEntryDescriptionsParams) (int64, error)
@@ -69,6 +87,10 @@ type Querier interface {
 	InsertRedirect(ctx context.Context, arg InsertRedirectParams) error
 	InsertTagExternalID(ctx context.Context, arg InsertTagExternalIDParams) error
 	LatestSyncRuns(ctx context.Context) ([]SyncRun, error)
+	// Records a provider merged, and that meta never gave an entry of their own,
+	// point at their target's entry. One statement for the whole provider;
+	// repeat to follow chains.
+	LinkMergedRecords(ctx context.Context, provider string) (int64, error)
 	ListEntryCompanies(ctx context.Context, entryID uuid.UUID) ([]ListEntryCompaniesRow, error)
 	ListEntryCredits(ctx context.Context, entryID uuid.UUID) ([]ListEntryCreditsRow, error)
 	ListEntryDescriptions(ctx context.Context, entryID uuid.UUID) ([]EntryDescription, error)
@@ -80,10 +102,18 @@ type Querier interface {
 	ListEntryTags(ctx context.Context, entryID uuid.UUID) ([]ListEntryTagsRow, error)
 	ListEntryTitles(ctx context.Context, entryID uuid.UUID) ([]EntryTitle, error)
 	ListFieldLocks(ctx context.Context, entryID uuid.UUID) ([]FieldLock, error)
+	ListFieldLocksForEntries(ctx context.Context, ids []uuid.UUID) ([]FieldLock, error)
+	// Provider merges whose records still sit in different entries. With
+	// external_ids empty, checks every merged record of the provider.
+	ListMergeTargets(ctx context.Context, arg ListMergeTargetsParams) ([]ListMergeTargetsRow, error)
+	ListProviderEntriesForEntries(ctx context.Context, ids []uuid.UUID) ([]ProviderEntry, error)
 	ListProviderEntriesForEntry(ctx context.Context, entryID uuid.NullUUID) ([]ProviderEntry, error)
 	ListProviders(ctx context.Context) ([]Provider, error)
 	ListSyncRuns(ctx context.Context, arg ListSyncRunsParams) ([]SyncRun, error)
 	ListTags(ctx context.Context, arg ListTagsParams) ([]Tag, error)
+	// Entries an ID points at: through the IDs entries carry, or through the
+	// provider record itself (records a provider merged keep pointing at the
+	// entry of their target).
 	LookupExternalID(ctx context.Context, arg LookupExternalIDParams) ([]LookupExternalIDRow, error)
 	// After a full snapshot: records the run didn't deliver are gone at the
 	// provider. They are kept, marked removed. Returns the affected entries.
@@ -108,11 +138,16 @@ type Querier interface {
 	TouchProviderEntries(ctx context.Context, arg TouchProviderEntriesParams) error
 	UpdateCompany(ctx context.Context, arg UpdateCompanyParams) error
 	UpdateEntry(ctx context.Context, arg UpdateEntryParams) error
+	UpdateEntryBatch(ctx context.Context, arg []UpdateEntryBatchParams) *UpdateEntryBatchBatchResults
 	UpdatePerson(ctx context.Context, arg UpdatePersonParams) error
 	UpdateSyncRunCounts(ctx context.Context, arg UpdateSyncRunCountsParams) error
+	UpsertNameOnlyCompany(ctx context.Context, arg UpsertNameOnlyCompanyParams) (uuid.UUID, error)
+	UpsertNameOnlyPerson(ctx context.Context, arg UpsertNameOnlyPersonParams) (uuid.UUID, error)
+	UpsertNameOnlyPersons(ctx context.Context, arg UpsertNameOnlyPersonsParams) ([]UpsertNameOnlyPersonsRow, error)
 	// SPDX-License-Identifier: GPL-3.0-or-later
 	UpsertProvider(ctx context.Context, arg UpsertProviderParams) error
 	UpsertProviderEntry(ctx context.Context, arg UpsertProviderEntryParams) error
+	UpsertProviderEntryBatch(ctx context.Context, arg []UpsertProviderEntryBatchParams) *UpsertProviderEntryBatchBatchResults
 	UpsertSyncCursor(ctx context.Context, arg UpsertSyncCursorParams) error
 	UpsertTag(ctx context.Context, arg UpsertTagParams) (uuid.UUID, error)
 }

@@ -190,7 +190,9 @@ message SyncStarted {
   // Identifies the snapshot, e.g. a dump's checksum or date.
   string snapshot_id = 2;
   google.protobuf.Timestamp snapshot_time = 3;
-  // Expected number of upserts, if known; 0 if not.
+  // Expected number of records (upserts plus skipped), if known; 0 if not.
+  // A plugin that learns the count later reports it as the total of a
+  // "read" SyncProgress event.
   int64 expected_count = 4;
   // This run lists every record (see Ingestion.full_snapshot).
   bool full_snapshot = 5;

@@ -85,11 +85,23 @@ INSERT INTO entry_external_ids (provider, external_id, entry_id, url, source)
 VALUES (@provider, @external_id, @entry_id, @url, @source);
 
 -- name: LookupExternalID :many
-SELECT x.entry_id, e.state
-FROM entry_external_ids x
-JOIN entries e ON e.id = x.entry_id
-WHERE x.provider = @provider AND x.external_id = @external_id
-ORDER BY (e.state = 'active') DESC, e.created_at;
+-- Entries an ID points at: through the IDs entries carry, or through the
+-- provider record itself (records a provider merged keep pointing at the
+-- entry of their target).
+SELECT c.entry_id::uuid AS entry_id, c.state::text AS state
+FROM (
+    SELECT x.entry_id, e.state, e.created_at, 0 AS pri
+    FROM entry_external_ids x
+    JOIN entries e ON e.id = x.entry_id
+    WHERE x.provider = @provider AND x.external_id = @external_id
+    UNION ALL
+    SELECT e.id, e.state, e.created_at, 1 AS pri
+    FROM provider_entries pe
+    JOIN entries e ON e.id = pe.entry_id
+    WHERE pe.provider = @provider AND pe.external_id = @external_id
+) c
+GROUP BY c.entry_id, c.state, c.created_at
+ORDER BY (c.state = 'active') DESC, min(c.pri), c.created_at;
 
 -- name: DeleteEntryTitles :exec
 DELETE FROM entry_titles WHERE entry_id = @entry_id;
@@ -166,11 +178,19 @@ VALUES (@entry_id, @position, @type, @raw_type, @target_provider, @target_id, @t
 SELECT r.*, COALESCE(t.id::text, '')::text AS target_entry_id, COALESCE(t.title, '')::text AS target_title
 FROM entry_relations r
 LEFT JOIN LATERAL (
-    SELECT e.id, e.title
-    FROM entry_external_ids x
-    JOIN entries e ON e.id = x.entry_id
-    WHERE x.provider = r.target_provider AND x.external_id = r.target_id
-    ORDER BY (e.state = 'active') DESC
+    SELECT c.id, c.title
+    FROM (
+        SELECT e.id, e.title, e.state, 0 AS pri
+        FROM entry_external_ids x
+        JOIN entries e ON e.id = x.entry_id
+        WHERE x.provider = r.target_provider AND x.external_id = r.target_id
+        UNION ALL
+        SELECT e.id, e.title, e.state, 1 AS pri
+        FROM provider_entries pe
+        JOIN entries e ON e.id = pe.entry_id
+        WHERE pe.provider = r.target_provider AND pe.external_id = r.target_id
+    ) c
+    ORDER BY (c.state = 'active') DESC, c.pri
     LIMIT 1
 ) t ON true
 WHERE r.entry_id = @entry_id

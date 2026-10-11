@@ -1,0 +1,54 @@
+# meta configuration example. Copy it, adjust it, and start meta with
+#   meta serve --config meta.yaml
+# Values like ${NAME} or ${NAME:-default} are read from the environment.
+
+# Address of the API (gRPC, Connect and REST/JSON on one port).
+listen: ":8901"
+
+# Callers send one of these as "Authorization: Bearer <key>".
+# Leave empty only on a private network.
+api_keys:
+  - ${META_API_KEY}
+
+# meta's own PostgreSQL database. No superuser needed.
+database_url: ${META_DATABASE_URL:-postgres://meta:meta@localhost:5432/meta?sslmode=disable}
+
+search:
+  backend: postgres   # the only backend today
+
+merge:
+  # Preferred provider per field of the entry schema; "*" is the default.
+  # Providers not listed follow in the order they appear below.
+  priority:
+    "*": [mangabaka]
+  display_language: en
+
+ingest:
+  batch_size: 500     # records per transaction when a plugin checkpoints rarely
+  stale_after: 168h   # entries older than this are refreshed on lookup
+
+log:
+  level: info         # debug, info, warn, error
+  format: json        # json or text
+
+# Metadata plugins. None by default: meta works with an empty catalogue.
+providers:
+  # A plugin running as its own service (standalone mode, gRPC).
+  - id: mangabaka
+    remote:
+      url: http://meta-mangabaka:8903
+      api_key: ${MANGABAKA_PLUGIN_KEY:-}
+    settings:
+      dump_variant: default
+      download_dir: /data/mangabaka
+    schedules:
+      dump: "0 3 * * *"   # daily at 03:00 UTC (the dump is rebuilt at 00:00 UTC)
+
+  # The same plugin started by meta as a child process (managed mode):
+  # - id: mangabaka
+  #   managed:
+  #     path: /plugins/meta-mangabaka
+  #   settings:
+  #     download_dir: /data/mangabaka
+  #   schedules:
+  #     dump: "0 3 * * *"

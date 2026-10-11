@@ -7,15 +7,15 @@ The plan for the first version of meta and its first plugin, [meta-mangabaka](ht
 | 1 | Scaffold both repos (Makefile, lint, CI with Postgres, community files, docs) | meta, meta-mangabaka | `chore/repo-scaffold` | done |
 | 2 | Plugin protocol + meta API protos, Go plugin SDK (managed + standalone), conformance harness | meta | `feat/proto-metadata-v1` | done |
 | 3 | Database: goose migrations for the entry schema, sqlc queries, pgx pool, tests on real Postgres | meta | `feat/db-entry-schema` | done |
-| 4 | MangaBaka `dump` ingestion: download, checksum, zstd, SQLite read, mapping, merges, checkpoints | meta-mangabaka | `feat/dump-ingest` | in progress |
-| 5 | Ingest: plugin host, scheduler, batched upserts, merged entries, merges, removals, sync runs | meta | | |
+| 4 | MangaBaka `dump` ingestion: download, checksum, zstd, SQLite read, mapping, merges, checkpoints | meta-mangabaka | `feat/dump-ingest` | done |
+| 5 | Ingest: plugin host, scheduler, batched upserts, merged entries, merges, removals, sync runs | meta | `feat/ingest` | done |
 | 6 | API: browse, search (Postgres FTS + trigram), get, external lookup, admin, OpenAPI | meta | | |
-| 7 | MangaBaka `lookup`: search/get through the API within its rate limits | meta-mangabaka | | |
+| 7 | MangaBaka `lookup`: search/get through the API within its rate limits | meta-mangabaka | `feat/api-lookup` | done |
 | 8 | Images, compose example, quick starts, docs | meta, meta-mangabaka | | |
 
 ## Next
 
-Slice 5: ingest (plugin host, scheduler, merged entries). Slice 4 runs in parallel in meta-mangabaka.
+Slice 6: the meta API (browse, search, get, external lookup) and its OpenAPI document.
 
 ## Notes
 

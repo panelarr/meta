@@ -75,10 +75,10 @@ finished     last event: totals and the cursor for the next run
 
 Rules (the conformance harness checks them):
 
-1. `started` comes first and `finished` last. Nothing follows `finished`.
+1. `started` comes first and `finished` last. Nothing follows `finished`. Work that happens before the first record (a download, a checksum) is reported with `progress` events **after** `started`; a plugin that only learns the record count later sends `expected_count` 0 and gives the count as the `total` of a `read` progress event.
 2. Every upsert's `ref.provider` is the plugin's `provider`, its ID is not empty, and it appears once per run.
 3. A checkpoint's `count` is the number of record events (upserts, removals, merges) sent so far.
-4. `finished` totals match what was sent.
+4. `finished` totals match what was sent. `expected_count`, when set, should equal upserts plus skipped records.
 5. If the cursor in the request shows nothing changed (e.g. the same dump), the plugin may send `started{unchanged: true}` and `finished` with no records. `force` makes it send everything anyway.
 
 meta commits at each checkpoint. If a run fails, what was committed stays.

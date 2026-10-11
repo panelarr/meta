@@ -71,3 +71,16 @@ WHERE provider = @provider
   AND state = 'active'
   AND last_seen_run IS DISTINCT FROM @run_id::uuid
 RETURNING entry_id;
+
+-- name: ListMergeTargets :many
+-- Provider merges whose records still sit in different entries. With
+-- external_ids empty, checks every merged record of the provider.
+SELECT m.external_id, m.entry_id AS from_entry, t.entry_id AS to_entry
+FROM provider_entries m
+JOIN provider_entries t ON t.provider = m.provider AND t.external_id = m.merged_into
+WHERE m.provider = @provider
+  AND m.state = 'merged'
+  AND m.entry_id IS NOT NULL
+  AND t.entry_id IS NOT NULL
+  AND m.entry_id <> t.entry_id
+  AND (cardinality(@external_ids::text[]) = 0 OR m.external_id = ANY(@external_ids::text[]));
