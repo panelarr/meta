@@ -122,14 +122,14 @@ func LoadDocuments(ctx context.Context, pool *pgxpool.Pool, ids []uuid.UUID) (do
 	found := map[uuid.UUID]bool{}
 	for rows.Next() {
 		var (
-			id                                  uuid.UUID
-			d                                   Document
-			year                                *int32
-			rating, popularity                  *float64
-			rank                                *int64
-			updated                             time.Time
-			titles, langs, people, keys, names  []string
-			genre, spoiler                      []bool
+			id                                 uuid.UUID
+			d                                  Document
+			year                               *int32
+			rating, popularity                 *float64
+			rank                               *int64
+			updated                            time.Time
+			titles, langs, people, keys, names []string
+			genre, spoiler                     []bool
 		)
 		if err := rows.Scan(&id, &d.Title, &d.Type, &d.Status, &d.ContentRating, &d.OriginalLanguage,
 			&year, &rating, &popularity, &rank, &updated,
