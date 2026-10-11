@@ -434,6 +434,90 @@ describe("integrations", () => {
   });
 });
 
+describe("duplicates", () => {
+  it("lists pairs side by side with signals and the model's rating", async () => {
+    const app = renderApp("/duplicates");
+    const pairs = await screen.findAllByRole("article", { name: /^Pair / });
+    expect(pairs).toHaveLength(2);
+    const first = pairs[0] as HTMLElement;
+    expect(within(first).getByText("Score 92%")).toBeInTheDocument();
+    expect(within(first).getByText("same provider")).toBeInTheDocument();
+    expect(within(first).getByText("Model: 94% same")).toBeInTheDocument();
+    expect(within(first).getByText(/most likely same work/)).toBeInTheDocument();
+    expect(within(first).getByText(/in common: hana imaginary/)).toBeInTheDocument();
+    expect(within(first).getByText("anilist:4242")).toBeInTheDocument();
+    expect(within(pairs[1] as HTMLElement).getByText(/not known on both sides/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByLabelText("Rated by the decision model"));
+    await waitFor(() => expect(screen.getAllByRole("article", { name: /^Pair / })).toHaveLength(1));
+    expect(app.router.state.location.search).toMatchObject({ judged: true });
+    app.dispose();
+  });
+
+  it("confirms a pair keeping the chosen entry, and dismisses another", async () => {
+    let sent: unknown;
+    server.events.on("request:start", async ({ request }) => {
+      if (request.url.endsWith(":confirm")) sent = await request.clone().json();
+    });
+    const app = renderApp("/duplicates");
+    const [first] = await screen.findAllByRole("article", { name: /^Pair / });
+    await userEvent.click(within(first as HTMLElement).getByRole("button", { name: "Confirm…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Merge these entries?" });
+    const radios = within(dialog).getAllByRole("radio");
+    await userEvent.click(radios[1] as HTMLElement);
+    await userEvent.type(within(dialog).getByLabelText(/Note/), "same series");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Merge" }));
+    await waitFor(() => expect(screen.getAllByRole("article", { name: /^Pair / })).toHaveLength(1));
+    expect(sent).toEqual({ keep: "b", note: "same series" });
+
+    const [other] = screen.getAllByRole("article", { name: /^Pair / });
+    await userEvent.click(within(other as HTMLElement).getByRole("button", { name: "Dismiss…" }));
+    await userEvent.click(
+      within(await screen.findByRole("dialog", { name: "Different works?" })).getByRole("button", { name: "Dismiss" }),
+    );
+    expect(await screen.findByText(/Nothing to review/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: "Dismissed" }));
+    expect(app.router.state.location.search).toMatchObject({ show: "dismissed" });
+    const dismissed = await screen.findAllByRole("article", { name: /^Pair / });
+    expect(dismissed).toHaveLength(2);
+    await userEvent.click(within(dismissed[0] as HTMLElement).getByRole("button", { name: "Reopen" }));
+    await waitFor(() => expect(screen.getAllByRole("article", { name: /^Pair / })).toHaveLength(1));
+    server.events.removeAllListeners();
+    app.dispose();
+  });
+
+  it("sets up the decision model with a stored key, after a test", async () => {
+    const app = renderApp("/duplicates");
+    const section = await screen.findByRole("region", { name: "Decision model" });
+    expect(await within(section).findByText("Off")).toBeInTheDocument();
+    await userEvent.click(within(section).getByRole("button", { name: "Change" }));
+    const dialog = await screen.findByRole("dialog", { name: "Decision model" });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Test" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("missing API key");
+    await userEvent.type(within(dialog).getByLabelText("API key"), "sk-made-up");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Test" }));
+    expect(await within(dialog).findByText(/Answered: 96%/)).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByLabelText(/Rate the best pairs/));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(await within(section).findByText("On")).toBeInTheDocument();
+    expect(within(section).getByText("key stored")).toBeInTheDocument();
+    expect(section).not.toHaveTextContent("sk-made-up");
+    await userEvent.click(within(section).getByRole("button", { name: "Use the configuration file" }));
+    expect(await within(section).findByText("Off")).toBeInTheDocument();
+    app.dispose();
+  });
+
+  it("starts a run and opens it on the Jobs page", async () => {
+    const app = renderApp("/duplicates");
+    await screen.findAllByRole("article", { name: /^Pair / });
+    await userEvent.click(screen.getByRole("button", { name: "Find duplicates now" }));
+    await waitFor(() => expect(app.router.state.location.pathname).toBe("/jobs"));
+    expect(app.router.state.location.search).toMatchObject({ job: "duplicates" });
+    app.dispose();
+  });
+});
+
 describe("search engine", () => {
   it("shows PostgreSQL by default, then switches to an engine with a stored key and back", async () => {
     let sent: unknown;

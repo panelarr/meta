@@ -129,9 +129,23 @@ Every background job and its runs, with the same messages and paths as the other
 | `rebuild-entries` | | Rebuild every entry from the stored records. Runs at startup when an upgrade queued it (trigger `startup`) |
 | `search-rebuild` | | Build a new search engine index and swap it in. Runs on its own (trigger `startup` or `system`) on first use, after a document schema change and when too many changes pile up |
 | `search-indexer` | | Apply every waiting entry change to the search engine now |
+| `duplicates` | `full`, `judge` | Find pairs of entries that are probably the same work; rate the best with the decision model when it is on |
 | `stale-refresh` | `limit` (default `jobs.stale_refresh.limit`) | Look up again the entries whose records are older than `ingest.stale_after`, oldest first, from providers that support lookups |
 
 Job IDs match `^[a-z0-9][a-z0-9._-]*$`: a `:` would read as the custom verb in `…:run`. Runs record their trigger (`schedule`, `manual`, `startup`, or `system` when meta started the run on its own while running) and, for manual runs, who started them (the admin, a client's name, or `cli`). A scheduled run that finds its job still running is recorded as `skipped`. Each job keeps its newest `jobs.retention` finished runs. A run whose meta process stopped is marked failed ("interrupted") when meta starts again, unless another meta process on the same database still holds it.
+
+## Duplicates (`MetaDuplicatesService`)
+
+| Call | REST | What |
+|---|---|---|
+| `ListDuplicates` | `GET /v1/admin/duplicates?status=DUPLICATE_STATUS_OPEN&minScore=0.8&judgedOnly=true` | Pairs with both entries' summaries, score, signals and verdict, best first |
+| `GetDuplicate` | `GET /v1/admin/duplicates/{id}` | One pair |
+| `ConfirmDuplicate` | `POST /v1/admin/duplicates/{id}:confirm` with `{"keep": "a"}` | Merge the pair; `keep` is the entry that stays (empty: the more popular). Returns the entry |
+| `DismissDuplicate` | `POST /v1/admin/duplicates/{id}:dismiss` with `{"note": "…"}` | Different works, for good |
+| `ReopenDuplicate` | `POST /v1/admin/duplicates/{id}:reopen` | Take a dismissal back |
+| `GetDecisionJudge`, `PutDecisionJudge`, `TestDecisionJudge`, `ResetDecisionJudge` | `/v1/admin/decision-judge` (`:test`, `:reset`) | The optional decision model; the key is never returned |
+
+Pairs are found by the `duplicates` job (params `full`, `judge`). See [duplicates](duplicates.md).
 
 ## Search engine (`MetaIntegrationsService`)
 

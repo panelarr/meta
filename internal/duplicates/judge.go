@@ -172,7 +172,7 @@ func post(ctx context.Context, c JudgeConfig, url string, body any, out any) err
 			return err
 		}
 		data, _ := io.ReadAll(io.LimitReader(res.Body, 4<<20))
-		res.Body.Close()
+		_ = res.Body.Close()
 		switch {
 		case res.StatusCode < 300:
 			return json.Unmarshal(data, out)

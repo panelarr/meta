@@ -43,9 +43,15 @@ The plan for the first version of meta and its first plugin, [meta-mangabaka](ht
 |---|---|---|---|---|
 | 1 | Outbox, indexer, rebuild with atomic swap, fallback, conformance suite; Typesense and Meilisearch; facets; admin settings; jobs; compose profiles; docs; benchmarks | meta | `feat/search-outbox` | done |
 
+## Duplicates (GOAL-0004)
+
+| # | Slice | Repo | Branch | State |
+|---|---|---|---|---|
+| 1 | Candidates (title keys, similar titles, shared IDs; scoring), curator merge, review API, optional decision models (OpenAI Decisions, TypeSafe, Clef), job, admin page, docs, scale test | meta | `feat/duplicates-candidates` | done |
+
 ## Next
 
-GOAL-0006, then GOAL-0004 (duplicates; its WIP branch `feat/duplicates-candidates` waits).
+Waiting for the next goal.
 
 ## Notes
 

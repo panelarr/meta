@@ -11,6 +11,7 @@
 | [writing-a-plugin.md](writing-a-plugin.md) | How to write a metadata plugin with the Go SDK |
 | [configuration.md](configuration.md) | Commands, every setting, providers, merging, the database |
 | [search.md](search.md) | Search with PostgreSQL, or an optional Typesense or Meilisearch: setup, how the index stays current, fallback, facets, benchmarks |
+| [duplicates.md](duplicates.md) | Finding entries that are the same work, reviewing them, and the optional decision model |
 | [ingest.md](ingest.md) | How syncs work, from records to entries, performance |
 | [database.md](database.md) | For contributors: tables, merged view, linking and redirects |
 | [schema.md](schema.md) | The entry schema: provider records, merged entries, enums with raw values |

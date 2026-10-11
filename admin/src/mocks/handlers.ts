@@ -6,6 +6,8 @@ import { delay, HttpResponse, http, type JsonBodyType } from "msw";
 import type {
   Assignment,
   Client,
+  DecisionJudgeSettings,
+  DuplicatePair,
   Entry,
   EntrySummary,
   Facet,
@@ -43,6 +45,9 @@ type Db = {
   /** Job runs, newest first. */
   jobRuns: JobRun[];
   search: { settings: SearchEngineSettings; apiKey: string };
+  /** Duplicate pairs by index into entries (made up). */
+  pairs: MockPair[];
+  judge: { settings: DecisionJudgeSettings; apiKey: string };
   clients: Client[];
   solvers: Solver[];
   profiles: NetworkProfile[];
@@ -62,6 +67,8 @@ export function createDb(): Db {
     jobs: mockJobs(),
     jobRuns: mockJobRuns(),
     search: { settings: { backend: "postgres", indexPrefix: "meta", browse: "facets", origin: "config" }, apiKey: "" },
+    pairs: mockPairs(),
+    judge: { settings: { enabled: false, origin: "config" }, apiKey: "" },
     clients: mockClients(),
     solvers: mockSolvers(),
     profiles: mockProfiles(),
@@ -261,6 +268,73 @@ function settle(run: JobRun): JobRun {
     run.progress = undefined;
   }
   return run;
+}
+
+type MockPair = Omit<DuplicatePair, "entryA" | "entryB"> & { a: number; b: number };
+
+function mockPairs(): MockPair[] {
+  const signals = (title: number, people: number, shared: string[] = []) => ({
+    title,
+    titleA: "lantern keeper",
+    titleB: "the lantern keeper",
+    people,
+    sharedPeople: people > 0 ? ["hana imaginary"] : [],
+    yearA: 2019,
+    yearB: 2019,
+    typeA: "manhwa",
+    typeB: "manhwa",
+    languageA: "ko",
+    languageB: "ko",
+    sharedIds: shared,
+    sameProvider: true,
+  });
+  return [
+    {
+      id: "1",
+      a: 0,
+      b: 1,
+      status: "DUPLICATE_STATUS_OPEN",
+      score: 0.92,
+      signals: signals(0.79, 1, ["anilist:4242"]),
+      verdict: {
+        judge: "openai",
+        model: "gpt-6-luna",
+        same: 0.94,
+        choice: "same_work",
+        probabilities: { same_work: 0.94, related_work: 0.04, different: 0.02 },
+        confidence: 0.9,
+        tokens: "410",
+      },
+      createdAt: "2026-10-11T03:10:00Z",
+    },
+    {
+      id: "2",
+      a: 2,
+      b: 3,
+      status: "DUPLICATE_STATUS_OPEN",
+      score: 0.68,
+      signals: signals(0.64, -1),
+      createdAt: "2026-10-11T03:10:00Z",
+    },
+    {
+      id: "3",
+      a: 1,
+      b: 3,
+      status: "DUPLICATE_STATUS_DISMISSED",
+      score: 0.62,
+      signals: signals(0.6, 0),
+      decidedAt: "2026-10-10T12:00:00Z",
+      decidedBy: "admin",
+      note: "a sequel",
+    },
+  ];
+}
+
+function pairOut(db: Db, p: MockPair): DuplicatePair {
+  const { a, b, ...rest } = p;
+  const ea = db.entries[a];
+  const eb = db.entries[b];
+  return { ...rest, entryA: ea ? summary(ea) : undefined, entryB: eb ? summary(eb) : undefined };
 }
 
 /** Facet counts like an engine's, when an engine is set and they're asked for. */
@@ -569,6 +643,84 @@ export function createHandlers(db: Db = createDb(), latency = 0) {
         apiKey: "",
       };
       return ok(searchState(db));
+    }),
+
+    // ----- MetaDuplicatesService ---------------------------------------------------
+    http.get(`${base}/admin/duplicates`, async ({ request }) => {
+      await wait();
+      const denied = guard(request, true);
+      if (denied) return denied;
+      const params = new URL(request.url).searchParams;
+      const status = params.get("status") || "DUPLICATE_STATUS_OPEN";
+      const min = Number(params.get("minScore") ?? 0);
+      const judged = params.get("judgedOnly") === "true";
+      const list = db.pairs.filter((p) => p.status === status && (p.score ?? 0) >= min && (!judged || p.verdict));
+      const { items, next } = page(list, params);
+      return ok({ pairs: items.map((p) => pairOut(db, p)), nextPageToken: next, totalSize: String(list.length) });
+    }),
+
+    http.post(pattern(base, "/admin/duplicates/([^/:]+):(confirm|dismiss|reopen)$"), async ({ request }) => {
+      await wait();
+      const denied = guard(request, true);
+      if (denied) return denied;
+      const [, id, action] = /\/admin\/duplicates\/([^/:]+):(\w+)$/.exec(new URL(request.url).pathname) ?? [];
+      const p = db.pairs.find((x) => x.id === id);
+      if (!p) return grpcError("NOT_FOUND", `not found: no duplicate pair ${id}`);
+      const body = (await request.json().catch(() => ({}))) as { keep?: string; note?: string };
+      if (action === "reopen") {
+        if (p.status !== "DUPLICATE_STATUS_DISMISSED")
+          return grpcError("FAILED_PRECONDITION", "only dismissed pairs can be reopened");
+        Object.assign(p, { status: "DUPLICATE_STATUS_OPEN", decidedAt: undefined, decidedBy: "", note: "" });
+        return ok({ pair: pairOut(db, p) });
+      }
+      if (p.status !== "DUPLICATE_STATUS_OPEN") return grpcError("FAILED_PRECONDITION", "the pair was already decided");
+      if (action === "confirm" && body.keep && !["a", "b"].includes(body.keep))
+        return grpcError("INVALID_ARGUMENT", "invalid: keep must be a or b");
+      Object.assign(p, {
+        status: action === "confirm" ? "DUPLICATE_STATUS_CONFIRMED" : "DUPLICATE_STATUS_DISMISSED",
+        decidedAt: now(),
+        decidedBy: "admin",
+        note: body.note ?? "",
+      });
+      const kept = body.keep === "b" ? db.entries[p.b] : db.entries[p.a];
+      return ok({ pair: pairOut(db, p), entryId: action === "confirm" ? kept?.id : undefined });
+    }),
+
+    http.get(`${base}/admin/decision-judge`, async ({ request }) => {
+      await wait();
+      return guard(request, true) ?? ok({ settings: { ...db.judge.settings, hasApiKey: db.judge.apiKey !== "" } });
+    }),
+
+    http.put(`${base}/admin/decision-judge`, async ({ request }) => {
+      await wait();
+      const denied = guard(request, true);
+      if (denied) return denied;
+      const s = ((await request.json()) as { settings?: DecisionJudgeSettings }).settings ?? {};
+      const same = s.kind === db.judge.settings.kind && s.url === db.judge.settings.url;
+      const key = s.apiKey || (same ? db.judge.apiKey : "");
+      if (s.enabled && !key) return grpcError("INVALID_ARGUMENT", "invalid: an API key is needed to turn the model on");
+      db.judge = {
+        settings: { enabled: s.enabled, kind: s.kind, url: s.url, model: s.model, covers: s.covers, origin: "admin" },
+        apiKey: key,
+      };
+      return ok({ settings: { ...db.judge.settings, hasApiKey: key !== "" } });
+    }),
+
+    http.post(pattern(base, "/admin/decision-judge:test$"), async ({ request }) => {
+      await wait();
+      const denied = guard(request, true);
+      if (denied) return denied;
+      const s = ((await request.json()) as { settings?: DecisionJudgeSettings }).settings ?? {};
+      if (!s.apiKey && !db.judge.apiKey) return ok({ error: "decision model: HTTP 401: missing API key" });
+      return ok({ ok: true, verdict: { judge: s.kind, same: 0.96, choice: "same_work" } });
+    }),
+
+    http.post(pattern(base, "/admin/decision-judge:reset$"), async ({ request }) => {
+      await wait();
+      const denied = guard(request, true);
+      if (denied) return denied;
+      db.judge = { settings: { enabled: false, origin: "config" }, apiKey: "" };
+      return ok({ settings: db.judge.settings });
     }),
 
     // ----- MetaJobsService --------------------------------------------------------

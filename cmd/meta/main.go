@@ -27,8 +27,8 @@ import (
 	"github.com/panelarr/meta/internal/buildinfo"
 	"github.com/panelarr/meta/internal/catalog"
 	"github.com/panelarr/meta/internal/config"
-	"github.com/panelarr/meta/internal/host"
 	"github.com/panelarr/meta/internal/duplicates"
+	"github.com/panelarr/meta/internal/host"
 	"github.com/panelarr/meta/internal/ingest"
 	"github.com/panelarr/meta/internal/integrations"
 	"github.com/panelarr/meta/internal/jobs"
@@ -374,8 +374,8 @@ func serve(ctx context.Context, args []string, out io.Writer) error {
 		Index: idx, Log: log, Base: syncCtx,
 	})
 	srv, err := api.New(api.Services{
-		Meta:       metaAPI,
-		Duplicates: api.NewDuplicates(a.st, a.dups, metaAPI),
+		Meta:         metaAPI,
+		Duplicates:   api.NewDuplicates(a.st, a.dups, metaAPI),
 		Admin:        admin,
 		Clients:      api.NewClients(a.st),
 		Integrations: integAPI,
