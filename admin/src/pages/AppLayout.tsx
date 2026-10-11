@@ -2,8 +2,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Link, Outlet } from "@tanstack/react-router";
-import { api, unwrap } from "../api/client";
 import { session } from "../auth/session";
+import { healthQuery } from "./HealthPage";
 
 export function RootLayout() {
   return <Outlet />;
@@ -14,22 +14,14 @@ const nav = [
   { to: "/providers", label: "Providers" },
   { to: "/clients", label: "Clients" },
   { to: "/integrations", label: "Integrations" },
+  { to: "/health", label: "Health" },
 ] as const;
 
-/** A badge when any provider is unhealthy, from the provider list the Providers page uses too. */
-function useProviderHealth() {
-  return useQuery({
-    queryKey: ["providers"],
-    queryFn: async () => (await unwrap(api.GET("/v1/admin/providers"))).providers ?? [],
-    refetchInterval: 60_000,
-  });
-}
-
 export function AppLayout() {
-  const providers = useProviderHealth();
-  const unhealthy = (providers.data ?? []).filter(
-    (p) => p.health === "HEALTH_STATUS_DOWN" || p.health === "HEALTH_STATUS_DEGRADED",
-  );
+  // A badge when meta isn't fully healthy, from the detailed health view.
+  const health = useQuery(healthQuery);
+  const status = health.data?.status;
+  const unhealthy = (health.data?.components ?? []).filter((c) => c.status !== "HEALTH_STATUS_OK");
 
   return (
     <div className="shell">
@@ -45,9 +37,14 @@ export function AppLayout() {
           ))}
         </nav>
         <div className="topbar-end">
-          {unhealthy.length > 0 ? (
-            <Link to="/providers" className="badge badge-warn" title={unhealthy.map((p) => p.id).join(", ")}>
-              {unhealthy.length === 1 ? "1 provider unhealthy" : `${unhealthy.length} providers unhealthy`}
+          {status && status !== "HEALTH_STATUS_OK" ? (
+            <Link
+              to="/health"
+              className={`badge ${status === "HEALTH_STATUS_DOWN" ? "badge-bad" : "badge-warn"}`}
+              title={unhealthy.map((c) => c.name).join(", ")}
+            >
+              {status === "HEALTH_STATUS_DOWN" ? "Down" : "Degraded"}: {unhealthy.length}{" "}
+              {unhealthy.length === 1 ? "part" : "parts"}
             </Link>
           ) : null}
           <button type="button" className="small" onClick={() => session.signOut("logout")}>

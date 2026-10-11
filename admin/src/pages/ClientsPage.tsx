@@ -11,6 +11,7 @@ import { formatDate } from "../lib/format";
 
 export const scopes = [
   { scope: "catalog:read", help: "Browse, search and read the catalogue" },
+  { scope: "metrics:read", help: "Scrape /metrics when it's served on the API port (for Prometheus)" },
   { scope: "admin", help: "Everything, including the admin API" },
 ] as const;
 

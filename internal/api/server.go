@@ -111,7 +111,7 @@ func New(svc Services, opts Options) (*Server, error) {
 // gRPC-Web and Connect under the service paths) rather than for the UI.
 func isAPI(r *http.Request) bool {
 	p := r.URL.Path
-	if p == "/v1" || strings.HasPrefix(p, "/v1/") || strings.HasPrefix(p, "/panelarr.") || strings.HasPrefix(p, "/grpc.") {
+	if p == "/v1" || strings.HasPrefix(p, "/v1/") || p == "/metrics" || strings.HasPrefix(p, "/panelarr.") || strings.HasPrefix(p, "/grpc.") {
 		return true
 	}
 	return strings.HasPrefix(r.Header.Get("Content-Type"), "application/grpc") ||

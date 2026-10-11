@@ -29,6 +29,8 @@ export type NetworkProfile = Schemas["panelarr.meta.v1.NetworkProfile"];
 export type UserAgentMode = Schemas["panelarr.meta.v1.UserAgentMode"];
 export type Assignment = Schemas["panelarr.meta.v1.Assignment"];
 export type ProfileOrigin = Schemas["panelarr.meta.v1.ProfileOrigin"];
+export type GetHealthResponse = Schemas["panelarr.meta.v1.GetHealthResponse"];
+export type ComponentHealth = Schemas["panelarr.meta.v1.ComponentHealth"];
 
 // panelarr.metadata.v1: the entry schema and plugins
 export type EntryType = Schemas["panelarr.metadata.v1.EntryType"];

@@ -149,6 +149,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GetHealth
+         * @description GetHealth reports the health of meta's parts: the database, the search
+         *      backend and every provider's plugin.
+         */
+        get: operations["MetaAdminService_GetHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/profiles": {
         parameters: {
             query?: never;
@@ -646,6 +667,37 @@ export interface components {
             /** last_used_at */
             lastUsedAt?: components["schemas"]["google.protobuf.Timestamp"];
         };
+        /** ComponentHealth */
+        "panelarr.meta.v1.ComponentHealth": {
+            /**
+             * name
+             * @description "database", "search" or "provider:<id>".
+             */
+            name?: string;
+            /**
+             * kind
+             * @description "database", "search" or "provider".
+             */
+            kind?: string;
+            /** status */
+            status?: components["schemas"]["panelarr.metadata.v1.HealthStatus"];
+            /** message */
+            message?: string;
+            /**
+             * latency
+             * @description How long the check took.
+             */
+            latency?: components["schemas"]["google.protobuf.Duration"];
+            /** checked_at */
+            checkedAt?: components["schemas"]["google.protobuf.Timestamp"];
+            /**
+             * details
+             * @description Extra facts, e.g. the search backend's capabilities or a plugin's version.
+             */
+            details?: {
+                [key: string]: string;
+            };
+        };
         /** CreateClientRequest */
         "panelarr.meta.v1.CreateClientRequest": {
             /** name */
@@ -906,6 +958,24 @@ export interface components {
              *      was merged into.
              */
             redirectedFrom?: string;
+        };
+        /** GetHealthRequest */
+        "panelarr.meta.v1.GetHealthRequest": Record<string, never>;
+        /** GetHealthResponse */
+        "panelarr.meta.v1.GetHealthResponse": {
+            /**
+             * status
+             * @description DOWN when the database is down; DEGRADED when the search backend or a
+             *      plugin is down or degraded; OK otherwise.
+             */
+            status?: components["schemas"]["panelarr.metadata.v1.HealthStatus"];
+            /** components */
+            components?: components["schemas"]["panelarr.meta.v1.ComponentHealth"][];
+            /**
+             * version
+             * @description meta's version.
+             */
+            version?: string;
         };
         /** GetSyncRunRequest */
         "panelarr.meta.v1.GetSyncRunRequest": {
@@ -2699,6 +2769,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["panelarr.meta.v1.RefreshEntryResponse"];
+                };
+            };
+        };
+    };
+    MetaAdminService_GetHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["panelarr.meta.v1.GetHealthResponse"];
                 };
             };
         };

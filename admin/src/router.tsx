@@ -14,6 +14,7 @@ import { AppLayout, NotFound, RootLayout } from "./pages/AppLayout";
 import { CataloguePage } from "./pages/CataloguePage";
 import { ClientsPage } from "./pages/ClientsPage";
 import { EntryPage } from "./pages/EntryPage";
+import { HealthPage } from "./pages/HealthPage";
 import { IntegrationsPage } from "./pages/IntegrationsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ProvidersPage } from "./pages/ProvidersPage";
@@ -99,9 +100,23 @@ const integrationsRoute = createRoute({
   component: IntegrationsPage,
 });
 
+const healthRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/health",
+  component: HealthPage,
+});
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
-  appRoute.addChildren([indexRoute, catalogueRoute, entryRoute, providersRoute, clientsRoute, integrationsRoute]),
+  appRoute.addChildren([
+    indexRoute,
+    catalogueRoute,
+    entryRoute,
+    providersRoute,
+    clientsRoute,
+    integrationsRoute,
+    healthRoute,
+  ]),
 ]);
 
 export function createAppRouter(queryClient: QueryClient, history?: RouterHistory) {

@@ -130,8 +130,8 @@ describe("providers", () => {
     const down = screen.getByRole("article", { name: "Provider sample" });
     expect(within(down).getByText("Down")).toBeInTheDocument();
     expect(within(down).queryByRole("button", { name: /Run/ })).not.toBeInTheDocument();
-    // The top bar flags the unhealthy provider.
-    expect(screen.getByRole("link", { name: "1 provider unhealthy" })).toBeInTheDocument();
+    // The top bar flags that meta isn't fully healthy.
+    expect(await screen.findByRole("link", { name: "Degraded: 1 part" })).toHaveAttribute("title", "provider:sample");
     app.dispose();
   });
 
@@ -274,6 +274,32 @@ describe("integrations", () => {
       const row = screen.getAllByRole("row").find((r) => within(r).queryByText("sample"));
       expect(row && within(row).getByText("Assigned", { selector: ".badge" })).toBeInTheDocument();
     });
+    app.dispose();
+  });
+});
+
+describe("health", () => {
+  it("shows every part with its status and details", async () => {
+    const app = renderApp("/health");
+    const rows = await screen.findAllByRole("row");
+    expect(rows).toHaveLength(5); // header, database, search, two providers
+    const db = rows.find((r) => within(r).queryByText("Database"));
+    expect(db && within(db).getByText("Healthy")).toBeInTheDocument();
+    const search = rows.find((r) => within(r).queryByText("Search"));
+    expect(search && within(search).getByText("postgres")).toBeInTheDocument();
+    const sample = rows.find((r) => within(r).queryByRole("link", { name: "sample" }));
+    expect(sample && within(sample).getByText("Down")).toBeInTheDocument();
+    expect(sample && within(sample).getByText("plugin process exited")).toBeInTheDocument();
+    expect(screen.getByText("Degraded", { selector: ".badge" })).toBeInTheDocument();
+    app.dispose();
+  });
+});
+
+describe("clients scopes", () => {
+  it("offers the metrics scope", async () => {
+    const app = renderApp("/clients");
+    await userEvent.click(await screen.findByRole("button", { name: "New client" }));
+    expect(screen.getByRole("checkbox", { name: /metrics:read/ })).toBeInTheDocument();
     app.dispose();
   });
 });

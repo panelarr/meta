@@ -291,6 +291,47 @@ export function createHandlers(db: Db = createDb(), latency = 0) {
       });
     }),
 
+    http.get(`${base}/admin/health`, async ({ request }) => {
+      await wait();
+      const denied = guard(request, true);
+      if (denied) return denied;
+      const checkedAt = now();
+      const components = [
+        {
+          name: "database",
+          kind: "database",
+          status: "HEALTH_STATUS_OK",
+          latency: "0.002s",
+          checkedAt,
+          details: { connections: "4", idle: "3" },
+        },
+        {
+          name: "search",
+          kind: "search",
+          status: "HEALTH_STATUS_OK",
+          latency: "0.006s",
+          checkedAt,
+          details: { backend: "postgres", typo_tolerance: "true", substring: "true", facets: "false" },
+        },
+        ...db.providers.map((p) => ({
+          name: `provider:${p.id}`,
+          kind: "provider",
+          status: p.health,
+          message: p.healthMessage ?? "",
+          latency: "0.004s",
+          checkedAt,
+          details: {
+            mode: p.mode ?? "",
+            ...(p.info ? { plugin: p.info.id ?? "", version: p.info.version ?? "" } : {}),
+          },
+        })),
+      ];
+      const status = components.every((c) => c.status === "HEALTH_STATUS_OK")
+        ? "HEALTH_STATUS_OK"
+        : "HEALTH_STATUS_DEGRADED";
+      return ok({ status, components, version: "dev" });
+    }),
+
     http.post(`${base}/admin/providers/:provider/sync`, async ({ request, params }) => {
       await wait();
       const denied = guard(request, true);

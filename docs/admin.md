@@ -17,6 +17,7 @@ The token is kept in the browser tab's session storage only (no cookies) and sen
 | **Providers** | The configured metadata plugins: health, ingestion types, schedules, record counts and last runs, with **Run now** per sync type (optionally forced). Below, every sync run with its counts, duration and live progress while it runs; **Details** shows notices, errors, cursors and the snapshot |
 | **Clients** | API clients and their scopes. A key is shown once, when the client is created or its key rotated |
 | **Integrations** | Challenge solvers, network profiles (proxy, solver, limits, user agent, headers, timeouts), the default profile and the profile of each provider, with where its settings come from (see [integrations](integrations.md)). Solvers no profile uses are flagged, with a one-click "Use for all providers" |
+| **Health** | Every part of meta checked now: the database, the search backend and each provider's plugin, with status, message, latency and details. The top bar shows a badge when meta is degraded or down (see [observability](observability.md)) |
 
 ## Security
 
