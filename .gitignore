@@ -1,0 +1,22 @@
+# Tools and build output
+/bin/
+/dist/
+coverage.out
+*.test
+
+# Local config and data. Never commit metadata dumps or extracts.
+.env
+*.local.yaml
+/data/
+*.sqlite
+*.sqlite.zst
+*.zst
+*.sha1
+
+# Go workspace files are local only
+go.work
+go.work.sum
+
+.DS_Store
+.idea/
+.vscode/
