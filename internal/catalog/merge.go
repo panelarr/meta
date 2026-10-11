@@ -146,10 +146,14 @@ func has(e *metadatav1.ProviderEntry, name string) bool {
 func Build(sources []Source, prio Priority, locks []Lock, displayLanguage string) *Merged {
 	byProvider := map[string]*metadatav1.ProviderEntry{}
 	var providers []string
+	// Further records of a provider already seen: only a curator puts two
+	// records of one provider on an entry (a confirmed duplicate).
+	var extra []*metadatav1.ProviderEntry
 	for _, s := range sources {
 		if _, dup := byProvider[s.Provider]; dup {
-			// A provider contributes one record per entry (see the linking
-			// rule); keep the first deterministically.
+			// The first record of a provider gives its fields; the others
+			// add their titles.
+			extra = append(extra, s.Record)
 			continue
 		}
 		byProvider[s.Provider] = s.Record
@@ -176,6 +180,7 @@ func Build(sources []Source, prio Priority, locks []Lock, displayLanguage string
 		order := prio.Order(field, providers)
 		if field == "titles" {
 			mergeTitles(m, order, byProvider)
+			addTitles(m, extra)
 			continue
 		}
 		for _, p := range order {
@@ -238,6 +243,27 @@ func mergeTitles(m *Merged, order []string, byProvider map[string]*metadatav1.Pr
 			if _, ok := m.FieldSources["titles"]; !ok {
 				m.FieldSources["titles"] = p
 			}
+		}
+	}
+}
+
+// addTitles adds the titles of further records of a provider that the
+// merged titles don't have yet.
+func addTitles(m *Merged, recs []*metadatav1.ProviderEntry) {
+	seen := map[string]bool{}
+	for _, t := range m.Entry.GetTitles() {
+		seen[textnorm.Key(t.GetText())+"\x00"+t.GetLanguage()] = true
+	}
+	for _, r := range recs {
+		for _, t := range r.GetTitles() {
+			key := textnorm.Key(t.GetText()) + "\x00" + t.GetLanguage()
+			if t.GetText() == "" || seen[key] {
+				continue
+			}
+			seen[key] = true
+			c := proto.Clone(t).(*metadatav1.Title)
+			c.IsPrimary = false
+			m.Entry.Titles = append(m.Entry.Titles, c)
 		}
 	}
 }

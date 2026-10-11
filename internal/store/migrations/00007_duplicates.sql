@@ -1,34 +1,11 @@
--- SPDX-License-Identifier: GPL-3.0-or-later
---
--- Duplicates: pairs of entries that are probably the same work but aren't
--- linked, found by meta's own comparison and optionally judged by a decision
--- model. A curator confirms (merge) or dismisses each pair; nothing merges
--- on its own.
-
 -- +goose Up
+-- Duplicates: pairs of entries that are probably the same work but aren't
+-- linked, found by meta's own comparison (the duplicates job, recorded in
+-- job_runs) and optionally judged by a decision model. A curator confirms
+-- (merges) or dismisses each pair; nothing merges on its own.
 
--- Exact title matches are the cheapest and strongest way to find pairs.
+-- Exact title matches are the cheapest way to find pairs.
 CREATE INDEX entry_titles_norm_idx ON entry_titles (norm);
-
-CREATE TABLE duplicate_runs (
-    id                uuid PRIMARY KEY,
-    trigger           text NOT NULL DEFAULT 'manual',
-    status            text NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'succeeded', 'failed', 'cancelled')),
-    started_at        timestamptz NOT NULL DEFAULT now(),
-    finished_at       timestamptz,
-    -- Entries changed since this time were compared (empty: all of them).
-    since             timestamptz,
-    entries_scanned   bigint NOT NULL DEFAULT 0,
-    pairs_scored      bigint NOT NULL DEFAULT 0,
-    candidates_new    bigint NOT NULL DEFAULT 0,
-    candidates_open   bigint NOT NULL DEFAULT 0,
-    model_calls       bigint NOT NULL DEFAULT 0,
-    model_tokens      bigint NOT NULL DEFAULT 0,
-    model_cached      bigint NOT NULL DEFAULT 0,
-    error             text NOT NULL DEFAULT ''
-);
-
-CREATE INDEX duplicate_runs_started_idx ON duplicate_runs (started_at DESC);
 
 CREATE TABLE duplicate_candidates (
     id          bigserial PRIMARY KEY,
@@ -39,27 +16,29 @@ CREATE TABLE duplicate_candidates (
     status      text NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'confirmed', 'dismissed')),
     -- 0..1: how likely meta's own comparison thinks the pair is one work.
     score       double precision NOT NULL,
-    -- What the score is made of: title, people, year, type, language, IDs.
+    -- What the score is made of: titles, people, year, type, language, IDs.
     signals     jsonb NOT NULL,
-    -- Hash of both entries' content when they were compared, so a model
-    -- verdict is only reused while neither changed.
+    -- Hash of what was compared, so a model verdict is reused only while
+    -- neither entry changed.
     pair_hash   bytea NOT NULL,
     -- The decision model's verdict, if one was asked.
     verdict     jsonb,
+    -- The job run that found or last updated the pair.
     run_id      uuid,
     created_at  timestamptz NOT NULL DEFAULT now(),
     updated_at  timestamptz NOT NULL DEFAULT now(),
     decided_at  timestamptz,
-    -- Who decided: "admin" or a client ID.
+    -- Who decided: "admin" or a client's name.
     decided_by  text NOT NULL DEFAULT '',
+    note        text NOT NULL DEFAULT '',
     UNIQUE (entry_a, entry_b)
 );
 
-CREATE INDEX duplicate_candidates_open_idx ON duplicate_candidates (status, score DESC);
+CREATE INDEX duplicate_candidates_status_idx ON duplicate_candidates (status, score DESC);
 CREATE INDEX duplicate_candidates_b_idx ON duplicate_candidates (entry_b);
 
--- Model verdicts by pair content and judge, so an unchanged pair is never
--- sent twice.
+-- Model verdicts by the pair's content and the judge, so an unchanged pair
+-- is never sent twice.
 CREATE TABLE duplicate_verdicts (
     pair_hash  bytea NOT NULL,
     judge      text NOT NULL,
@@ -68,8 +47,20 @@ CREATE TABLE duplicate_verdicts (
     PRIMARY KEY (pair_hash, judge)
 );
 
+-- Decision model settings saved in the admin; they win over the
+-- configuration file. The API key is sealed with meta's secret key.
+CREATE TABLE judge_settings (
+    id             integer PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    enabled        boolean NOT NULL DEFAULT false,
+    kind           text NOT NULL DEFAULT '',
+    url            text NOT NULL DEFAULT '',
+    model          text NOT NULL DEFAULT '',
+    api_key_sealed text,
+    updated_at     timestamptz NOT NULL DEFAULT now()
+);
+
 -- +goose Down
+DROP TABLE judge_settings;
 DROP TABLE duplicate_verdicts;
 DROP TABLE duplicate_candidates;
-DROP TABLE duplicate_runs;
 DROP INDEX entry_titles_norm_idx;
