@@ -197,10 +197,10 @@ func Default() Config {
 			Meilisearch: Engine{IndexPrefix: "meta"},
 			Outbox:      Outbox{Batch: 500, Interval: time.Second, RebuildThreshold: 50000},
 		},
-		Merge:   Merge{DisplayLanguage: "en"},
-		Ingest:  Ingest{BatchSize: 500, StaleAfter: 7 * 24 * time.Hour},
-		Jobs:    Jobs{Retention: 100, StaleRefresh: StaleRefresh{Limit: 100}},
-		Log:     Log{Level: "info", Format: "json"},
+		Merge:  Merge{DisplayLanguage: "en"},
+		Ingest: Ingest{BatchSize: 500, StaleAfter: 7 * 24 * time.Hour},
+		Jobs:   Jobs{Retention: 100, StaleRefresh: StaleRefresh{Limit: 100}},
+		Log:    Log{Level: "info", Format: "json"},
 	}
 }
 

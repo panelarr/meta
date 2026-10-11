@@ -299,8 +299,10 @@ func (s *Service) apply(ctx context.Context, set Settings) error {
 	}
 	s.ix = search.NewIndexer(x, search.IndexerOptions{
 		Batch: s.cfg.Outbox.Batch, Interval: s.cfg.Outbox.Interval, RebuildThreshold: s.cfg.Outbox.RebuildThreshold,
-		OnFlood: func() { s.rebuildSoon("system", "the outbox has more changes than outbox.rebuild_threshold, or no index exists") },
-		Log:     s.log, Metrics: s.metrics,
+		OnFlood: func() {
+			s.rebuildSoon("system", "the outbox has more changes than outbox.rebuild_threshold, or no index exists")
+		},
+		Log: s.log, Metrics: s.metrics,
 	})
 	base := s.base
 	if base == nil {
