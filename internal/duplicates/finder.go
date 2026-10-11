@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,12 +27,19 @@ type FinderOptions struct {
 	// TitleSimilarity is the trigram similarity two titles need to be
 	// compared at all. Default 0.6.
 	TitleSimilarity float64
-	// CommonTitle: a normalized title shared by more entries than this is
-	// too common to pair on by itself ("love", "untitled"). Default 50.
+	// CommonTitle: a title key shared by more titles than this is too
+	// common to pair on by itself ("love", "untitled"). Default 50.
 	CommonTitle int
+	// SimilarLimit: runs that look at no more entries than this also pair
+	// on similar titles (trigrams), which costs tens of milliseconds per
+	// title in a large catalogue. Larger runs (the first one) pair on
+	// title keys and IDs only. Default 20000.
+	SimilarLimit int64
 	// Batch is how many entries are compared per round. Default 500.
 	Batch int
-	Score Options
+	// Workers compare rounds in parallel. Default 4.
+	Workers int
+	Score   Options
 }
 
 func (o *FinderOptions) defaults() {
@@ -49,6 +57,12 @@ func (o *FinderOptions) defaults() {
 	}
 	if o.Batch <= 0 {
 		o.Batch = 500
+	}
+	if o.SimilarLimit <= 0 {
+		o.SimilarLimit = 20000
+	}
+	if o.Workers <= 0 {
+		o.Workers = 4
 	}
 }
 
@@ -72,6 +86,11 @@ type Report struct {
 	Updated  int64
 	Removed  int64
 	Skipped  map[string]int64
+	// Similar: titles were also compared by trigram similarity.
+	Similar bool
+	// Time spent per step: finding partners by title, by similar title,
+	// by ID, and scoring and storing.
+	Took map[string]time.Duration
 }
 
 // Progress is told how far a run is.
@@ -97,7 +116,7 @@ func (f *Finder) Since(ctx context.Context) (time.Time, error) {
 // zero time) with their likely partners, and stores the pairs worth a
 // look. Pairs a curator decided on are left alone.
 func (f *Finder) Run(ctx context.Context, since time.Time, run uuid.UUID, progress Progress) (Report, error) {
-	rep := Report{Skipped: map[string]int64{}}
+	rep := Report{Skipped: map[string]int64{}, Took: map[string]time.Duration{}}
 	// Pairs with an entry that is no longer active are moot.
 	tag, err := f.pool.Exec(ctx, `DELETE FROM duplicate_candidates c WHERE c.status = 'open' AND EXISTS (
 		SELECT 1 FROM entries e WHERE e.id IN (c.entry_a, c.entry_b) AND e.state <> 'active')`)
@@ -110,29 +129,86 @@ func (f *Finder) Run(ctx context.Context, since time.Time, run uuid.UUID, progre
 	if err := f.pool.QueryRow(ctx, `SELECT count(*) FROM entries WHERE state = 'active' AND updated_at > $1`, since).Scan(&total); err != nil {
 		return rep, err
 	}
+	rep.Similar = total <= f.opts.SimilarLimit
+
+	// One producer pages through the entries; workers compare the rounds.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	batches := make(chan []uuid.UUID)
+	var (
+		mu       sync.Mutex
+		firstErr error
+		wg       sync.WaitGroup
+	)
+	fail := func(err error) {
+		mu.Lock()
+		if firstErr == nil {
+			firstErr = err
+		}
+		mu.Unlock()
+		cancel()
+	}
+	for range f.opts.Workers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for ids := range batches {
+				part := Report{Skipped: map[string]int64{}, Took: map[string]time.Duration{}, Similar: rep.Similar}
+				if err := f.round(ctx, ids, run, &part); err != nil {
+					fail(err)
+					return
+				}
+				mu.Lock()
+				rep.add(part)
+				rep.Entries += int64(len(ids))
+				done := rep.Entries
+				mu.Unlock()
+				if progress != nil {
+					progress(done, total)
+				}
+			}
+		}()
+	}
 	var after uuid.UUID
-	for {
-		var ids []uuid.UUID
+	for ctx.Err() == nil {
 		rows, err := f.pool.Query(ctx, `SELECT id FROM entries WHERE state = 'active' AND updated_at > $1 AND id > $2
 			ORDER BY id LIMIT $3`, since, after, f.opts.Batch)
 		if err != nil {
-			return rep, err
+			fail(err)
+			break
 		}
-		ids, err = pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+		ids, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
 		if err != nil {
-			return rep, err
+			fail(err)
+			break
 		}
 		if len(ids) == 0 {
-			return rep, nil
+			break
 		}
 		after = ids[len(ids)-1]
-		if err := f.round(ctx, ids, run, &rep); err != nil {
-			return rep, err
+		select {
+		case batches <- ids:
+		case <-ctx.Done():
 		}
-		rep.Entries += int64(len(ids))
-		if progress != nil {
-			progress(rep.Entries, total)
-		}
+	}
+	close(batches)
+	wg.Wait()
+	if firstErr != nil {
+		return rep, firstErr
+	}
+	return rep, ctx.Err()
+}
+
+func (r *Report) add(o Report) {
+	r.Compared += o.Compared
+	r.New += o.New
+	r.Updated += o.Updated
+	r.Removed += o.Removed
+	for k, v := range o.Skipped {
+		r.Skipped[k] += v
+	}
+	for k, v := range o.Took {
+		r.Took[k] += v
 	}
 }
 
@@ -147,10 +223,12 @@ func ordered(x, y uuid.UUID) pair {
 
 // round compares one batch of entries with their partners.
 func (f *Finder) round(ctx context.Context, ids []uuid.UUID, run uuid.UUID, rep *Report) error {
-	partners, err := f.partners(ctx, ids)
+	partners, err := f.partners(ctx, ids, rep.Similar, rep.Took)
 	if err != nil {
 		return err
 	}
+	scoring := time.Now()
+	defer func() { rep.Took["score"] += time.Since(scoring) }()
 	if len(partners) == 0 {
 		return nil
 	}
@@ -256,8 +334,13 @@ func (f *Finder) round(ctx context.Context, ids []uuid.UUID, run uuid.UUID, rep 
 // partners finds, for a batch of entries, the entries worth comparing
 // with: the same normalized title (unless it is too common), a similar
 // title (trigrams), or an ID at another site in common.
-func (f *Finder) partners(ctx context.Context, ids []uuid.UUID) (map[pair]bool, error) {
+func (f *Finder) partners(ctx context.Context, ids []uuid.UUID, similar bool, took map[string]time.Duration) (map[pair]bool, error) {
 	out := map[pair]bool{}
+	step := time.Now()
+	timed := func(name string) {
+		took[name] += time.Since(step)
+		step = time.Now()
+	}
 	add := func(rows pgx.Rows, err error) error {
 		if err != nil {
 			return err
@@ -280,29 +363,34 @@ func (f *Finder) partners(ctx context.Context, ids []uuid.UUID) (map[pair]bool, 
 		}
 		if err := add(tx.Query(ctx, `
 			SELECT DISTINCT s.entry_id, o.entry_id
-			FROM entry_titles s
-			JOIN entry_titles o ON o.norm = s.norm AND o.entry_id <> s.entry_id
+			FROM (SELECT DISTINCT entry_id, meta_title_key(norm) AS k FROM entry_titles WHERE entry_id = ANY($1)) s
+			JOIN entry_titles o ON meta_title_key(o.norm) = s.k AND o.entry_id <> s.entry_id
 			JOIN entries e ON e.id = o.entry_id AND e.state = 'active'
-			WHERE s.entry_id = ANY($1) AND length(s.norm) >= 2
-			  AND (SELECT count(*) FROM (SELECT 1 FROM entry_titles c WHERE c.norm = s.norm LIMIT $2 + 1) x) <= $2`,
+			WHERE length(s.k) >= 2
+			  AND (SELECT count(*) FROM (SELECT 1 FROM entry_titles c WHERE meta_title_key(c.norm) = s.k LIMIT $2 + 1) x) <= $2`,
 			ids, f.opts.CommonTitle)); err != nil {
 			return err
 		}
-		// Similar titles: the display-worthy ones (primary, or long enough
-		// to mean something), a few best matches each.
-		if err := add(tx.Query(ctx, `
-			SELECT s.entry_id, m.entry_id
-			FROM (SELECT DISTINCT entry_id, norm FROM entry_titles
-			      WHERE entry_id = ANY($1) AND (is_primary OR length(norm) >= 8)) s
-			CROSS JOIN LATERAL (
-				SELECT o.entry_id FROM entry_titles o
-				JOIN entries e ON e.id = o.entry_id AND e.state = 'active'
-				WHERE o.norm % s.norm AND o.entry_id <> s.entry_id
-				ORDER BY similarity(o.norm, s.norm) DESC
-				LIMIT 8
-			) m`, ids)); err != nil {
-			return err
+		timed("same_title")
+		if similar {
+			// Similar titles: the display-worthy ones (primary, or long enough
+			// to mean something), a few best matches each.
+			if err := add(tx.Query(ctx, `
+				SELECT s.entry_id, m.entry_id
+				FROM (SELECT DISTINCT entry_id, norm FROM entry_titles
+				      WHERE entry_id = ANY($1) AND (is_primary OR length(norm) >= 8)) s
+				CROSS JOIN LATERAL (
+					SELECT o.entry_id FROM entry_titles o
+					JOIN entries e ON e.id = o.entry_id AND e.state = 'active'
+					WHERE o.norm % s.norm AND o.entry_id <> s.entry_id
+					ORDER BY similarity(o.norm, s.norm) DESC
+					LIMIT 8
+				) m`, ids)); err != nil {
+				return err
+			}
+			timed("similar_title")
 		}
+		defer timed("shared_ids")
 		return add(tx.Query(ctx, `
 			SELECT DISTINCT x.entry_id, y.entry_id
 			FROM entry_external_ids x

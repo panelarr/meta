@@ -4,8 +4,25 @@
 -- job_runs) and optionally judged by a decision model. A curator confirms
 -- (merges) or dismisses each pair; nothing merges on its own.
 
--- Exact title matches are the cheapest way to find pairs.
-CREATE INDEX entry_titles_norm_idx ON entry_titles (norm);
+-- A title's key: its normalized words without articles and particles,
+-- plural "s" and doubled vowels of romanizations folded, in sorted order.
+-- "The Lantern Keepers" and "lantern keeper", or "Shingeki no Kyoujin"
+-- and "kyojin shingeki", share a key. Equal keys are the cheap way to find
+-- pairs in a large catalogue; trigram similarity is used on top for runs
+-- that look at few entries.
+-- +goose StatementBegin
+CREATE FUNCTION meta_title_key(norm text) RETURNS text
+LANGUAGE sql IMMUTABLE PARALLEL SAFE STRICT AS $$
+    SELECT coalesce(string_agg(DISTINCT w, ' ' ORDER BY w), '')
+    FROM (
+        SELECT regexp_replace(regexp_replace(replace(t, 'ou', 'o'), '([aeiou])\1', '\1', 'g'), '(.{3,})s$', '\1') AS w
+        FROM unnest(string_to_array(norm, ' ')) AS t
+        WHERE t <> '' AND t NOT IN ('the', 'a', 'an', 'of', 'and', 'no', 'wo', 'ga', 'wa', 'to', 'le', 'la', 'les', 'el', 'der', 'die', 'das', 'de')
+    ) x
+$$;
+-- +goose StatementEnd
+
+CREATE INDEX entry_titles_key_idx ON entry_titles (meta_title_key(norm));
 
 CREATE TABLE duplicate_candidates (
     id          bigserial PRIMARY KEY,
@@ -63,4 +80,5 @@ CREATE TABLE judge_settings (
 DROP TABLE judge_settings;
 DROP TABLE duplicate_verdicts;
 DROP TABLE duplicate_candidates;
-DROP INDEX entry_titles_norm_idx;
+DROP INDEX entry_titles_key_idx;
+DROP FUNCTION meta_title_key(text);
