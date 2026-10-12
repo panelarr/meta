@@ -4,7 +4,7 @@
 // network profile their host hands them (SetNetworkProfile): the proxy
 // (http, https or socks5, with credentials), a challenge solver
 // (FlareSolverr/Byparr), a rate limit, a concurrency cap, the user agent,
-// extra headers and timeouts.
+// extra headers, timeouts and a DNS-over-HTTPS resolver.
 //
 // Create one Client, use Client.HTTP() for every request, and call
 // SetProfile whenever the host sends a profile. The *http.Client stays the
@@ -116,6 +116,14 @@ func (c *Client) SetProfile(p *metadatav1.NetworkProfile) error {
 		// The transport speaks HTTP CONNECT and SOCKS5 (with username and
 		// password), and lets the proxy resolve host names.
 		tr.Proxy = http.ProxyURL(u)
+	} else if doh := strings.TrimSpace(p.GetDohUrl()); doh != "" {
+		// Without a proxy, names are resolved over HTTPS. (Through a proxy,
+		// the proxy resolves them.)
+		r, err := newDoH(doh, dialer)
+		if err != nil {
+			return err
+		}
+		tr.DialContext = r.dialContext
 	}
 	if d := p.GetTimeouts().GetCall().AsDuration(); d > 0 {
 		st.call = d

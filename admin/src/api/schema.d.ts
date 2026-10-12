@@ -989,6 +989,23 @@ export interface components {
              *      `network_profile` common service). Profiles have no effect on others.
              */
             supported?: boolean;
+            /**
+             * pushed_profile
+             * @description The profile pushed by a host, as meta hands it to the plugin, so the host
+             *      can show it and notice drift. Unset when nothing is pushed. The proxy
+             *      password is never returned: see pushed_proxy_password_set.
+             */
+            pushedProfile?: components["schemas"]["panelarr.metadata.v1.NetworkProfile"];
+            /**
+             * pushed_proxy_password_set
+             * @description Whether the pushed profile has a proxy password (stored encrypted).
+             */
+            pushedProxyPasswordSet?: boolean;
+            /**
+             * pushed_at
+             * @description When the host last pushed the profile.
+             */
+            pushedAt?: components["schemas"]["google.protobuf.Timestamp"];
         };
         /** BrowseRequest */
         "panelarr.meta.v1.BrowseRequest": {
@@ -3293,6 +3310,13 @@ export interface components {
             };
             /** timeouts */
             timeouts?: components["schemas"]["panelarr.metadata.v1.Timeouts"];
+            /**
+             * doh_url
+             * @description DNS-over-HTTPS resolver URL (https://), e.g.
+             *      https://cloudflare-dns.com/dns-query. Empty means the system resolver.
+             *      Ignored when a proxy is set: the proxy resolves names.
+             */
+            dohUrl?: string;
         };
         /** NetworkRateLimit */
         "panelarr.metadata.v1.NetworkRateLimit": {

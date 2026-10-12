@@ -93,7 +93,7 @@ func (p *myPlugin) SetSettings(_ context.Context, r *metadatav1.SetSettingsReque
 
 ## 4. Network profiles
 
-Declare the `network_profile` common service and make every request with an `httpx.Client`: it follows the profile the host sends (proxy, SOCKS5 with credentials, challenge solver, rate limit, concurrency, user agent, headers, timeouts) and keeps one cookie jar.
+Declare the `network_profile` common service and make every request with an `httpx.Client`: it follows the profile the host sends (proxy, SOCKS5 with credentials, challenge solver, rate limit, concurrency, user agent, headers, timeouts, DNS over HTTPS) and keeps one cookie jar.
 
 ```go
 type myPlugin struct {

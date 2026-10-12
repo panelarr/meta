@@ -118,6 +118,23 @@ components:
           description: |-
             Whether the provider's plugin applies network profiles (it declares the
              `network_profile` common service). Profiles have no effect on others.
+        pushedProfile:
+          allOf:
+            - $ref: '#/components/schemas/panelarr.metadata.v1.NetworkProfile'
+          title: pushed_profile
+          description: |-
+            The profile pushed by a host, as meta hands it to the plugin, so the host
+             can show it and notice drift. Unset when nothing is pushed. The proxy
+             password is never returned: see pushed_proxy_password_set.
+        pushedProxyPasswordSet:
+          type: boolean
+          title: pushed_proxy_password_set
+          description: Whether the pushed profile has a proxy password (stored encrypted).
+        pushedAt:
+          allOf:
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
+          title: pushed_at
+          description: When the host last pushed the profile.
       title: Assignment
       additionalProperties: false
     panelarr.meta.v1.BrowseRequest:
@@ -3257,6 +3274,13 @@ components:
           allOf:
             - $ref: '#/components/schemas/panelarr.metadata.v1.Timeouts'
           title: timeouts
+        dohUrl:
+          type: string
+          title: doh_url
+          description: |-
+            DNS-over-HTTPS resolver URL (https://), e.g.
+             https://cloudflare-dns.com/dns-query. Empty means the system resolver.
+             Ignored when a proxy is set: the proxy resolves names.
       title: NetworkProfile
       additionalProperties: false
       description: |-

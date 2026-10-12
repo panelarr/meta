@@ -24,6 +24,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	metav1 "github.com/panelarr/meta/gen/panelarr/meta/v1"
 	metadatav1 "github.com/panelarr/meta/gen/panelarr/metadata/v1"
@@ -431,9 +432,14 @@ func (st state) assignment(p ProviderInfo) *metav1.Assignment {
 	a := &metav1.Assignment{ProviderId: p.ID, ProfileId: st.assigned[p.ID], Supported: p.Supported}
 	switch {
 	case st.pushed[p.ID].Provider != "":
+		pp := st.pushed[p.ID]
+		// Stored without the proxy password, which stays sealed.
 		var np metadatav1.NetworkProfile
-		_ = protojson.Unmarshal(st.pushed[p.ID].Profile, &np)
+		_ = protojson.Unmarshal(pp.Profile, &np)
 		a.PushedProfileName = np.GetName()
+		a.PushedProfile = &np
+		a.PushedProxyPasswordSet = pp.ProxyPasswordSealed.Valid
+		a.PushedAt = timestamppb.New(pp.UpdatedAt)
 		a.Effective = metav1.ProfileOrigin_PROFILE_ORIGIN_PUSHED
 	case a.ProfileId != "":
 		a.Effective = metav1.ProfileOrigin_PROFILE_ORIGIN_ASSIGNED

@@ -52,6 +52,23 @@ A solver can't be deleted while a profile uses it.
 
 Deleting a profile removes its assignments, and clears the default when it was the default.
 
+## Profiles pushed by a host
+
+A Panelarr server that owns network settings (its own solvers, proxies and profiles) gives each provider its profile with `SetPushedProfile`, in the shape plugins receive it: the solver inline, the proxy password in clear (meta encrypts it at rest). A pushed profile wins over the assignment and the default here. Pushing it again replaces it; pushing without a profile removes it.
+
+- **Who gets it.** meta stores a push for any configured provider and hands it only to plugins that declare `network_profile`, so a host can push without checking `supported`, and a plugin that is down at the time gets it when it connects.
+- **When.** At once, and again every time meta connects to the plugin (after a plugin or meta restart). Pushes are kept in meta's database.
+- **Read back.** `ListAssignments` returns, per provider, `pushed_profile` as meta hands it to the plugin, without the proxy password (`pushed_proxy_password_set` says whether one is stored), and `pushed_at`. A host can show what is applied and notice drift.
+- **DNS over HTTPS.** `doh_url` (an `https://` resolver such as `https://cloudflare-dns.com/dns-query`) makes the plugin resolve names over HTTPS. A proxy resolves names itself, so with a proxy the resolver isn't used.
+
+**A pushed profile stays until the host removes it.** It doesn't expire when the host stops talking to meta. A profile often sends a provider through a VPN container: falling back to a direct connection whenever Panelarr is down would quietly expose the server's own address to that provider. A host that has been reconnected removes pushes it no longer wants (compare `ListAssignments` with its own assignments).
+
+**Running meta on its own again.** When meta is no longer run by the Panelarr server that pushed a profile, drop the push yourself so the provider uses meta's own settings:
+
+```sh
+curl -X PUT -H "Authorization: Bearer $META_ADMIN_TOKEN" -d '{}' localhost:8901/v1/admin/pushed-profiles/mangabaka
+```
+
 ## API
 
 | Call | REST |

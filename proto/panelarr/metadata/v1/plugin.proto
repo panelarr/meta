@@ -331,6 +331,10 @@ message NetworkProfile {
   // Extra headers added to every request.
   map<string, string> headers = 7;
   Timeouts timeouts = 8;
+  // DNS-over-HTTPS resolver URL (https://), e.g.
+  // https://cloudflare-dns.com/dns-query. Empty means the system resolver.
+  // Ignored when a proxy is set: the proxy resolves names.
+  string doh_url = 9;
 }
 
 message Proxy {

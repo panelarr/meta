@@ -579,7 +579,15 @@ type Assignment struct {
 	EffectiveProfileId string `protobuf:"bytes,5,opt,name=effective_profile_id,json=effectiveProfileId,proto3" json:"effective_profile_id,omitempty"`
 	// Whether the provider's plugin applies network profiles (it declares the
 	// `network_profile` common service). Profiles have no effect on others.
-	Supported     bool `protobuf:"varint,6,opt,name=supported,proto3" json:"supported,omitempty"`
+	Supported bool `protobuf:"varint,6,opt,name=supported,proto3" json:"supported,omitempty"`
+	// The profile pushed by a host, as meta hands it to the plugin, so the host
+	// can show it and notice drift. Unset when nothing is pushed. The proxy
+	// password is never returned: see pushed_proxy_password_set.
+	PushedProfile *v1.NetworkProfile `protobuf:"bytes,7,opt,name=pushed_profile,json=pushedProfile,proto3" json:"pushed_profile,omitempty"`
+	// Whether the pushed profile has a proxy password (stored encrypted).
+	PushedProxyPasswordSet bool `protobuf:"varint,8,opt,name=pushed_proxy_password_set,json=pushedProxyPasswordSet,proto3" json:"pushed_proxy_password_set,omitempty"`
+	// When the host last pushed the profile.
+	PushedAt      *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=pushed_at,json=pushedAt,proto3" json:"pushed_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -654,6 +662,27 @@ func (x *Assignment) GetSupported() bool {
 		return x.Supported
 	}
 	return false
+}
+
+func (x *Assignment) GetPushedProfile() *v1.NetworkProfile {
+	if x != nil {
+		return x.PushedProfile
+	}
+	return nil
+}
+
+func (x *Assignment) GetPushedProxyPasswordSet() bool {
+	if x != nil {
+		return x.PushedProxyPasswordSet
+	}
+	return false
+}
+
+func (x *Assignment) GetPushedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.PushedAt
+	}
+	return nil
 }
 
 type ListSolversRequest struct {
@@ -2216,7 +2245,7 @@ const file_panelarr_meta_v1_integrations_proto_rawDesc = "" +
 	"\tRateLimit\x12\x1a\n" +
 	"\brequests\x18\x01 \x01(\rR\brequests\x121\n" +
 	"\x06period\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\x06period\x12\x19\n" +
-	"\bper_host\x18\x03 \x01(\bR\aperHost\"\x8b\x02\n" +
+	"\bper_host\x18\x03 \x01(\bR\aperHost\"\xcc\x03\n" +
 	"\n" +
 	"Assignment\x12\x1f\n" +
 	"\vprovider_id\x18\x01 \x01(\tR\n" +
@@ -2226,7 +2255,10 @@ const file_panelarr_meta_v1_integrations_proto_rawDesc = "" +
 	"\x13pushed_profile_name\x18\x03 \x01(\tR\x11pushedProfileName\x12=\n" +
 	"\teffective\x18\x04 \x01(\x0e2\x1f.panelarr.meta.v1.ProfileOriginR\teffective\x120\n" +
 	"\x14effective_profile_id\x18\x05 \x01(\tR\x12effectiveProfileId\x12\x1c\n" +
-	"\tsupported\x18\x06 \x01(\bR\tsupported\"\x14\n" +
+	"\tsupported\x18\x06 \x01(\bR\tsupported\x12K\n" +
+	"\x0epushed_profile\x18\a \x01(\v2$.panelarr.metadata.v1.NetworkProfileR\rpushedProfile\x129\n" +
+	"\x19pushed_proxy_password_set\x18\b \x01(\bR\x16pushedProxyPasswordSet\x127\n" +
+	"\tpushed_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\bpushedAt\"\x14\n" +
 	"\x12ListSolversRequest\"I\n" +
 	"\x13ListSolversResponse\x122\n" +
 	"\asolvers\x18\x01 \x03(\v2\x18.panelarr.meta.v1.SolverR\asolvers\"D\n" +
@@ -2422,60 +2454,62 @@ var file_panelarr_meta_v1_integrations_proto_depIdxs = []int32{
 	39, // 9: panelarr.meta.v1.NetworkProfile.call_timeout:type_name -> google.protobuf.Duration
 	39, // 10: panelarr.meta.v1.RateLimit.period:type_name -> google.protobuf.Duration
 	2,  // 11: panelarr.meta.v1.Assignment.effective:type_name -> panelarr.meta.v1.ProfileOrigin
-	3,  // 12: panelarr.meta.v1.ListSolversResponse.solvers:type_name -> panelarr.meta.v1.Solver
-	3,  // 13: panelarr.meta.v1.PutSolverRequest.solver:type_name -> panelarr.meta.v1.Solver
-	3,  // 14: panelarr.meta.v1.PutSolverResponse.solver:type_name -> panelarr.meta.v1.Solver
-	4,  // 15: panelarr.meta.v1.ListProfilesResponse.profiles:type_name -> panelarr.meta.v1.NetworkProfile
-	4,  // 16: panelarr.meta.v1.PutProfileRequest.profile:type_name -> panelarr.meta.v1.NetworkProfile
-	4,  // 17: panelarr.meta.v1.PutProfileResponse.profile:type_name -> panelarr.meta.v1.NetworkProfile
-	7,  // 18: panelarr.meta.v1.ListAssignmentsResponse.assignments:type_name -> panelarr.meta.v1.Assignment
-	7,  // 19: panelarr.meta.v1.AssignProfileResponse.assignment:type_name -> panelarr.meta.v1.Assignment
-	40, // 20: panelarr.meta.v1.SetPushedProfileRequest.profile:type_name -> panelarr.metadata.v1.NetworkProfile
-	41, // 21: panelarr.meta.v1.SearchEngineStatus.error_at:type_name -> google.protobuf.Timestamp
-	41, // 22: panelarr.meta.v1.SearchEngineStatus.built_at:type_name -> google.protobuf.Timestamp
-	39, // 23: panelarr.meta.v1.SearchEngineStatus.lag:type_name -> google.protobuf.Duration
-	41, // 24: panelarr.meta.v1.SearchEngineStatus.indexer_error_at:type_name -> google.protobuf.Timestamp
-	28, // 25: panelarr.meta.v1.GetSearchEngineResponse.settings:type_name -> panelarr.meta.v1.SearchEngineSettings
-	29, // 26: panelarr.meta.v1.GetSearchEngineResponse.status:type_name -> panelarr.meta.v1.SearchEngineStatus
-	28, // 27: panelarr.meta.v1.PutSearchEngineRequest.settings:type_name -> panelarr.meta.v1.SearchEngineSettings
-	28, // 28: panelarr.meta.v1.PutSearchEngineResponse.settings:type_name -> panelarr.meta.v1.SearchEngineSettings
-	29, // 29: panelarr.meta.v1.PutSearchEngineResponse.status:type_name -> panelarr.meta.v1.SearchEngineStatus
-	28, // 30: panelarr.meta.v1.TestSearchEngineRequest.settings:type_name -> panelarr.meta.v1.SearchEngineSettings
-	28, // 31: panelarr.meta.v1.ResetSearchEngineResponse.settings:type_name -> panelarr.meta.v1.SearchEngineSettings
-	29, // 32: panelarr.meta.v1.ResetSearchEngineResponse.status:type_name -> panelarr.meta.v1.SearchEngineStatus
-	8,  // 33: panelarr.meta.v1.MetaIntegrationsService.ListSolvers:input_type -> panelarr.meta.v1.ListSolversRequest
-	10, // 34: panelarr.meta.v1.MetaIntegrationsService.PutSolver:input_type -> panelarr.meta.v1.PutSolverRequest
-	12, // 35: panelarr.meta.v1.MetaIntegrationsService.DeleteSolver:input_type -> panelarr.meta.v1.DeleteSolverRequest
-	14, // 36: panelarr.meta.v1.MetaIntegrationsService.ListProfiles:input_type -> panelarr.meta.v1.ListProfilesRequest
-	16, // 37: panelarr.meta.v1.MetaIntegrationsService.PutProfile:input_type -> panelarr.meta.v1.PutProfileRequest
-	18, // 38: panelarr.meta.v1.MetaIntegrationsService.DeleteProfile:input_type -> panelarr.meta.v1.DeleteProfileRequest
-	20, // 39: panelarr.meta.v1.MetaIntegrationsService.ListAssignments:input_type -> panelarr.meta.v1.ListAssignmentsRequest
-	22, // 40: panelarr.meta.v1.MetaIntegrationsService.AssignProfile:input_type -> panelarr.meta.v1.AssignProfileRequest
-	24, // 41: panelarr.meta.v1.MetaIntegrationsService.SetDefaultProfile:input_type -> panelarr.meta.v1.SetDefaultProfileRequest
-	26, // 42: panelarr.meta.v1.MetaIntegrationsService.SetPushedProfile:input_type -> panelarr.meta.v1.SetPushedProfileRequest
-	30, // 43: panelarr.meta.v1.MetaIntegrationsService.GetSearchEngine:input_type -> panelarr.meta.v1.GetSearchEngineRequest
-	32, // 44: panelarr.meta.v1.MetaIntegrationsService.PutSearchEngine:input_type -> panelarr.meta.v1.PutSearchEngineRequest
-	34, // 45: panelarr.meta.v1.MetaIntegrationsService.TestSearchEngine:input_type -> panelarr.meta.v1.TestSearchEngineRequest
-	36, // 46: panelarr.meta.v1.MetaIntegrationsService.ResetSearchEngine:input_type -> panelarr.meta.v1.ResetSearchEngineRequest
-	9,  // 47: panelarr.meta.v1.MetaIntegrationsService.ListSolvers:output_type -> panelarr.meta.v1.ListSolversResponse
-	11, // 48: panelarr.meta.v1.MetaIntegrationsService.PutSolver:output_type -> panelarr.meta.v1.PutSolverResponse
-	13, // 49: panelarr.meta.v1.MetaIntegrationsService.DeleteSolver:output_type -> panelarr.meta.v1.DeleteSolverResponse
-	15, // 50: panelarr.meta.v1.MetaIntegrationsService.ListProfiles:output_type -> panelarr.meta.v1.ListProfilesResponse
-	17, // 51: panelarr.meta.v1.MetaIntegrationsService.PutProfile:output_type -> panelarr.meta.v1.PutProfileResponse
-	19, // 52: panelarr.meta.v1.MetaIntegrationsService.DeleteProfile:output_type -> panelarr.meta.v1.DeleteProfileResponse
-	21, // 53: panelarr.meta.v1.MetaIntegrationsService.ListAssignments:output_type -> panelarr.meta.v1.ListAssignmentsResponse
-	23, // 54: panelarr.meta.v1.MetaIntegrationsService.AssignProfile:output_type -> panelarr.meta.v1.AssignProfileResponse
-	25, // 55: panelarr.meta.v1.MetaIntegrationsService.SetDefaultProfile:output_type -> panelarr.meta.v1.SetDefaultProfileResponse
-	27, // 56: panelarr.meta.v1.MetaIntegrationsService.SetPushedProfile:output_type -> panelarr.meta.v1.SetPushedProfileResponse
-	31, // 57: panelarr.meta.v1.MetaIntegrationsService.GetSearchEngine:output_type -> panelarr.meta.v1.GetSearchEngineResponse
-	33, // 58: panelarr.meta.v1.MetaIntegrationsService.PutSearchEngine:output_type -> panelarr.meta.v1.PutSearchEngineResponse
-	35, // 59: panelarr.meta.v1.MetaIntegrationsService.TestSearchEngine:output_type -> panelarr.meta.v1.TestSearchEngineResponse
-	37, // 60: panelarr.meta.v1.MetaIntegrationsService.ResetSearchEngine:output_type -> panelarr.meta.v1.ResetSearchEngineResponse
-	47, // [47:61] is the sub-list for method output_type
-	33, // [33:47] is the sub-list for method input_type
-	33, // [33:33] is the sub-list for extension type_name
-	33, // [33:33] is the sub-list for extension extendee
-	0,  // [0:33] is the sub-list for field type_name
+	40, // 12: panelarr.meta.v1.Assignment.pushed_profile:type_name -> panelarr.metadata.v1.NetworkProfile
+	41, // 13: panelarr.meta.v1.Assignment.pushed_at:type_name -> google.protobuf.Timestamp
+	3,  // 14: panelarr.meta.v1.ListSolversResponse.solvers:type_name -> panelarr.meta.v1.Solver
+	3,  // 15: panelarr.meta.v1.PutSolverRequest.solver:type_name -> panelarr.meta.v1.Solver
+	3,  // 16: panelarr.meta.v1.PutSolverResponse.solver:type_name -> panelarr.meta.v1.Solver
+	4,  // 17: panelarr.meta.v1.ListProfilesResponse.profiles:type_name -> panelarr.meta.v1.NetworkProfile
+	4,  // 18: panelarr.meta.v1.PutProfileRequest.profile:type_name -> panelarr.meta.v1.NetworkProfile
+	4,  // 19: panelarr.meta.v1.PutProfileResponse.profile:type_name -> panelarr.meta.v1.NetworkProfile
+	7,  // 20: panelarr.meta.v1.ListAssignmentsResponse.assignments:type_name -> panelarr.meta.v1.Assignment
+	7,  // 21: panelarr.meta.v1.AssignProfileResponse.assignment:type_name -> panelarr.meta.v1.Assignment
+	40, // 22: panelarr.meta.v1.SetPushedProfileRequest.profile:type_name -> panelarr.metadata.v1.NetworkProfile
+	41, // 23: panelarr.meta.v1.SearchEngineStatus.error_at:type_name -> google.protobuf.Timestamp
+	41, // 24: panelarr.meta.v1.SearchEngineStatus.built_at:type_name -> google.protobuf.Timestamp
+	39, // 25: panelarr.meta.v1.SearchEngineStatus.lag:type_name -> google.protobuf.Duration
+	41, // 26: panelarr.meta.v1.SearchEngineStatus.indexer_error_at:type_name -> google.protobuf.Timestamp
+	28, // 27: panelarr.meta.v1.GetSearchEngineResponse.settings:type_name -> panelarr.meta.v1.SearchEngineSettings
+	29, // 28: panelarr.meta.v1.GetSearchEngineResponse.status:type_name -> panelarr.meta.v1.SearchEngineStatus
+	28, // 29: panelarr.meta.v1.PutSearchEngineRequest.settings:type_name -> panelarr.meta.v1.SearchEngineSettings
+	28, // 30: panelarr.meta.v1.PutSearchEngineResponse.settings:type_name -> panelarr.meta.v1.SearchEngineSettings
+	29, // 31: panelarr.meta.v1.PutSearchEngineResponse.status:type_name -> panelarr.meta.v1.SearchEngineStatus
+	28, // 32: panelarr.meta.v1.TestSearchEngineRequest.settings:type_name -> panelarr.meta.v1.SearchEngineSettings
+	28, // 33: panelarr.meta.v1.ResetSearchEngineResponse.settings:type_name -> panelarr.meta.v1.SearchEngineSettings
+	29, // 34: panelarr.meta.v1.ResetSearchEngineResponse.status:type_name -> panelarr.meta.v1.SearchEngineStatus
+	8,  // 35: panelarr.meta.v1.MetaIntegrationsService.ListSolvers:input_type -> panelarr.meta.v1.ListSolversRequest
+	10, // 36: panelarr.meta.v1.MetaIntegrationsService.PutSolver:input_type -> panelarr.meta.v1.PutSolverRequest
+	12, // 37: panelarr.meta.v1.MetaIntegrationsService.DeleteSolver:input_type -> panelarr.meta.v1.DeleteSolverRequest
+	14, // 38: panelarr.meta.v1.MetaIntegrationsService.ListProfiles:input_type -> panelarr.meta.v1.ListProfilesRequest
+	16, // 39: panelarr.meta.v1.MetaIntegrationsService.PutProfile:input_type -> panelarr.meta.v1.PutProfileRequest
+	18, // 40: panelarr.meta.v1.MetaIntegrationsService.DeleteProfile:input_type -> panelarr.meta.v1.DeleteProfileRequest
+	20, // 41: panelarr.meta.v1.MetaIntegrationsService.ListAssignments:input_type -> panelarr.meta.v1.ListAssignmentsRequest
+	22, // 42: panelarr.meta.v1.MetaIntegrationsService.AssignProfile:input_type -> panelarr.meta.v1.AssignProfileRequest
+	24, // 43: panelarr.meta.v1.MetaIntegrationsService.SetDefaultProfile:input_type -> panelarr.meta.v1.SetDefaultProfileRequest
+	26, // 44: panelarr.meta.v1.MetaIntegrationsService.SetPushedProfile:input_type -> panelarr.meta.v1.SetPushedProfileRequest
+	30, // 45: panelarr.meta.v1.MetaIntegrationsService.GetSearchEngine:input_type -> panelarr.meta.v1.GetSearchEngineRequest
+	32, // 46: panelarr.meta.v1.MetaIntegrationsService.PutSearchEngine:input_type -> panelarr.meta.v1.PutSearchEngineRequest
+	34, // 47: panelarr.meta.v1.MetaIntegrationsService.TestSearchEngine:input_type -> panelarr.meta.v1.TestSearchEngineRequest
+	36, // 48: panelarr.meta.v1.MetaIntegrationsService.ResetSearchEngine:input_type -> panelarr.meta.v1.ResetSearchEngineRequest
+	9,  // 49: panelarr.meta.v1.MetaIntegrationsService.ListSolvers:output_type -> panelarr.meta.v1.ListSolversResponse
+	11, // 50: panelarr.meta.v1.MetaIntegrationsService.PutSolver:output_type -> panelarr.meta.v1.PutSolverResponse
+	13, // 51: panelarr.meta.v1.MetaIntegrationsService.DeleteSolver:output_type -> panelarr.meta.v1.DeleteSolverResponse
+	15, // 52: panelarr.meta.v1.MetaIntegrationsService.ListProfiles:output_type -> panelarr.meta.v1.ListProfilesResponse
+	17, // 53: panelarr.meta.v1.MetaIntegrationsService.PutProfile:output_type -> panelarr.meta.v1.PutProfileResponse
+	19, // 54: panelarr.meta.v1.MetaIntegrationsService.DeleteProfile:output_type -> panelarr.meta.v1.DeleteProfileResponse
+	21, // 55: panelarr.meta.v1.MetaIntegrationsService.ListAssignments:output_type -> panelarr.meta.v1.ListAssignmentsResponse
+	23, // 56: panelarr.meta.v1.MetaIntegrationsService.AssignProfile:output_type -> panelarr.meta.v1.AssignProfileResponse
+	25, // 57: panelarr.meta.v1.MetaIntegrationsService.SetDefaultProfile:output_type -> panelarr.meta.v1.SetDefaultProfileResponse
+	27, // 58: panelarr.meta.v1.MetaIntegrationsService.SetPushedProfile:output_type -> panelarr.meta.v1.SetPushedProfileResponse
+	31, // 59: panelarr.meta.v1.MetaIntegrationsService.GetSearchEngine:output_type -> panelarr.meta.v1.GetSearchEngineResponse
+	33, // 60: panelarr.meta.v1.MetaIntegrationsService.PutSearchEngine:output_type -> panelarr.meta.v1.PutSearchEngineResponse
+	35, // 61: panelarr.meta.v1.MetaIntegrationsService.TestSearchEngine:output_type -> panelarr.meta.v1.TestSearchEngineResponse
+	37, // 62: panelarr.meta.v1.MetaIntegrationsService.ResetSearchEngine:output_type -> panelarr.meta.v1.ResetSearchEngineResponse
+	49, // [49:63] is the sub-list for method output_type
+	35, // [35:49] is the sub-list for method input_type
+	35, // [35:35] is the sub-list for extension type_name
+	35, // [35:35] is the sub-list for extension extendee
+	0,  // [0:35] is the sub-list for field type_name
 }
 
 func init() { file_panelarr_meta_v1_integrations_proto_init() }

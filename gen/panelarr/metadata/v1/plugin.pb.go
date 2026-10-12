@@ -2044,8 +2044,12 @@ type NetworkProfile struct {
 	// Unset means the plugin's default user agent.
 	UserAgent *UserAgent `protobuf:"bytes,6,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
 	// Extra headers added to every request.
-	Headers       map[string]string `protobuf:"bytes,7,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Timeouts      *Timeouts         `protobuf:"bytes,8,opt,name=timeouts,proto3" json:"timeouts,omitempty"`
+	Headers  map[string]string `protobuf:"bytes,7,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Timeouts *Timeouts         `protobuf:"bytes,8,opt,name=timeouts,proto3" json:"timeouts,omitempty"`
+	// DNS-over-HTTPS resolver URL (https://), e.g.
+	// https://cloudflare-dns.com/dns-query. Empty means the system resolver.
+	// Ignored when a proxy is set: the proxy resolves names.
+	DohUrl        string `protobuf:"bytes,9,opt,name=doh_url,json=dohUrl,proto3" json:"doh_url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2134,6 +2138,13 @@ func (x *NetworkProfile) GetTimeouts() *Timeouts {
 		return x.Timeouts
 	}
 	return nil
+}
+
+func (x *NetworkProfile) GetDohUrl() string {
+	if x != nil {
+		return x.DohUrl
+	}
+	return ""
 }
 
 type Proxy struct {
@@ -2634,7 +2645,7 @@ const file_panelarr_metadata_v1_plugin_proto_rawDesc = "" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"Z\n" +
 	"\x18SetNetworkProfileRequest\x12>\n" +
 	"\aprofile\x18\x01 \x01(\v2$.panelarr.metadata.v1.NetworkProfileR\aprofile\"\x1b\n" +
-	"\x19SetNetworkProfileResponse\"\xfb\x03\n" +
+	"\x19SetNetworkProfileResponse\"\x94\x04\n" +
 	"\x0eNetworkProfile\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x121\n" +
 	"\x05proxy\x18\x02 \x01(\v2\x1b.panelarr.metadata.v1.ProxyR\x05proxy\x124\n" +
@@ -2645,7 +2656,8 @@ const file_panelarr_metadata_v1_plugin_proto_rawDesc = "" +
 	"\n" +
 	"user_agent\x18\x06 \x01(\v2\x1f.panelarr.metadata.v1.UserAgentR\tuserAgent\x12K\n" +
 	"\aheaders\x18\a \x03(\v21.panelarr.metadata.v1.NetworkProfile.HeadersEntryR\aheaders\x12:\n" +
-	"\btimeouts\x18\b \x01(\v2\x1e.panelarr.metadata.v1.TimeoutsR\btimeouts\x1a:\n" +
+	"\btimeouts\x18\b \x01(\v2\x1e.panelarr.metadata.v1.TimeoutsR\btimeouts\x12\x17\n" +
+	"\adoh_url\x18\t \x01(\tR\x06dohUrl\x1a:\n" +
 	"\fHeadersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"Q\n" +

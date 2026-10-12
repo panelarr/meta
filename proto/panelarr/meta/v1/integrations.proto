@@ -221,6 +221,14 @@ message Assignment {
   // Whether the provider's plugin applies network profiles (it declares the
   // `network_profile` common service). Profiles have no effect on others.
   bool supported = 6;
+  // The profile pushed by a host, as meta hands it to the plugin, so the host
+  // can show it and notice drift. Unset when nothing is pushed. The proxy
+  // password is never returned: see pushed_proxy_password_set.
+  panelarr.metadata.v1.NetworkProfile pushed_profile = 7;
+  // Whether the pushed profile has a proxy password (stored encrypted).
+  bool pushed_proxy_password_set = 8;
+  // When the host last pushed the profile.
+  google.protobuf.Timestamp pushed_at = 9;
 }
 
 enum ProfileOrigin {

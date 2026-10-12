@@ -49,9 +49,18 @@ The plan for the first version of meta and its first plugin, [meta-mangabaka](ht
 |---|---|---|---|---|
 | 1 | Candidates (title keys, similar titles, shared IDs; scoring), curator merge, review API, optional decision models (OpenAI Decisions, TypeSafe, Clef), job, admin page, docs, scale test | meta | `feat/duplicates-candidates` | done |
 
+## Network profiles from Panelarr (GOAL-0016)
+
+Most of it was already built: pushed profiles per provider (kept in the database, pushed > assigned > default), `SetNetworkProfile` to plugins that declare `network_profile`, `httpx` in the SDK, and the plugins' common services in `ListProviders` / `ListAssignments`.
+
+| # | Slice | Repo | Branch | State |
+|---|---|---|---|---|
+| 1 | Read back pushed profiles (redacted) with their time; `doh_url` in profiles and DNS over HTTPS in `httpx`; docs on pushed profiles staying until the host removes them | meta | `feat/integrations-pushed-readback-doh` | done |
+| 2 | Pushed profiles in the admin's Integrations page, with "Remove pushed profile" | meta | | next |
+
 ## Next
 
-Waiting for the next goal.
+Slice 2 of network profiles from Panelarr.
 
 ## Notes
 
