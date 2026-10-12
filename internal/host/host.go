@@ -336,32 +336,66 @@ func declaresNetworkProfile(info *metadatav1.PluginInfo) bool {
 	return false
 }
 
+// probeTimeout bounds the health call Probe makes.
+const probeTimeout = 5 * time.Second
+
 // CheckHealth asks the plugin for its health, reconnecting if the
 // connection is gone.
 func (p *Provider) CheckHealth(ctx context.Context) {
+	_ = p.checkHealth(ctx, 0)
+}
+
+// Probe makes sure the plugin is connected and still answers, recording its
+// health. An earlier connection says nothing about now: the plugin may have
+// stopped since, and the watch loop only notices at its next check. Probe
+// returns an *UnavailableError when the plugin can't be reached, so a
+// caller can refuse right away instead of failing later in the background.
+func (p *Provider) Probe(ctx context.Context) error {
+	return p.checkHealth(ctx, probeTimeout)
+}
+
+// checkHealth asks the plugin for its health, waiting at most timeout (0:
+// as long as ctx allows). A plugin that doesn't answer is marked down and
+// its connection dropped, so the next call reconnects.
+func (p *Provider) checkHealth(ctx context.Context, timeout time.Duration) error {
 	c, err := p.conn(ctx)
 	if err != nil {
-		return
+		return err
+	}
+	hctx, cancel := ctx, context.CancelFunc(func() {})
+	if timeout > 0 {
+		hctx, cancel = context.WithTimeout(ctx, timeout)
 	}
 	start := time.Now()
-	h, err := c.Health(ctx)
+	h, err := c.Health(hctx)
+	cancel()
 	p.host.metrics.PluginCall(p.cfg.ID, "health", start, err)
+	if err != nil && ctx.Err() != nil {
+		// The caller gave up; that says nothing about the plugin.
+		return ctx.Err()
+	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if err != nil {
 		p.log.Warn("plugin health check failed", "err", err)
-		if p.client != nil {
-			_ = p.client.Close()
-			p.client = nil
-		}
+		p.dropLocked(c)
 		p.setHealthLocked(ctx, metadatav1.HealthStatus_HEALTH_STATUS_DOWN, err.Error())
-		return
+		return p.unavailable(err)
 	}
-	if h.GetStatus() == metadatav1.HealthStatus_HEALTH_STATUS_DOWN && p.cfg.Managed != nil && h.GetMessage() == "plugin process exited" && p.client != nil {
+	p.setHealthLocked(ctx, h.GetStatus(), h.GetMessage())
+	if h.GetStatus() == metadatav1.HealthStatus_HEALTH_STATUS_DOWN && p.cfg.Managed != nil && h.GetMessage() == "plugin process exited" {
+		p.dropLocked(c)
+		return p.unavailable(errors.New(h.GetMessage()))
+	}
+	return nil
+}
+
+// dropLocked closes c if it is still the provider's connection.
+func (p *Provider) dropLocked(c client.Client) {
+	if p.client != nil && p.client == c {
 		_ = p.client.Close()
 		p.client = nil
 	}
-	p.setHealthLocked(ctx, h.GetStatus(), h.GetMessage())
 }
 
 func (p *Provider) watch(ctx context.Context, interval time.Duration) {

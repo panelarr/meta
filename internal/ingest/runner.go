@@ -172,7 +172,17 @@ func (r *Runner) open(ctx context.Context, provider, kind, trigger, by string, f
 	if !ok {
 		return db.SyncRun{}, plugin.ErrNotFound("no provider %q is configured", provider)
 	}
-	if err := p.Connect(ctx); err != nil {
+	r.mu.Lock()
+	_, busy := r.running[provider]
+	r.mu.Unlock()
+	if busy {
+		// Don't probe a plugin in the middle of a sync: a slow answer
+		// would drop the connection the sync is using.
+		return db.SyncRun{}, ErrRunning
+	}
+	// A run that would only fail in the background is refused here, with
+	// the provider named.
+	if err := p.Probe(ctx); err != nil {
 		return db.SyncRun{}, err
 	}
 	if kind == "" {
@@ -322,7 +332,11 @@ func (r *Runner) execute(ctx context.Context, run db.SyncRun, force bool) (err e
 				s.log.Warn("prune sync runs", "err", perr)
 			}
 		}
-		s.log.Info("sync finished", "status", status, "error", msg, "upserts", s.counts.upserts,
+		level := slog.LevelInfo
+		if status == "failed" {
+			level = slog.LevelWarn
+		}
+		s.log.Log(bg, level, "sync finished", "status", status, "error", msg, "upserts", s.counts.upserts,
 			"changed", s.counts.changed, "merges", s.counts.merges, "removed", marked, "took", time.Since(start).Round(time.Millisecond))
 	}()
 
