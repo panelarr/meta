@@ -161,3 +161,5 @@ See [search](search.md).
 ## Errors
 
 Errors use gRPC/Connect codes; REST maps them to HTTP statuses (`invalid_argument` → 400, `unauthenticated` → 401, `not_found` → 404, `already_exists` → 409, `resource_exhausted` → 429, `unavailable` → 503).
+
+When a call fails because a provider's plugin can't be reached (`RunSync`, `RunJob` of a sync job, `LookupExternal` for that provider's IDs), the answer is `unavailable` with a `google.rpc.ErrorInfo` detail: reason `PROVIDER_UNAVAILABLE`, domain `panelarr.meta`, and the provider in `metadata.provider`. A client can tell it apart from meta itself being unreachable, which gives no answer at all. `RefreshEntry` doesn't fail: it lists each provider that couldn't be asked in `failed`.

@@ -15,6 +15,7 @@ import (
 	metav1 "github.com/panelarr/meta/gen/panelarr/meta/v1"
 	"github.com/panelarr/meta/gen/panelarr/meta/v1/metav1connect"
 	"github.com/panelarr/meta/internal/auth"
+	"github.com/panelarr/meta/internal/host"
 	"github.com/panelarr/meta/internal/jobs"
 )
 
@@ -165,6 +166,9 @@ func (s *Jobs) job(ctx context.Context, j jobs.Job, last map[string]jobs.Summary
 
 // jobError maps the jobs package's errors onto API codes.
 func jobError(err error) error {
+	if errors.As(err, new(*host.UnavailableError)) {
+		return providerUnavailable(err) // a sync job whose provider's plugin is down
+	}
 	var busy *jobs.RunningError
 	switch {
 	case errors.As(err, &busy):

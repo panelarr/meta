@@ -90,7 +90,7 @@ func (a *Admin) RunSync(ctx context.Context, req *connect.Request[metav1.RunSync
 	case errors.Is(err, ingest.ErrRunning):
 		return nil, connect.NewError(connect.CodeAlreadyExists, err)
 	case errors.Is(err, host.ErrNotConnected):
-		return nil, connect.NewError(connect.CodeUnavailable, err)
+		return nil, providerUnavailable(err)
 	case err != nil:
 		return nil, err
 	}

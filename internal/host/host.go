@@ -204,8 +204,23 @@ func (p *Provider) Connect(ctx context.Context) error {
 	return err
 }
 
-// ErrNotConnected is returned while a plugin can't be reached.
+// ErrNotConnected is returned while a plugin can't be reached. The error
+// is an *UnavailableError naming the provider.
 var ErrNotConnected = errors.New("plugin is not connected")
+
+// UnavailableError is returned when a provider's plugin can't be reached.
+// It matches ErrNotConnected.
+type UnavailableError struct {
+	Provider string
+	Err      error
+}
+
+func (e *UnavailableError) Error() string { return e.Err.Error() }
+func (e *UnavailableError) Unwrap() error { return e.Err }
+
+func (p *Provider) unavailable(err error) error {
+	return &UnavailableError{Provider: p.cfg.ID, Err: fmt.Errorf("%w: %w", ErrNotConnected, err)}
+}
 
 // conn returns a working client, connecting if needed.
 func (p *Provider) conn(ctx context.Context) (client.Client, error) {
@@ -227,7 +242,7 @@ func (p *Provider) connect(ctx context.Context) (client.Client, error) {
 	c, err := p.host.dial(ctx, p.cfg, p.log)
 	if err != nil {
 		p.setHealthLocked(ctx, metadatav1.HealthStatus_HEALTH_STATUS_DOWN, err.Error())
-		return nil, fmt.Errorf("%w: %w", ErrNotConnected, err)
+		return nil, p.unavailable(err)
 	}
 	info, err := c.GetInfo(ctx)
 	if err == nil && info.GetProvider() != p.cfg.ID {
@@ -245,7 +260,7 @@ func (p *Provider) connect(ctx context.Context) (client.Client, error) {
 	if err != nil {
 		_ = c.Close()
 		p.setHealthLocked(ctx, metadatav1.HealthStatus_HEALTH_STATUS_DOWN, err.Error())
-		return nil, fmt.Errorf("%w: %w", ErrNotConnected, err)
+		return nil, p.unavailable(err)
 	}
 	p.client = c
 	p.info = info

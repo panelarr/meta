@@ -243,6 +243,13 @@ func (m *Meta) LookupExternal(ctx context.Context, req *connect.Request[metav1.L
 	// resolve other providers' IDs.
 	ref := &metadatav1.ExternalId{Provider: provider, Id: extID}
 	var lastErr error
+	// When the provider's own plugin is down, "not found" can't be told
+	// apart from "can't ask": unless another plugin resolves the ID, say so.
+	if p, ok := m.host.Get(provider); ok {
+		if err := p.Connect(ctx); err != nil {
+			lastErr = err
+		}
+	}
 	for _, p := range m.lookupOrder(ctx, provider) {
 		rec, err := p.Get(ctx, ref)
 		if err != nil {
@@ -277,7 +284,7 @@ func (m *Meta) LookupExternal(ctx context.Context, req *connect.Request[metav1.L
 		return connect.NewResponse(&metav1.LookupExternalResponse{Entry: e}), nil
 	}
 	if lastErr != nil {
-		return nil, lastErr
+		return nil, providerUnavailable(lastErr)
 	}
 	return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s:%s not found", provider, extID))
 }
