@@ -306,6 +306,12 @@ func (s *Service) PutProfile(ctx context.Context, p *metav1.NetworkProfile) (*me
 	if clean.GetUserAgentMode() == metav1.UserAgentMode_USER_AGENT_MODE_FIXED && strings.TrimSpace(clean.GetUserAgent()) == "" {
 		return nil, invalid("a fixed user agent needs a value")
 	}
+	clean.DohUrl = strings.TrimSpace(clean.GetDohUrl())
+	if clean.DohUrl != "" {
+		if u, err := url.Parse(clean.DohUrl); err != nil || u.Scheme != "https" || u.Hostname() == "" {
+			return nil, invalid("the DNS-over-HTTPS URL must be https:// with a host")
+		}
+	}
 
 	prev, err := s.st.GetProfile(ctx, p.GetId())
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -589,6 +595,7 @@ func (s *Service) pluginProfile(ctx context.Context, id string) (*metadatav1.Net
 		Name:        p.GetName(),
 		Concurrency: p.GetConcurrency(),
 		Headers:     p.GetHeaders(),
+		DohUrl:      p.GetDohUrl(),
 	}
 	if px := p.GetProxy(); px != nil {
 		np.Proxy = &metadatav1.Proxy{Url: px.GetUrl(), Username: px.GetUsername()}

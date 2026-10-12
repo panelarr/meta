@@ -21,6 +21,7 @@ export type ProfileForm = {
   userAgentMode: UserAgentMode;
   userAgent: string;
   headers: string;
+  dohUrl: string;
   connectTimeout: string;
   readTimeout: string;
   callTimeout: string;
@@ -63,6 +64,7 @@ export function profileToForm(profile?: NetworkProfile): ProfileForm {
     userAgentMode: profile?.userAgentMode ?? "USER_AGENT_MODE_UNSPECIFIED",
     userAgent: profile?.userAgent ?? "",
     headers: formatHeaders(profile?.headers),
+    dohUrl: profile?.dohUrl ?? "",
     connectTimeout: durationInput(profile?.connectTimeout),
     readTimeout: durationInput(profile?.readTimeout),
     callTimeout: durationInput(profile?.callTimeout),
@@ -109,6 +111,7 @@ export function formToProfile(form: ProfileForm): NetworkProfile {
 
   const headers = parseHeaders(form.headers);
   if (Object.keys(headers).length > 0) profile.headers = headers;
+  if (form.dohUrl.trim()) profile.dohUrl = form.dohUrl.trim();
 
   const connect = secondsToDuration(form.connectTimeout, "Connect timeout");
   const read = secondsToDuration(form.readTimeout, "Read timeout");

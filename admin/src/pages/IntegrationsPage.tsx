@@ -589,7 +589,12 @@ function ProfileDialog({
         <Field label="Extra headers" hint='One per line: "Name: value".'>
           <textarea className="mono" rows={3} {...text("headers")} />
         </Field>
-        <span />
+        <Field
+          label="DNS over HTTPS"
+          hint="An https:// resolver, e.g. https://cloudflare-dns.com/dns-query. Empty: the system resolver. Not used with a proxy, which resolves names itself."
+        >
+          <input type="text" placeholder="https://cloudflare-dns.com/dns-query" {...text("dohUrl")} />
+        </Field>
 
         <h3 className="span-2 small-heading">Timeouts (seconds)</h3>
         <Field label="Connect">
@@ -750,11 +755,88 @@ function AssignmentRow({
       </td>
       <td>
         <Badge tone={tone}>{label}</Badge> {effectiveName ? <span>{effectiveName}</span> : null}
-        {origin === "PROFILE_ORIGIN_PUSHED" ? (
-          <div className="muted small">A host pushed this profile; it wins over the assignment.</div>
-        ) : null}
+        {origin === "PROFILE_ORIGIN_PUSHED" ? <PushedProfile assignment={assignment} /> : null}
       </td>
     </tr>
+  );
+}
+
+const solverTypeNames: Record<string, string> = {
+  SOLVER_TYPE_FLARESOLVERR: "FlareSolverr",
+  SOLVER_TYPE_BYPARR: "Byparr",
+};
+
+/** What a host pushed for a provider, and a way to drop it when meta runs on its own again. */
+function PushedProfile({ assignment }: { assignment: Assignment }) {
+  const [removing, setRemoving] = useState(false);
+  const profile = assignment.pushedProfile;
+  const proxy = profile?.proxy;
+  const solver = profile?.solver;
+  return (
+    <div className="muted small">
+      <div>A host pushed this profile; it wins over the assignment. Pushed {formatDate(assignment.pushedAt)}.</div>
+      <ul className="plain-list">
+        <li>
+          Proxy:{" "}
+          {proxy?.url ? (
+            <>
+              <Mono>{proxy.url}</Mono>
+              {proxy.username ? ` as ${proxy.username}` : ""}
+              {assignment.pushedProxyPasswordSet ? ", password stored" : ""}
+            </>
+          ) : (
+            "none (direct)"
+          )}
+        </li>
+        <li>
+          Solver:{" "}
+          {solver?.url ? (
+            <>
+              {solverTypeNames[solver.type ?? ""] ?? "Solver"} at <Mono>{solver.url}</Mono>
+            </>
+          ) : (
+            "none"
+          )}
+        </li>
+        {profile?.dohUrl ? (
+          <li>
+            DNS over HTTPS: <Mono>{profile.dohUrl}</Mono>
+          </li>
+        ) : null}
+      </ul>
+      <button type="button" className="small" onClick={() => setRemoving(true)}>
+        Remove pushed profile
+      </button>
+      {removing ? <RemovePushedDialog assignment={assignment} onClose={() => setRemoving(false)} /> : null}
+    </div>
+  );
+}
+
+function RemovePushedDialog({ assignment, onClose }: { assignment: Assignment; onClose: () => void }) {
+  const invalidate = useInvalidateNetwork();
+  const providerId = assignment.providerId ?? "";
+  const remove = useMutation({
+    mutationFn: () =>
+      unwrap(api.PUT("/v1/admin/pushed-profiles/{providerId}", { params: { path: { providerId } }, body: {} })),
+    onSuccess: async () => {
+      await invalidate();
+      onClose();
+    },
+  });
+  return (
+    <ConfirmDialog
+      title={`Remove the pushed profile of ${providerId}?`}
+      confirmLabel="Remove pushed profile"
+      pending={remove.isPending}
+      error={remove.error}
+      onConfirm={() => remove.mutate()}
+      onClose={onClose}
+    >
+      <p>
+        {providerId} then uses the profile assigned here, the default profile, or a direct connection. Do this when meta
+        is no longer run by the host that pushed it: a host that still manages meta pushes it again on its next change.
+      </p>
+    </ConfirmDialog>
   );
 }
 

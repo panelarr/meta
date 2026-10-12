@@ -70,6 +70,7 @@ func TestProfilesSecretsAndResolution(t *testing.T) {
 		UserAgentMode: metav1.UserAgentMode_USER_AGENT_MODE_FIXED, UserAgent: "MetaTest/1",
 		Headers:        map[string]string{"X-Hello": "world"},
 		ConnectTimeout: durationpb.New(5 * time.Second),
+		DohUrl:         " https://dns.example/dns-query ",
 	}
 	res, err := in.PutProfile(ctx, connect.NewRequest(&metav1.PutProfileRequest{Profile: vpn}))
 	if err != nil {
@@ -118,7 +119,8 @@ func TestProfilesSecretsAndResolution(t *testing.T) {
 	if origin != metav1.ProfileOrigin_PROFILE_ORIGIN_ASSIGNED || np.GetProxy().GetPassword() != "hunter2" || np.GetProxy().GetUsername() != "me" ||
 		np.GetSolver().GetUrl() != "http://fs:8191" || np.GetSolver().GetMaxTimeout().AsDuration() != time.Minute ||
 		np.GetRateLimit().GetRequests() != 30 || np.GetUserAgent().GetFixed() != "MetaTest/1" || np.GetHeaders()["X-Hello"] != "world" ||
-		np.GetTimeouts().GetConnect().AsDuration() != 5*time.Second || np.GetName() != "VPN Netherlands" {
+		np.GetTimeouts().GetConnect().AsDuration() != 5*time.Second || np.GetName() != "VPN Netherlands" ||
+		np.GetDohUrl() != "https://dns.example/dns-query" {
 		t.Fatalf("assigned profile: %v", np)
 	}
 	if _, err := in.SetPushedProfile(ctx, connect.NewRequest(&metav1.SetPushedProfileRequest{ProviderId: "fake", Profile: &metadatav1.NetworkProfile{
@@ -168,6 +170,7 @@ func TestIntegrationsValidationAndScopes(t *testing.T) {
 		{Id: "p", Name: "x", RateLimit: &metav1.RateLimit{Requests: 5}},
 		{Id: "p", Name: "x", UserAgentMode: metav1.UserAgentMode_USER_AGENT_MODE_FIXED},
 		{Id: "p", Name: "x", Headers: map[string]string{"Bad Header": "v"}},
+		{Id: "p", Name: "x", DohUrl: "http://dns.example/dns-query"},
 	}
 	for _, p := range bad {
 		if _, err := in.PutProfile(ctx, connect.NewRequest(&metav1.PutProfileRequest{Profile: p})); connect.CodeOf(err) != connect.CodeInvalidArgument {

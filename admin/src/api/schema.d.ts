@@ -2164,6 +2164,13 @@ export interface components {
             readTimeout?: components["schemas"]["google.protobuf.Duration"];
             /** call_timeout */
             callTimeout?: components["schemas"]["google.protobuf.Duration"];
+            /**
+             * doh_url
+             * @description DNS-over-HTTPS resolver URL (https://), e.g.
+             *      https://cloudflare-dns.com/dns-query. Empty means the system resolver.
+             *      Not used with a proxy: the proxy resolves names.
+             */
+            dohUrl?: string;
         };
         /**
          * PrincipalKind

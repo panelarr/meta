@@ -56,11 +56,11 @@ Most of it was already built: pushed profiles per provider (kept in the database
 | # | Slice | Repo | Branch | State |
 |---|---|---|---|---|
 | 1 | Read back pushed profiles (redacted) with their time; `doh_url` in profiles and DNS over HTTPS in `httpx`; docs on pushed profiles staying until the host removes them | meta | `feat/integrations-pushed-readback-doh` | done |
-| 2 | Pushed profiles in the admin's Integrations page, with "Remove pushed profile" | meta | | next |
+| 2 | Pushed profiles in the admin's Integrations page, with "Remove pushed profile"; DNS over HTTPS for meta's own profiles | meta | `feat/admin-pushed-profiles` | done |
 
 ## Next
 
-Slice 2 of network profiles from Panelarr.
+Waiting for the next goal.
 
 ## Notes
 

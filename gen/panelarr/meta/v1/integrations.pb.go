@@ -315,8 +315,12 @@ type NetworkProfile struct {
 	ConnectTimeout *durationpb.Duration `protobuf:"bytes,10,opt,name=connect_timeout,json=connectTimeout,proto3" json:"connect_timeout,omitempty"`
 	ReadTimeout    *durationpb.Duration `protobuf:"bytes,11,opt,name=read_timeout,json=readTimeout,proto3" json:"read_timeout,omitempty"`
 	CallTimeout    *durationpb.Duration `protobuf:"bytes,12,opt,name=call_timeout,json=callTimeout,proto3" json:"call_timeout,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// DNS-over-HTTPS resolver URL (https://), e.g.
+	// https://cloudflare-dns.com/dns-query. Empty means the system resolver.
+	// Not used with a proxy: the proxy resolves names.
+	DohUrl        string `protobuf:"bytes,13,opt,name=doh_url,json=dohUrl,proto3" json:"doh_url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *NetworkProfile) Reset() {
@@ -431,6 +435,13 @@ func (x *NetworkProfile) GetCallTimeout() *durationpb.Duration {
 		return x.CallTimeout
 	}
 	return nil
+}
+
+func (x *NetworkProfile) GetDohUrl() string {
+	if x != nil {
+		return x.DohUrl
+	}
+	return ""
 }
 
 type Proxy struct {
@@ -2217,7 +2228,7 @@ const file_panelarr_meta_v1_integrations_proto_rawDesc = "" +
 	"\vmax_timeout\x18\x06 \x01(\v2\x19.google.protobuf.DurationR\n" +
 	"maxTimeout\x120\n" +
 	"\x14as_response_fallback\x18\a \x01(\bR\x12asResponseFallback\x12\x17\n" +
-	"\aused_by\x18\b \x03(\tR\x06usedBy\"\x8b\x05\n" +
+	"\aused_by\x18\b \x03(\tR\x06usedBy\"\xa4\x05\n" +
 	"\x0eNetworkProfile\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12-\n" +
@@ -2233,7 +2244,8 @@ const file_panelarr_meta_v1_integrations_proto_rawDesc = "" +
 	"\x0fconnect_timeout\x18\n" +
 	" \x01(\v2\x19.google.protobuf.DurationR\x0econnectTimeout\x12<\n" +
 	"\fread_timeout\x18\v \x01(\v2\x19.google.protobuf.DurationR\vreadTimeout\x12<\n" +
-	"\fcall_timeout\x18\f \x01(\v2\x19.google.protobuf.DurationR\vcallTimeout\x1a:\n" +
+	"\fcall_timeout\x18\f \x01(\v2\x19.google.protobuf.DurationR\vcallTimeout\x12\x17\n" +
+	"\adoh_url\x18\r \x01(\tR\x06dohUrl\x1a:\n" +
 	"\fHeadersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"t\n" +

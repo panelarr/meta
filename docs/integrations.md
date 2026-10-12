@@ -7,7 +7,7 @@ All of it is managed with `MetaIntegrationsService` (the `admin` scope) or on th
 ## The chain
 
 1. A **challenge solver** is a FlareSolverr or Byparr endpoint. It only does something through a profile.
-2. A **network profile** bundles a proxy, a solver, a rate limit, concurrency, user agent, extra headers and timeouts.
+2. A **network profile** bundles a proxy, a solver, a rate limit, concurrency, user agent, extra headers, a DNS-over-HTTPS resolver and timeouts.
 3. Each **provider** uses one profile:
 
    | Order | Origin | Set with |
@@ -46,6 +46,7 @@ A solver can't be deleted while a profile uses it.
 | `concurrency` | Maximum parallel requests per provider |
 | `user_agent_mode` | Plugin default, a fixed value, a random desktop browser, or the solver's user agent (matches its cookies) |
 | `headers` | Extra headers on every request |
+| `doh_url` | A DNS-over-HTTPS resolver (`https://`), e.g. `https://cloudflare-dns.com/dns-query`. Not used with a proxy, which resolves names itself |
 | `connect_timeout`, `read_timeout`, `call_timeout` | Timeouts |
 
 **Proxy passwords** are write-only: they are encrypted at rest (AES-256-GCM, with `META_SECRET_KEY` or the generated key in `data_dir`, see [configuration](configuration.md)) and never returned; `has_password` says whether one is stored. Leaving the password empty on an update keeps the stored one; removing the username or the proxy drops it.
@@ -63,7 +64,7 @@ A Panelarr server that owns network settings (its own solvers, proxies and profi
 
 **A pushed profile stays until the host removes it.** It doesn't expire when the host stops talking to meta. A profile often sends a provider through a VPN container: falling back to a direct connection whenever Panelarr is down would quietly expose the server's own address to that provider. A host that has been reconnected removes pushes it no longer wants (compare `ListAssignments` with its own assignments).
 
-**Running meta on its own again.** When meta is no longer run by the Panelarr server that pushed a profile, drop the push yourself so the provider uses meta's own settings:
+**Running meta on its own again.** When meta is no longer run by the Panelarr server that pushed a profile, drop the push yourself so the provider uses meta's own settings: **Remove pushed profile** on the admin's Integrations page, or
 
 ```sh
 curl -X PUT -H "Authorization: Bearer $META_ADMIN_TOKEN" -d '{}' localhost:8901/v1/admin/pushed-profiles/mangabaka

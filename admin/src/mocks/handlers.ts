@@ -55,9 +55,12 @@ type Db = {
   passwords: Map<string, string>;
   defaultProfileId: string;
   assignments: Map<string, string>;
-  pushed: Map<string, string>;
+  /** Profiles pushed by a host, by provider: as stored (no proxy password). */
+  pushed: Map<string, Pushed>;
   nextId: number;
 };
+
+export type Pushed = { profile: NonNullable<Assignment["pushedProfile"]>; passwordSet: boolean; at: string };
 
 export function createDb(): Db {
   return {
@@ -216,7 +219,10 @@ function assignmentFor(db: Db, providerId: string): Assignment {
     return {
       providerId,
       profileId: assigned,
-      pushedProfileName: pushed,
+      pushedProfileName: pushed.profile.name,
+      pushedProfile: pushed.profile,
+      pushedProxyPasswordSet: pushed.passwordSet,
+      pushedAt: pushed.at,
       effective: "PROFILE_ORIGIN_PUSHED",
       supported,
     };
@@ -987,6 +993,26 @@ export function createHandlers(db: Db = createDb(), latency = 0) {
       if (body.profileId) db.assignments.set(providerId, body.profileId);
       else db.assignments.delete(providerId);
       return ok({ assignment: assignmentFor(db, providerId) });
+    }),
+
+    http.put(`${base}/admin/pushed-profiles/:providerId`, async ({ request, params }) => {
+      await wait();
+      const denied = guard(request, true);
+      if (denied) return denied;
+      const providerId = String(params.providerId);
+      if (!db.providers.some((p) => p.id === providerId))
+        return grpcError("NOT_FOUND", `not found: no provider "${providerId}" is configured`);
+      const body = (await request.json()) as { profile?: Pushed["profile"] };
+      if (!body.profile) db.pushed.delete(providerId);
+      else {
+        const { password, ...proxy } = body.profile.proxy ?? {};
+        db.pushed.set(providerId, {
+          profile: { ...body.profile, ...(body.profile.proxy ? { proxy } : {}) },
+          passwordSet: !!password,
+          at: new Date().toISOString(),
+        });
+      }
+      return ok({});
     }),
 
     http.put(`${base}/admin/default-profile`, async ({ request }) => {

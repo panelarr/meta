@@ -178,6 +178,10 @@ message NetworkProfile {
   google.protobuf.Duration connect_timeout = 10;
   google.protobuf.Duration read_timeout = 11;
   google.protobuf.Duration call_timeout = 12;
+  // DNS-over-HTTPS resolver URL (https://), e.g.
+  // https://cloudflare-dns.com/dns-query. Empty means the system resolver.
+  // Not used with a proxy: the proxy resolves names.
+  string doh_url = 13;
 }
 
 message Proxy {

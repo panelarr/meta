@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { describe, expect, it } from "vitest";
 import { MERGED_ENTRY_ID } from "../mocks/data";
+import { createDb, createHandlers } from "../mocks/handlers";
 import { renderApp } from "../test/render";
 import { server } from "../test/setup";
 
@@ -420,6 +421,57 @@ describe("integrations", () => {
     expect(await within(screen.getByRole("dialog")).findByRole("alert")).toHaveTextContent(
       'solver "flaresolverr" is used by profiles: via-proxy',
     );
+    app.dispose();
+  });
+
+  it("shows what a host pushed and removes it", async () => {
+    const db = createDb();
+    db.pushed.set("example", {
+      profile: {
+        name: "vpn-nl",
+        proxy: { url: "socks5://gluetun:1080", username: "me" },
+        solver: { type: "SOLVER_TYPE_FLARESOLVERR", url: "http://flaresolverr:8191" },
+        dohUrl: "https://dns.example/dns-query",
+      },
+      passwordSet: true,
+      at: "2026-10-12T08:00:00Z",
+    });
+    server.use(...createHandlers(db));
+    const app = renderApp("/integrations");
+    const exampleRow = async () => (await screen.findByLabelText("Profile for example")).closest("tr") as HTMLElement;
+    let row = await exampleRow();
+    expect(within(row).getByText("Pushed by host", { selector: ".badge" })).toBeInTheDocument();
+    expect(within(row).getByText("vpn-nl")).toBeInTheDocument();
+    expect(within(row).getByText("socks5://gluetun:1080")).toBeInTheDocument();
+    expect(within(row).getByText(/as me, password stored/)).toBeInTheDocument();
+    expect(within(row).getByText("http://flaresolverr:8191")).toBeInTheDocument();
+    expect(within(row).getByText("https://dns.example/dns-query")).toBeInTheDocument();
+    await userEvent.click(within(row).getByRole("button", { name: "Remove pushed profile" }));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Remove pushed profile" }));
+    await waitFor(async () => {
+      row = await exampleRow();
+      expect(within(row).getByText("Assigned", { selector: ".badge" })).toBeInTheDocument();
+    });
+    expect(within(row).queryByRole("button", { name: "Remove pushed profile" })).not.toBeInTheDocument();
+    expect(db.pushed.has("example")).toBe(false);
+    app.dispose();
+  });
+
+  it("saves a DNS-over-HTTPS resolver on a profile", async () => {
+    let body: { dohUrl?: string } | null = null;
+    server.events.on("request:start", async ({ request }) => {
+      if (request.method === "PUT" && request.url.includes("/v1/admin/profiles/via-proxy")) {
+        body = await request.clone().json();
+      }
+    });
+    const app = renderApp("/integrations");
+    const row = (await screen.findAllByRole("row")).find((r) => within(r).queryByText("Via proxy"));
+    await userEvent.click(within(row as HTMLElement).getByRole("button", { name: "Edit" }));
+    await userEvent.type(screen.getByLabelText("DNS over HTTPS"), " https://cloudflare-dns.com/dns-query ");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(body).not.toBeNull());
+    expect((body as unknown as { dohUrl?: string }).dohUrl).toBe("https://cloudflare-dns.com/dns-query");
+    server.events.removeAllListeners();
     app.dispose();
   });
 
