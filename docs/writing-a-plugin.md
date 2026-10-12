@@ -89,6 +89,8 @@ func (p *myPlugin) SetSettings(_ context.Context, r *metadatav1.SetSettingsReque
 }
 ```
 
+`settings.Parse` stamps the order the properties are written in onto each of them as `"x-order": 1, 2, …`, at every depth (nested objects and array items included), because the schema's key order is lost on its way to a host's form. Set `x-order` (or `propertyOrder`) yourself to override it for a property.
+
 ## 4. Network profiles
 
 Declare the `network_profile` common service and make every request with an `httpx.Client`: it follows the profile the host sends (proxy, SOCKS5 with credentials, challenge solver, rate limit, concurrency, user agent, headers, timeouts) and keeps one cookie jar.
