@@ -65,7 +65,9 @@ type MetaJobsServiceClient interface {
 	GetJobRun(context.Context, *connect.Request[v1.GetJobRunRequest]) (*connect.Response[v1.GetJobRunResponse], error)
 	// RunJob starts a run now and returns at once. A job runs once at a time:
 	// when it is already running the answer is ALREADY_EXISTS (HTTP 409) with
-	// a JobAlreadyRunning detail naming the current run.
+	// a JobAlreadyRunning detail naming the current run. A job that can't run
+	// now (Job.disabled_reason) is refused with FAILED_PRECONDITION (HTTP 400)
+	// and a google.rpc.ErrorInfo with reason JOB_DISABLED.
 	RunJob(context.Context, *connect.Request[v1.RunJobRequest]) (*connect.Response[v1.RunJobResponse], error)
 	// CancelJobRun stops a running run. Jobs that can't stop midway answer
 	// FAILED_PRECONDITION.
@@ -174,7 +176,9 @@ type MetaJobsServiceHandler interface {
 	GetJobRun(context.Context, *connect.Request[v1.GetJobRunRequest]) (*connect.Response[v1.GetJobRunResponse], error)
 	// RunJob starts a run now and returns at once. A job runs once at a time:
 	// when it is already running the answer is ALREADY_EXISTS (HTTP 409) with
-	// a JobAlreadyRunning detail naming the current run.
+	// a JobAlreadyRunning detail naming the current run. A job that can't run
+	// now (Job.disabled_reason) is refused with FAILED_PRECONDITION (HTTP 400)
+	// and a google.rpc.ErrorInfo with reason JOB_DISABLED.
 	RunJob(context.Context, *connect.Request[v1.RunJobRequest]) (*connect.Response[v1.RunJobResponse], error)
 	// CancelJobRun stops a running run. Jobs that can't stop midway answer
 	// FAILED_PRECONDITION.

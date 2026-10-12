@@ -152,3 +152,26 @@ func TestProbeIgnoresACallerThatGaveUp(t *testing.T) {
 		t.Fatalf("health %v", s)
 	}
 }
+
+// TestKnownLookup: whether a plugin can look records up is unknown until
+// meta has reached it, and then follows what it declared, without
+// connecting again.
+func TestKnownLookup(t *testing.T) {
+	ctx := context.Background()
+	cfg := config.Default()
+	cfg.Providers = []config.Provider{{ID: "dumponly", Remote: &config.Remote{URL: "x"}}}
+	h := host.New(cfg, nil, slog.New(slog.NewTextHandler(io.Discard, nil)), func(context.Context, config.Provider, *slog.Logger) (client.Client, error) {
+		return client.InProcess(&plugintest.Fake{Provider: "dumponly"}), nil
+	})
+	p, _ := h.Get("dumponly")
+	if can, known := p.KnownLookup(); can || known {
+		t.Fatalf("before connecting: can %v known %v", can, known)
+	}
+	if err := p.Connect(ctx); err != nil {
+		t.Fatal(err)
+	}
+	can, known := p.KnownLookup()
+	if !known || can != p.CanLookup(ctx) {
+		t.Fatalf("after connecting: can %v known %v, CanLookup %v", can, known, p.CanLookup(ctx))
+	}
+}

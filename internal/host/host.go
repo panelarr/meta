@@ -479,6 +479,16 @@ func (p *Provider) lookupKind() string {
 	return ""
 }
 
+// KnownLookup reports whether the plugin supports on-demand lookups, from
+// what it last reported, without connecting. known is false before meta
+// has reached the plugin.
+func (p *Provider) KnownLookup() (can, known bool) {
+	if p.Info() == nil {
+		return false, false
+	}
+	return p.lookupKind() != "", true
+}
+
 // CanLookup reports whether the plugin supports on-demand lookups.
 func (p *Provider) CanLookup(ctx context.Context) bool {
 	if _, err := p.conn(ctx); err != nil {

@@ -116,11 +116,11 @@ Every background job and its runs, with the same messages and paths as the other
 
 | Call | REST | What |
 |---|---|---|
-| `ListJobs` | `GET /v1/admin/jobs` | Every job: schedule, running, current run, last run, next run, params, group |
+| `ListJobs` | `GET /v1/admin/jobs` | Every job: schedule, running, current run, last run, next run, params, group, and why it can't run now (`disabled_reason`) |
 | `GetJob` | `GET /v1/admin/jobs/{job_id}` | One job |
 | `ListJobRuns` | `GET /v1/admin/jobs/{job_id}/runs?status=JOB_RUN_STATUS_FAILED&pageSize=20` | A job's runs, newest first |
 | `GetJobRun` | `GET /v1/admin/job-runs/{run_id}` | One run with params, counts, notes (at most 200) and progress |
-| `RunJob` | `POST /v1/admin/jobs/{job_id}:run` with `{"params": {"force": "true"}}` | Start a run now; returns it at once. 409 `already_exists` with a `JobAlreadyRunning` detail and a `google.rpc.ErrorInfo` (reason `ALREADY_RUNNING`, `metadata.current_run_id`) when it is running. A param with `choices` takes one of them (`string`) or any of them (`string_list`) |
+| `RunJob` | `POST /v1/admin/jobs/{job_id}:run` with `{"params": {"force": "true"}}` | Start a run now; returns it at once. 409 `already_exists` with a `JobAlreadyRunning` detail and a `google.rpc.ErrorInfo` (reason `ALREADY_RUNNING`, `metadata.current_run_id`) when it is running; 400 `failed_precondition` with a `google.rpc.ErrorInfo` (reason `JOB_DISABLED`, `metadata.job_id`) when it can't run now. A param with `choices` takes one of them (`string`) or any of them (`string_list`) |
 | `CancelJobRun` | `POST /v1/admin/job-runs/{run_id}:cancel` | Stop a run; what it committed stays. 400 `failed_precondition` when the job can't be cancelled or the run isn't running in this meta process |
 
 | Job | Params | What |
@@ -132,7 +132,16 @@ Every background job and its runs, with the same messages and paths as the other
 | `duplicates` | `full`, `judge` | Find pairs of entries that are probably the same work; rate the best with the decision model when it is on |
 | `stale-refresh` | `limit` (default `jobs.stale_refresh.limit`) | Look up again the entries whose records are older than `ingest.stale_after`, oldest first, from providers that support lookups |
 
-Job IDs match `^[a-z0-9][a-z0-9._-]*$`: a `:` would read as the custom verb in `…:run`. Runs record their trigger (`schedule`, `manual`, `startup`, or `system` when meta started the run on its own while running) and, for manual runs, who started them (the admin, a client's name, or `cli`). A scheduled run that finds its job still running is recorded as `skipped`. Each job keeps its newest `jobs.retention` finished runs. A run whose meta process stopped is marked failed ("interrupted") when meta starts again, unless another meta process on the same database still holds it.
+Job IDs match `^[a-z0-9][a-z0-9._-]*$`: a `:` would read as the custom verb in `…:run`. Runs record their trigger (`schedule`, `manual`, `startup`, or `system` when meta started the run on its own while running) and, for manual runs, who started them (the admin, a client's name, or `cli`). A scheduled run that finds its job still running is recorded as `skipped`.
+
+**Jobs that can't run now.** A job with a `disabled_reason` (a sentence for the admin) doesn't apply to the current setup: `RunJob` refuses it with `JOB_DISABLED`, its schedule doesn't fire and `next_run_at` is unset (`schedule` still shows what is configured). meta works the reason out on every request, so it follows the settings at once:
+
+| Job | Can't run while |
+|---|---|
+| `search-rebuild`, `search-indexer` | PostgreSQL alone answers searches (no Typesense or Meilisearch): there is no index |
+| `stale-refresh` | no provider can look records up (every provider dump-only); a provider meta hasn't reached yet counts as one that might |
+
+A run that was already going on when the reason appeared finishes as usual. Each job keeps its newest `jobs.retention` finished runs. A run whose meta process stopped is marked failed ("interrupted") when meta starts again, unless another meta process on the same database still holds it.
 
 ## Duplicates (`MetaDuplicatesService`)
 

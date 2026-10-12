@@ -71,6 +71,7 @@ func (a *app) newJobs() *jobs.Manager {
 			Description: "Most entries to refresh in this run",
 		}},
 		Cancellable: true,
+		Disabled:    a.staleRefreshDisabled,
 	}, func(ctx context.Context, r *jobs.Recorder) error {
 		return a.refreshStale(ctx, r, jobs.Int(r.Params(), "limit", int64(stale.Limit)))
 	})
@@ -82,6 +83,7 @@ func (a *app) newJobs() *jobs.Manager {
 			"changes pile up. Nothing to do with PostgreSQL alone.",
 		Group:       "Search",
 		Cancellable: true,
+		Disabled:    a.searchJobDisabled,
 	}, func(ctx context.Context, r *jobs.Recorder) error {
 		n, err := a.search.Rebuild(ctx, func(done, total int64) {
 			r.Progress(ctx, "index", done, total, "entries")
@@ -104,6 +106,7 @@ func (a *app) newJobs() *jobs.Manager {
 			"own every second; run it after the engine was down to see it catch up.",
 		Group:       "Search",
 		Cancellable: true,
+		Disabled:    a.searchJobDisabled,
 	}, func(ctx context.Context, r *jobs.Recorder) error {
 		n, err := a.search.Drain(ctx, func(done int64) { r.Progress(ctx, "apply", done, 0, "changes") })
 		if errors.Is(err, searchsvc.ErrNoEngine) {
@@ -136,6 +139,27 @@ func (a *app) newJobs() *jobs.Manager {
 		return a.dups.Run(ctx, r, jobs.Bool(r.Params(), "full"), jobs.Bool(r.Params(), "judge"))
 	})
 	return m
+}
+
+// searchJobDisabled: the search index jobs only do something with a search
+// engine.
+func (a *app) searchJobDisabled(context.Context) string {
+	if _, x, ix := a.search.Current(); x == nil || ix == nil {
+		return "Only with a search engine (Typesense or Meilisearch): PostgreSQL searches the database directly and needs no index."
+	}
+	return ""
+}
+
+// staleRefreshDisabled: the refresh needs a provider that can look records
+// up. A provider meta hasn't reached yet may be one, so it doesn't disable
+// the job; a run then skips if none can.
+func (a *app) staleRefreshDisabled(context.Context) string {
+	for _, p := range a.host.List() {
+		if can, known := p.KnownLookup(); can || !known {
+			return ""
+		}
+	}
+	return "No provider can look records up: dump-only providers are kept current by their syncs."
 }
 
 func (a *app) refreshStale(ctx context.Context, r *jobs.Recorder, limit int64) error {

@@ -272,6 +272,22 @@ describe("jobs", () => {
     app.dispose();
   });
 
+  it("shows why a job can't run now and keeps it from being started", async () => {
+    const db = createDb();
+    const job = db.jobs.find((j) => j.id === "rebuild-entries");
+    if (!job) throw new Error("no rebuild-entries mock");
+    job.disabledReason = "Only with a search engine.";
+    job.nextRunAt = undefined;
+    server.use(...createHandlers(db));
+    const app = renderApp("/jobs");
+    const row = await screen.findByRole("row", { name: "Job Rebuild entries" });
+    expect(within(row).getByRole("button", { name: "Run now" })).toBeDisabled();
+    expect(within(row).getByText("Only with a search engine.")).toBeInTheDocument();
+    const other = screen.getByRole("row", { name: "Job Refresh stale entries" });
+    expect(within(other).getByRole("button", { name: "Run now" })).toBeEnabled();
+    app.dispose();
+  });
+
   it("runs a job with its params, follows the run and cancels it", async () => {
     let sent: unknown;
     server.events.on("request:start", async ({ request }) => {

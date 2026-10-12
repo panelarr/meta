@@ -58,6 +58,12 @@ Most of it was already built: pushed profiles per provider (kept in the database
 | 1 | Read back pushed profiles (redacted) with their time; `doh_url` in profiles and DNS over HTTPS in `httpx`; docs on pushed profiles staying until the host removes them | meta | `feat/integrations-pushed-readback-doh` | done |
 | 2 | Pushed profiles in the admin's Integrations page, with "Remove pushed profile"; DNS over HTTPS for meta's own profiles | meta | `feat/admin-pushed-profiles` | done |
 
+## Jobs that can't run now
+
+| # | Slice | Repo | Branch | State |
+|---|---|---|---|---|
+| 1 | `Job.disabled_reason` (shared jobs contract): RunJob refuses with JOB_DISABLED, the schedule doesn't fire; search index jobs on PostgreSQL alone, stale refresh with no lookup provider; admin shows the reason | meta | `feat/jobs-disabled-reason` | done |
+
 ## Next
 
 Waiting for the next goal.

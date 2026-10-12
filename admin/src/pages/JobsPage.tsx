@@ -208,13 +208,20 @@ function JobRow({
       <td>{j.nextRunAt ? formatDate(j.nextRunAt) : <span className="muted">—</span>}</td>
       <td>
         <div className="job-actions">
-          <button type="button" className="small primary" disabled={j.running} onClick={onRun}>
+          <button
+            type="button"
+            className="small primary"
+            disabled={j.running || !!j.disabledReason}
+            title={j.disabledReason || undefined}
+            onClick={onRun}
+          >
             Run now
           </button>
           <button type="button" className="small" onClick={onHistory}>
             History
           </button>
         </div>
+        {j.disabledReason ? <div className="muted small">{j.disabledReason}</div> : null}
       </td>
     </tr>
   );

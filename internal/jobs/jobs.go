@@ -83,7 +83,32 @@ type Def struct {
 	Schedule    Schedule
 	Params      []Param
 	Cancellable bool
+	// Disabled, when set, says why the job can't run right now, for the
+	// admin; "" when it can. It is asked every time, so it follows the
+	// current settings. While it gives a reason, RunJob refuses the job and
+	// its schedule doesn't fire.
+	Disabled func(ctx context.Context) string
 }
+
+// DisabledReason is why j can't run right now, or "".
+func DisabledReason(ctx context.Context, j Job) string {
+	if d := j.Def().Disabled; d != nil {
+		return d(ctx)
+	}
+	return ""
+}
+
+// DisabledError is returned when a job is asked to run while it is
+// disabled. It matches ErrDisabled.
+type DisabledError struct {
+	JobID  string
+	Reason string
+}
+
+func (e *DisabledError) Error() string {
+	return fmt.Sprintf("job %s can't run now: %s", e.JobID, e.Reason)
+}
+func (e *DisabledError) Unwrap() error { return ErrDisabled }
 
 // Summary is the outline of one run.
 type Summary struct {
@@ -174,6 +199,8 @@ func (e *RunningError) Error() string {
 var (
 	// ErrNotFound is returned for unknown jobs and runs.
 	ErrNotFound = errors.New("not found")
+	// ErrDisabled: the job can't run right now (see Def.Disabled).
+	ErrDisabled = errors.New("job is disabled")
 	// ErrNotCancellable is returned when a job can't stop midway.
 	ErrNotCancellable = errors.New("this job can't be cancelled")
 	// ErrNotRunning is returned when cancelling a run that isn't running

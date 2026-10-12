@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log/slog"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -322,4 +323,53 @@ func TestInvalidJobIDPanics(t *testing.T) {
 		}
 	}()
 	New(nil, slog.New(slog.DiscardHandler), 1).Add(Def{ID: "sync:x:dump"}, nil)
+}
+
+func TestDisabledJobIsRefusedAndNotScheduled(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	m := newManager(t, storetest.New(t), 100)
+	var mu sync.Mutex
+	reason := "Only with a search engine."
+	m.Add(Def{
+		ID: "gated", Schedule: Schedule{Interval: time.Hour, Enabled: true, Source: "test"},
+		Disabled: func(context.Context) string { mu.Lock(); defer mu.Unlock(); return reason },
+	}, func(context.Context, *Recorder) error { return nil })
+	if err := m.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	defer m.Stop()
+	j, _ := m.Job("gated")
+	if got := DisabledReason(ctx, j); got != reason {
+		t.Fatalf("reason: %q", got)
+	}
+	_, err := m.RunJob(ctx, "gated", Request{Trigger: TriggerManual})
+	var off *DisabledError
+	if !errors.Is(err, ErrDisabled) || !errors.As(err, &off) || off.JobID != "gated" || off.Reason != reason {
+		t.Fatalf("RunJob: %v", err)
+	}
+	if _, err := m.RunAndWait(ctx, "gated", Request{Trigger: TriggerManual}); !errors.Is(err, ErrDisabled) {
+		t.Fatalf("RunAndWait: %v", err)
+	}
+	m.scheduled("gated") // the schedule fires: left out, nothing recorded
+	if runs, err := j.Runs(ctx, "", 10, 0); err != nil || len(runs) != 0 {
+		t.Fatalf("runs while disabled: %+v %v", runs, err)
+	}
+
+	// The reason is asked every time: once it's gone, the job runs.
+	mu.Lock()
+	reason = ""
+	mu.Unlock()
+	if _, err := m.RunJob(ctx, "gated", Request{Trigger: TriggerManual}); err != nil {
+		t.Fatal(err)
+	}
+	m.Wait()
+	if runs, err := j.Runs(ctx, "", 10, 0); err != nil || len(runs) != 1 || runs[0].Status != StatusSucceeded {
+		t.Fatalf("runs after: %+v %v", runs, err)
+	}
+	// A job without the hook is never disabled.
+	m.Add(Def{ID: "plain"}, func(context.Context, *Recorder) error { return nil })
+	if p, _ := m.Job("plain"); DisabledReason(ctx, p) != "" {
+		t.Fatal("plain job disabled")
+	}
 }

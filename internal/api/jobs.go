@@ -158,11 +158,16 @@ func (s *Jobs) job(ctx context.Context, j jobs.Job, last map[string]jobs.Summary
 	if l, ok := last[def.ID]; ok {
 		pj.LastRun = runSummaryProto(l)
 	}
-	if next, ok := s.m.NextRun(def.ID); ok {
+	pj.DisabledReason = jobs.DisabledReason(ctx, j)
+	if next, ok := s.m.NextRun(def.ID); ok && pj.DisabledReason == "" {
 		pj.NextRunAt = timestamppb.New(next)
 	}
 	return pj, nil
 }
+
+// ReasonJobDisabled is the ErrorInfo reason when a job can't run right now
+// (Job.disabled_reason says why).
+const ReasonJobDisabled = "JOB_DISABLED"
 
 // jobError maps the jobs package's errors onto API codes.
 func jobError(err error) error {
@@ -170,7 +175,15 @@ func jobError(err error) error {
 		return providerUnavailable(err) // a sync job whose provider's plugin is down
 	}
 	var busy *jobs.RunningError
+	var off *jobs.DisabledError
 	switch {
+	case errors.As(err, &off):
+		cerr := connect.NewError(connect.CodeFailedPrecondition, err)
+		info := &errdetails.ErrorInfo{Reason: ReasonJobDisabled, Domain: "panelarr.meta", Metadata: map[string]string{"job_id": off.JobID}}
+		if d, derr := connect.NewErrorDetail(info); derr == nil {
+			cerr.AddDetail(d)
+		}
+		return cerr
 	case errors.As(err, &busy):
 		cerr := connect.NewError(connect.CodeAlreadyExists, err)
 		if d, derr := connect.NewErrorDetail(&metav1.JobAlreadyRunning{CurrentRunId: busy.RunID}); derr == nil {

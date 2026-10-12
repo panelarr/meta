@@ -160,7 +160,10 @@ func (m *Manager) scheduled(id string) {
 	}
 	_, err := m.RunJob(m.context(), id, Request{Trigger: TriggerSchedule})
 	var busy *RunningError
+	var off *DisabledError
 	switch {
+	case errors.As(err, &off):
+		m.log.Debug("scheduled run left out: the job can't run now", "job", id, "reason", off.Reason)
 	case errors.As(err, &busy):
 		m.log.Info("scheduled run skipped: the job is still running", "job", id, "run", busy.RunID)
 		if f, ok := j.(*funcJob); ok {
@@ -200,6 +203,9 @@ func (m *Manager) RunJob(base context.Context, id string, req Request) (Summary,
 	if !ok {
 		return Summary{}, fmt.Errorf("%w: no job %q", ErrNotFound, id)
 	}
+	if why := DisabledReason(base, j); why != "" {
+		return Summary{}, &DisabledError{JobID: id, Reason: why}
+	}
 	params, err := Resolve(j.Def(), req.Params)
 	if err != nil {
 		return Summary{}, err
@@ -218,6 +224,9 @@ func (m *Manager) RunAndWait(ctx context.Context, id string, req Request) (Summa
 	f, ok := j.(*funcJob)
 	if !ok {
 		return Summary{}, fmt.Errorf("job %s can't run in the foreground", id)
+	}
+	if why := DisabledReason(ctx, j); why != "" {
+		return Summary{}, &DisabledError{JobID: id, Reason: why}
 	}
 	params, err := Resolve(f.def, req.Params)
 	if err != nil {

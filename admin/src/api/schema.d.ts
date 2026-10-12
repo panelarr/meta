@@ -455,7 +455,9 @@ export interface paths {
          * RunJob
          * @description RunJob starts a run now and returns at once. A job runs once at a time:
          *      when it is already running the answer is ALREADY_EXISTS (HTTP 409) with
-         *      a JobAlreadyRunning detail naming the current run.
+         *      a JobAlreadyRunning detail naming the current run. A job that can't run
+         *      now (Job.disabled_reason) is refused with FAILED_PRECONDITION (HTTP 400)
+         *      and a google.rpc.ErrorInfo with reason JOB_DISABLED.
          */
         post: operations["MetaJobsService_RunJob"];
         delete?: never;
@@ -1756,6 +1758,15 @@ export interface components {
              * @description UI grouping, e.g. "Providers", "Maintenance".
              */
             group?: string;
+            /**
+             * disabled_reason
+             * @description Why the job can't run right now, for the admin, e.g. a search index job
+             *      while PostgreSQL alone answers searches. Empty when it can run. While it
+             *      is set, RunJob answers failed_precondition with a google.rpc.ErrorInfo
+             *      (reason JOB_DISABLED, metadata.job_id) and the schedule doesn't fire, so
+             *      next_run_at is unset; schedule still shows what is configured.
+             */
+            disabledReason?: string;
         };
         /** JobParam */
         "panelarr.meta.v1.JobParam": {
