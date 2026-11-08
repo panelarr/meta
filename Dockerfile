@@ -3,7 +3,7 @@
 # Image for the meta service: `make docker` or
 #   docker build -t panelarr/meta .
 
-ARG GO_VERSION=1.27.2
+ARG GO_VERSION=1.27.3
 ARG NODE_VERSION=24
 
 # The admin UI: a static single-page app, embedded into the binary below.
