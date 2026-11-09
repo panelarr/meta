@@ -142,7 +142,10 @@ jobs:
       - name: buf breaking against main
         run: |
           if git ls-tree -d --name-only origin/main proto | grep -q proto; then
-            buf breaking --against "${{ github.event.repository.clone_url }}#branch=main"
+            # Compare against the checkout's own history: cloning the repository
+            # URL needs credentials while the repository is private.
+            git branch -f main origin/main
+            buf breaking --against ".git#branch=main"
           else
             echo "main has no protos yet; nothing to compare"
           fi
