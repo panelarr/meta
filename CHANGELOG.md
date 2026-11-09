@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/panelarr/meta/compare/v0.1.0...v0.1.1) (2026-11-09)
+
+
+### Features
+
+* **admin:** clear the catalogue search with × or Escape ([#7](https://github.com/panelarr/meta/issues/7)) ([17ca0c3](https://github.com/panelarr/meta/commit/17ca0c3f7659b2e400d9864e6502d4cb8940345c))
+
 ## 0.1.0 (2026-11-09)
 
 
