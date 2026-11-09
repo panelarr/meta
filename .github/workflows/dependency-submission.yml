@@ -7,7 +7,7 @@ name: Dependency submission
 
 on:
   push:
-    branches: [main, ci/meta-go-dependency-submission]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
