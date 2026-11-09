@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import type { ReactNode } from "react";
+import { type InputHTMLAttributes, type ReactNode, useRef } from "react";
 import { errorMessage } from "../api/errors";
 
 export function Loading({ label = "Loading…" }: { label?: string }) {
@@ -80,5 +80,53 @@ export function Mono({ children, title }: { children: ReactNode; title?: string 
     <code className="mono" title={title}>
       {children}
     </code>
+  );
+}
+
+type SearchInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "value" | "onChange"> & {
+  value: string;
+  onChange: (value: string) => void;
+  /** Runs after the value is cleared, by the × button or Escape. */
+  onClear?: () => void;
+};
+
+/** A search field with a clear (×) button that shows while it has a value. Escape clears it too. */
+export function SearchInput({ value, onChange, onClear, onKeyDown, ...rest }: SearchInputProps) {
+  const input = useRef<HTMLInputElement>(null);
+  const clear = () => {
+    onChange("");
+    onClear?.();
+  };
+  return (
+    <span className="search-input">
+      <input
+        {...rest}
+        ref={input}
+        type="search"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          onKeyDown?.(event);
+          if (event.key === "Escape" && value !== "" && !event.defaultPrevented) {
+            event.preventDefault();
+            clear();
+          }
+        }}
+      />
+      {value !== "" ? (
+        <button
+          type="button"
+          className="search-clear"
+          aria-label="Clear search"
+          title="Clear search"
+          onClick={() => {
+            clear();
+            input.current?.focus();
+          }}
+        >
+          <span aria-hidden="true">×</span>
+        </button>
+      ) : null}
+    </span>
   );
 }
