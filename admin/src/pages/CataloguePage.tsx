@@ -6,7 +6,7 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 import { api, unwrap } from "../api/client";
 import type { EntrySummary, Facet, Tag } from "../api/types";
 import { MultiSelect, type Option } from "../components/MultiSelect";
-import { Badge, Empty, ErrorBox, Field, Loading, PageHeader } from "../components/ui";
+import { Badge, Empty, ErrorBox, Field, Loading, PageHeader, SearchInput } from "../components/ui";
 import {
   type CatalogueSearch,
   catalogueQuery,
@@ -183,11 +183,11 @@ export function CataloguePage() {
 
       <form className="catalogue-filters" onSubmit={submit} aria-label="Catalogue filters">
         <Field label="Search" className="span-all">
-          <input
-            type="search"
+          <SearchInput
             value={q}
             placeholder="Titles in any language, or people"
-            onChange={(event) => setQ(event.target.value)}
+            onChange={setQ}
+            onClear={() => go({ q: undefined })}
           />
         </Field>
         <MultiSelect

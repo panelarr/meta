@@ -133,6 +133,29 @@ describe("catalogue", () => {
     app.dispose();
   });
 
+  it("clears the search with its × button or Escape", async () => {
+    const app = renderApp("/catalogue");
+    await screen.findByText("4 entries");
+    const field = screen.getByRole("searchbox", { name: "Search" });
+    expect(screen.queryByRole("button", { name: "Clear search" })).not.toBeInTheDocument();
+
+    await userEvent.type(field, "時計{Enter}");
+    expect(await screen.findByText("1 entry")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Clear search" }));
+    expect(field).toHaveValue("");
+    expect(field).toHaveFocus();
+    expect(screen.queryByRole("button", { name: "Clear search" })).not.toBeInTheDocument();
+    expect(await screen.findByText("4 entries")).toBeInTheDocument();
+    expect(app.router.state.location.search).not.toHaveProperty("q");
+
+    await userEvent.type(field, "時計{Enter}");
+    expect(await screen.findByText("1 entry")).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    expect(field).toHaveValue("");
+    expect(await screen.findByText("4 entries")).toBeInTheDocument();
+    app.dispose();
+  });
+
   it("says when no providers are configured", async () => {
     server.use(http.get("*/v1/entries", () => HttpResponse.json({ entries: [], totalSize: "0", noProviders: true })));
     const app = renderApp("/catalogue");
